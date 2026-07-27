@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-netlify/
+
+# Your Supabase keys. `.env.example` is the committed template; this one holds
+# the real values and stays on your machine. (The anon key is public anyway —
+# it is baked into every build — but keys belong in one place, not two.)
+.env.local

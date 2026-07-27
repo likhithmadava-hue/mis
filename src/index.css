@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens matched to the original Mistake Intelligence System app
+   (mistakeintelligencesystem.lovable.app) — same colors, converted to HSL */
+:root {
+  /* makes native widgets (dropdown popups, time pickers, scrollbars)
+     render in dark mode instead of the browser's default white */
+  color-scheme: dark;
+
+  --background: 213 24% 7%;        /* #0e1217 */
+  --foreground: 216 27% 96%;       /* #f3f5f8 */
+  --card: 213 20% 11%;             /* #161b21 */
+  --border: 215 13% 18%;           /* #292e35 */
+  --muted: 210 16% 15%;            /* #1f252b */
+  --muted-foreground: 209 10% 60%; /* #8f9aa4 */
+  --primary: 191 100% 49%;         /* #00ccf9 */
+  --primary-foreground: 210 58% 5%;/* #050c13 */
+  --secondary: 210 19% 16%;        /* #222a32 */
+  --accent: 194 44% 18%;           /* #193841 */
+  --destructive: 359 94% 62%;      /* #f94144 */
+  --warning: 36 93% 56%;           /* #f7a224 */
+  --success: 148 57% 48%;          /* #35c177 */
+  --sidebar: 207 33% 5%;           /* #090e12 */
+  --sidebar-accent: 210 19% 13%;   /* #1a2026 */
+
+  --gradient-glow: radial-gradient(60% 60% at 50% 0%, rgb(0 204 249 / 0.18), transparent 70%);
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-glow: 0 0 0 1px rgb(0 204 249 / 0.2), 0 8px 32px -8px rgb(0 204 249 / 0.25);
+}
+
+/* Life mode retints the whole app. Every accent in the UI resolves through
+   --primary, so overriding it here recolours the sidebar, buttons, focus
+   rings and charts without touching a single component. App.tsx sets
+   data-mode on <html>. */
+:root[data-mode='life'] {
+  --primary: 160 84% 42%;          /* #11b981 */
+  --primary-foreground: 160 60% 5%;
+  --accent: 160 34% 15%;
+  --gradient-glow: radial-gradient(60% 60% at 50% 0%, rgb(52 211 153 / 0.16), transparent 70%);
+  --shadow-glow: 0 0 0 1px rgb(52 211 153 / 0.2), 0 8px 32px -8px rgb(52 211 153 / 0.25);
+}
+
+body {
+  /* scales the entire app up 25% — text, icons, cards, everything */
+  zoom: 1.25;
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: hsl(var(--background));
+  /* the original's signature: one soft cyan glow bleeding down from the top */
+  background-image: var(--gradient-glow);
+  background-repeat: no-repeat;
+  color: hsl(var(--foreground));
+  min-height: 100vh;
+}
+
+.glow-primary {
+  box-shadow: var(--shadow-glow);
+}
+
+.border-glow {
+  box-shadow: var(--shadow-glow);
+}
+
+.card-shadow {
+  box-shadow: var(--shadow-card);
+}
+
+/* There are no native <select>s left in the app. Edge on Windows draws their
+   popup with a half-native menu that ignores `option { background-color }`,
+   so the list rendered white against this dark theme no matter what we set
+   here. They're replaced by components/Select.tsx, which we can style fully.
+   `color-scheme: dark` above still matters — it themes the scrollbars and the
+   native date/time pickers, which have no such replacement. */
+
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+[role='combobox']:focus-visible {
+  outline: none;
+  border-color: hsl(var(--primary) / 0.6);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+}
+
+/* slim, theme-matched scrollbars instead of the default grey ones */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 8px;
+}
+/* these two follow --primary so they retint with the mode */
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.5);
+}
+
+/* highlighted text picks up the mode accent instead of the default blue */
+::selection {
+  background: hsl(var(--primary) / 0.35);
+}
