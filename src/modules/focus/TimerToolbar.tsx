@@ -1,7 +1,13 @@
-import { useState } from 'react';
-import { CircleDashed, LayoutGrid, Maximize, Minimize, Settings2 } from 'lucide-react';
-import type { FocusSettings, TimerDesign } from '../../core/db';
-import { MODE_LABEL, type TimerMode } from './constants';
+import { useState } from "preact/hooks";
+import {
+  CircleDashed,
+  LayoutGrid,
+  Maximize,
+  Minimize,
+  Settings2,
+} from "lucide-preact";
+import type { FocusSettings, TimerDesign } from "../../core/db";
+import { MODE_LABEL, type TimerMode } from "./constants";
 
 interface TimerToolbarProps {
   mode: TimerMode;
@@ -13,18 +19,22 @@ interface TimerToolbarProps {
   onToggleFullscreen: () => void;
 }
 
-type NumericSetting = 'focus_minutes' | 'short_break' | 'long_break' | 'rounds_before_long';
+type NumericSetting =
+  | "focus_minutes"
+  | "short_break"
+  | "long_break"
+  | "rounds_before_long";
 
 const DESIGNS = [
-  { id: 'ring', label: 'Ring', Icon: CircleDashed },
-  { id: 'flip', label: 'Flip', Icon: LayoutGrid },
+  { id: "ring", label: "Ring", Icon: CircleDashed },
+  { id: "flip", label: "Flip", Icon: LayoutGrid },
 ] as const;
 
 const SETTING_FIELDS: [NumericSetting, string][] = [
-  ['focus_minutes', 'Focus (min)'],
-  ['short_break', 'Short Break'],
-  ['long_break', 'Long Break'],
-  ['rounds_before_long', 'Rounds → Long'],
+  ["focus_minutes", "Focus (min)"],
+  ["short_break", "Short Break"],
+  ["long_break", "Long Break"],
+  ["rounds_before_long", "Rounds → Long"],
 ];
 
 /**
@@ -47,16 +57,16 @@ export default function TimerToolbar({
     <>
       <div className="w-full flex flex-wrap items-center justify-center gap-3">
         <div className="flex bg-background p-1 rounded-xl border border-border gap-1">
-          {(['focus', 'short', 'long'] as const).map((m) => (
+          {(["focus", "short", "long"] as const).map((m) => (
             <button
               key={m}
               onClick={() => onSwitchMode(m)}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold font-space transition-colors ${
                 mode === m
-                  ? m === 'focus'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-success text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? m === "focus"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-success text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {MODE_LABEL[m]}
@@ -74,8 +84,8 @@ export default function TimerToolbar({
                 title={`${label} clock`}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold font-space flex items-center gap-1.5 transition-colors ${
                   settings.timer_design === id
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <Icon size={13} /> {label}
@@ -85,7 +95,7 @@ export default function TimerToolbar({
 
           <button
             onClick={onToggleFullscreen}
-            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
             className="p-2 rounded-xl bg-background border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
           >
             {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
@@ -97,8 +107,8 @@ export default function TimerToolbar({
             aria-expanded={showSettings}
             className={`p-2 rounded-xl border transition-colors ${
               showSettings
-                ? 'bg-primary/10 border-primary/40 text-primary'
-                : 'bg-background border-border text-muted-foreground hover:text-primary hover:border-primary/40'
+                ? "bg-primary/10 border-primary/40 text-primary"
+                : "bg-background border-border text-muted-foreground hover:text-primary hover:border-primary/40"
             }`}
           >
             <Settings2 size={15} />
@@ -111,13 +121,17 @@ export default function TimerToolbar({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {SETTING_FIELDS.map(([key, label]) => (
               <div key={key}>
-                <label className="text-[10px] text-muted-foreground block mb-1">{label}</label>
+                <label className="text-[10px] text-muted-foreground block mb-1">
+                  {label}
+                </label>
                 <input
                   type="number"
                   min={1}
                   max={180}
                   value={settings[key]}
-                  onChange={(e) => onUpdateSetting(key, Number(e.target.value))}
+                  onChange={(e) =>
+                    onUpdateSetting(key, Number(e.currentTarget.value))
+                  }
                   className="w-full h-9 px-3 bg-card border border-border rounded-lg text-xs font-mono"
                 />
               </div>

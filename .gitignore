@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-netlify/
+package-lock.json
 
 # Your Supabase keys. `.env.example` is the committed template; this one holds
 # the real values and stays on your machine. (The anon key is public anyway —

@@ -1,7 +1,9 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { User } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured } from './client';
-import { attachUser, detachUser, flushSync } from '../db/sync';
+import { createContext } from "preact";
+import { useContext, useEffect, useState } from "preact/hooks";
+import type { ComponentChildren } from "preact";
+import type { User } from "@supabase/supabase-js";
+import { supabase, isSupabaseConfigured } from "./client";
+import { attachUser, detachUser, flushSync } from "../db/sync";
 
 /**
  * Who is signed in, and whether their data is ready to render.
@@ -18,7 +20,12 @@ import { attachUser, detachUser, flushSync } from '../db/sync';
  * actually in place — otherwise the first paint shows the previous account's
  * numbers, or an empty seed, and then jumps.
  */
-export type AuthPhase = 'loading' | 'disabled' | 'signed-out' | 'preparing' | 'ready';
+export type AuthPhase =
+  | "loading"
+  | "disabled"
+  | "signed-out"
+  | "preparing"
+  | "ready";
 
 interface AuthValue {
   phase: AuthPhase;
@@ -29,16 +36,18 @@ interface AuthValue {
 }
 
 const AuthContext = createContext<AuthValue>({
-  phase: 'loading',
+  phase: "loading",
   user: null,
-  label: '',
+  label: "",
   signOut: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [phase, setPhase] = useState<AuthPhase>(isSupabaseConfigured ? 'loading' : 'disabled');
+export function AuthProvider({ children }: { children: ComponentChildren }) {
+  const [phase, setPhase] = useState<AuthPhase>(
+    isSupabaseConfigured ? "loading" : "disabled",
+  );
   const [user, setUser] = useState<User | null>(null);
 
   // ── watch the session ──
@@ -50,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       if (!live) return;
       setUser(data.session?.user ?? null);
-      if (!data.session) setPhase('signed-out');
+      if (!data.session) setPhase("signed-out");
     });
 
     // Only the session is touched in here. Supabase's own guidance is to keep
@@ -60,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!live) return;
       setUser(session?.user ?? null);
-      if (!session) setPhase('signed-out');
+      if (!session) setPhase("signed-out");
     });
 
     return () => {
@@ -81,12 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let live = true;
-    setPhase('preparing');
+    setPhase("preparing");
     // attachUser resolves even when the network is down — it falls back to this
     // device's saved copy and leaves the sync indicator showing the problem, so
     // the app is never held hostage by a bad connection
     void attachUser(userId).then(() => {
-      if (live) setPhase('ready');
+      if (live) setPhase("ready");
     });
 
     return () => {
@@ -100,16 +109,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase?.auth.signOut();
     detachUser();
     setUser(null);
-    setPhase('signed-out');
+    setPhase("signed-out");
   };
 
   const label =
     (user?.user_metadata?.full_name as string | undefined) ||
     (user?.user_metadata?.name as string | undefined) ||
     user?.email ||
-    '';
+    "";
 
   return (
-    <AuthContext.Provider value={{ phase, user, label, signOut }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ phase, user, label, signOut }}>
+      {children}
+    </AuthContext.Provider>
   );
 }

@@ -3,13 +3,13 @@
 A web dashboard for students: track study hours, log exam mistakes, simulate an
 app blocker, and check in on wellness (mood, water, posture, sleep).
 
-Built with **React + TypeScript + Vite + Tailwind CSS**.
+Built with **preact + TypeScript + Vite + Tailwind CSS**.
 
 ## How to open it (two ways)
 
 **1. The easy way — the desktop shortcut.**
 Double-click **Arbor** (green icon) on your Desktop. It opens in its own
-window, like a normal app. This runs the *built* copy of the app from the
+window, like a normal app. This runs the _built_ copy of the app from the
 `dist\` folder — no terminal needed.
 
 **2. The developer way — the dev server.**
@@ -22,19 +22,19 @@ npm run dev     # starts the app at http://localhost:5173
 
 To stop it, press `Ctrl + C` in the terminal.
 
-> ⚠️ The shortcut shows the last *build*. After changing code, run
+> ⚠️ The shortcut shows the last _build_. After changing code, run
 > `npm run build` to update what the shortcut opens.
 
 ## The screens (tabs)
 
-| Tab | What it does |
-|-----|--------------|
-| **Focus Timer** | A Pomodoro timer with a tree that grows as you focus. Finished rounds are logged and their minutes count toward today's study hours. Durations are adjustable. |
-| **Daily Log** | Today's log, one day at a time. Five tracks (Studies, DPPs, Habits, Mood, Well-Spent) each scored out of 10 and colour-coded. Give each track — and each individual habit — a High/Medium/Low priority; that sorts the cards and weights the day's score out of 50. A read-only 7-day grid sits at the bottom. |
-| **Growth Tracker** | 7-day study streak matrix, error-analysis chart (what *kind* of mistakes you make), and a marks logbook where you record test results. |
-| **Wellness** | Mood + leisure sliders, water and posture counters (confetti when you hit your water goal 🎉), and a sleep window planner. |
-| **Database** | A raw table view of everything the app has saved, plus a "Reset Seed" button to restore the original sample data. |
-| **App Guard** *(disabled for now)* | An app-blocker **simulator**. It's commented out in `src/App.tsx` — real blocking will come from the Python backend. The screen's code is still in `src/components/ProtectGuard.tsx`, one uncomment away. |
+| Tab                                | What it does                                                                                                                                                                                                                                                                                                   |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Focus Timer**                    | A Pomodoro timer with a tree that grows as you focus. Finished rounds are logged and their minutes count toward today's study hours. Durations are adjustable.                                                                                                                                                 |
+| **Daily Log**                      | Today's log, one day at a time. Five tracks (Studies, DPPs, Habits, Mood, Well-Spent) each scored out of 10 and colour-coded. Give each track — and each individual habit — a High/Medium/Low priority; that sorts the cards and weights the day's score out of 50. A read-only 7-day grid sits at the bottom. |
+| **Growth Tracker**                 | 7-day study streak matrix, error-analysis chart (what _kind_ of mistakes you make), and a marks logbook where you record test results.                                                                                                                                                                         |
+| **Wellness**                       | Mood + leisure sliders, water and posture counters (confetti when you hit your water goal 🎉), and a sleep window planner.                                                                                                                                                                                     |
+| **Database**                       | A raw table view of everything the app has saved, plus a "Reset Seed" button to restore the original sample data.                                                                                                                                                                                              |
+| **App Guard** _(disabled for now)_ | An app-blocker **simulator**. It's commented out in `src/App.tsx` — real blocking will come from the Python backend. The screen's code is still in `src/components/ProtectGuard.tsx`, one uncomment away.                                                                                                      |
 
 ## Where is my data saved?
 

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import confetti from 'canvas-confetti';
+import { useState, useEffect } from "preact/hooks";
+import confetti from "canvas-confetti";
 import {
   ArborDatabase,
   type AppMode,
@@ -10,9 +10,9 @@ import {
   type TopicItem,
   type TrackId,
   type UserConfig,
-} from '../../core/db';
-import { todayIso } from '../../core/dates';
-import { modeScore, scoreDay, tracksIn } from '../../core/scoring';
+} from "../../core/db";
+import { todayIso } from "../../core/dates";
+import { modeScore, scoreDay, tracksIn } from "../../core/scoring";
 
 /**
  * The Daily Log's state and every write it makes.
@@ -22,12 +22,22 @@ import { modeScore, scoreDay, tracksIn } from '../../core/scoring';
  * database, `reload()` so this tab is instantly correct, then `onLogChange()`
  * so the sibling tabs re-read too.
  */
-export function useDailyLog(mode: AppMode, triggerUpdate: number, onLogChange: () => void) {
+export function useDailyLog(
+  mode: AppMode,
+  triggerUpdate: number,
+  onLogChange: () => void,
+) {
   const [user, setUser] = useState<UserConfig>(ArborDatabase.getUserConfig());
-  const [today, setToday] = useState<DailyMetric>(ArborDatabase.getTodayMetric());
+  const [today, setToday] = useState<DailyMetric>(
+    ArborDatabase.getTodayMetric(),
+  );
   const [habits, setHabits] = useState<Habit[]>(ArborDatabase.getHabits());
-  const [doneIds, setDoneIds] = useState<string[]>(ArborDatabase.getHabitsDoneOn());
-  const [priorities, setPriorities] = useState(ArborDatabase.getTrackPriorities());
+  const [doneIds, setDoneIds] = useState<string[]>(
+    ArborDatabase.getHabitsDoneOn(),
+  );
+  const [priorities, setPriorities] = useState(
+    ArborDatabase.getTrackPriorities(),
+  );
   const [topics, setTopics] = useState<TopicItem[]>(ArborDatabase.getTopics());
   const [nudge, setNudge] = useState<string | null>(null);
 
@@ -58,8 +68,12 @@ export function useDailyLog(mode: AppMode, triggerUpdate: number, onLogChange: (
     const next = today.water_count + 1;
     patchToday({ water_count: next });
     if (next === user.water_target) {
-      confetti({ particleCount: 80, spread: 50, colors: ['#00ccf9', '#ffffff'] });
-      flash('💧 Hydration target hit for the day.');
+      confetti({
+        particleCount: 80,
+        spread: 50,
+        colors: ["#00ccf9", "#ffffff"],
+      });
+      flash("💧 Hydration target hit for the day.");
     } else {
       flash(`💧 ${next} / ${user.water_target} glasses logged.`);
     }
@@ -67,7 +81,7 @@ export function useDailyLog(mode: AppMode, triggerUpdate: number, onLogChange: (
 
   const addPosture = () => {
     patchToday({ posture_count: today.posture_count + 1 });
-    flash('🧘 Posture check logged.');
+    flash("🧘 Posture check logged.");
   };
 
   const saveSleep = (patch: Partial<UserConfig>) => {
@@ -78,7 +92,7 @@ export function useDailyLog(mode: AppMode, triggerUpdate: number, onLogChange: (
   const addHabit = (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    ArborDatabase.addHabit(trimmed, 'medium');
+    ArborDatabase.addHabit(trimmed, "medium");
     reload();
     onLogChange();
   };
@@ -105,7 +119,7 @@ export function useDailyLog(mode: AppMode, triggerUpdate: number, onLogChange: (
     reload();
   };
 
-  const addTopic = (name: string, type: TopicItem['type']) => {
+  const addTopic = (name: string, type: TopicItem["type"]) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     ArborDatabase.addTopic(trimmed, type);
@@ -126,9 +140,9 @@ export function useDailyLog(mode: AppMode, triggerUpdate: number, onLogChange: (
   };
 
   /** a logged paper only feeds the charts, so this tab doesn't need to reload */
-  const addPaper = (entry: Omit<MarkLogbookEntry, 'id' | 'date'>) => {
+  const addPaper = (entry: Omit<MarkLogbookEntry, "id" | "date">) => {
     ArborDatabase.addMarkLogbookEntry({ ...entry, date: todayIso() });
-    flash('📌 Paper logged — see the Growth Tracker for the updated charts.');
+    flash("📌 Paper logged — see the Growth Tracker for the updated charts.");
     onLogChange();
   };
 

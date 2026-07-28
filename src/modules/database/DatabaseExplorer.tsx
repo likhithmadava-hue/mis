@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
-import { ArrowDown, ArrowUp, Check, Database, Upload } from 'lucide-react';
-import { ArborDatabase, type MarkLogbookEntry } from '../../core/db';
-import EntryEditor from './EntryEditor';
-import EntryRow from './EntryRow';
-import ExportMenu from './ExportMenu';
-import FilterBar from './FilterBar';
-import ImportSheet from './ImportSheet';
-import { useLogbookFilters } from './useLogbookFilters';
+import { useState, useEffect, useRef } from "preact/hooks";
+import { ArrowDown, ArrowUp, Check, Database, Upload } from "lucide-preact";
+import { ArborDatabase, type MarkLogbookEntry } from "../../core/db";
+import EntryEditor from "./EntryEditor";
+import EntryRow from "./EntryRow";
+import ExportMenu from "./ExportMenu";
+import FilterBar from "./FilterBar";
+import ImportSheet from "./ImportSheet";
+import { useLogbookFilters } from "./useLogbookFilters";
 
 interface DatabaseExplorerProps {
   triggerUpdate: number;
@@ -20,8 +20,13 @@ interface DatabaseExplorerProps {
  * Filtering lives in useLogbookFilters, each row in EntryRow / EntryEditor —
  * this file wires them together and owns the writes.
  */
-export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseExplorerProps) {
-  const [entries, setEntries] = useState<MarkLogbookEntry[]>(ArborDatabase.getMarkLogbook());
+export default function DatabaseExplorer({
+  triggerUpdate,
+  onChange,
+}: DatabaseExplorerProps) {
+  const [entries, setEntries] = useState<MarkLogbookEntry[]>(
+    ArborDatabase.getMarkLogbook(),
+  );
   const [draft, setDraft] = useState<MarkLogbookEntry | null>(null);
   /** the spreadsheet awaiting column mapping; null when no import is in flight */
   const [sheetFile, setSheetFile] = useState<File | null>(null);
@@ -53,7 +58,11 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
   };
 
   const handleDelete = (entry: MarkLogbookEntry) => {
-    if (confirm(`Delete the ${entry.subject} — ${entry.chapter || 'entry'} record?`)) {
+    if (
+      confirm(
+        `Delete the ${entry.subject} — ${entry.chapter || "entry"} record?`,
+      )
+    ) {
       ArborDatabase.deleteMarkLogbookEntry(entry.id);
       reload();
     }
@@ -64,7 +73,7 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
    * Spreadsheets come from elsewhere and get the mapping dialog, which appends.
    */
   const handleImport = (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.json')) {
+    if (!file.name.toLowerCase().endsWith(".json")) {
       setSheetFile(file);
       return;
     }
@@ -73,21 +82,28 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result));
-        if (!Array.isArray(parsed)) throw new Error('not a list');
-        if (!confirm(`Replace all ${entries.length} records with ${parsed.length} from the backup?`))
+        if (!Array.isArray(parsed)) throw new Error("not a list");
+        if (
+          !confirm(
+            `Replace all ${entries.length} records with ${parsed.length} from the backup?`,
+          )
+        )
           return;
         ArborDatabase.replaceMarkLogbook(parsed as MarkLogbookEntry[]);
         reload();
         notify(`Restored ${parsed.length} records from the backup.`);
       } catch {
-        alert("Couldn't read that file — a .json import has to be a backup MIS exported.");
+        alert(
+          "Couldn't read that file — a .json import has to be a backup MIS exported.",
+        );
       }
     };
     reader.readAsText(file);
   };
 
-  const sortArrow = (key: 'date' | 'marks') =>
-    filters.sortKey === key && (filters.sortDesc ? <ArrowDown size={10} /> : <ArrowUp size={10} />);
+  const sortArrow = (key: "date" | "marks") =>
+    filters.sortKey === key &&
+    (filters.sortDesc ? <ArrowDown size={10} /> : <ArrowUp size={10} />);
 
   return (
     <div className="bg-card rounded-2xl border border-border card-shadow p-6 space-y-5">
@@ -97,8 +113,9 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
             <Database size={18} className="text-primary" /> Mistake database
           </h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-            Search, filter, edit. The raw record of everything you've gotten wrong — and learned from.
-            Import an Excel sheet or CSV you already keep, and it folds straight in.
+            Search, filter, edit. The raw record of everything you've gotten
+            wrong — and learned from. Import an Excel sheet or CSV you already
+            keep, and it folds straight in.
           </p>
         </div>
         <div className="flex gap-2 flex-shrink-0">
@@ -115,9 +132,9 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
             accept=".xlsx,.xls,.csv,.json"
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0];
+              const file = e.currentTarget.files?.[0];
               if (file) handleImport(file);
-              e.target.value = '';
+              e.currentTarget.value = "";
             }}
           />
         </div>
@@ -138,7 +155,9 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
           onImported={(count) => {
             setSheetFile(null);
             reload();
-            notify(`Imported ${count} record${count === 1 ? '' : 's'} from ${sheetFile.name}.`);
+            notify(
+              `Imported ${count} record${count === 1 ? "" : "s"} from ${sheetFile.name}.`,
+            );
           }}
         />
       )}
@@ -149,16 +168,19 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
         {filters.filtered.length === 0 ? (
           <div className="text-center py-14 text-muted-foreground text-xs animate-fade-in">
             {entries.length === 0
-              ? 'No mistakes logged yet — add one from the Daily Log, or import a spreadsheet.'
-              : 'No mistakes match your filters.'}
+              ? "No mistakes logged yet — add one from the Daily Log, or import a spreadsheet."
+              : "No mistakes match your filters."}
           </div>
         ) : (
           <table className="w-full text-left text-[11px]">
             <thead>
               <tr className="border-b border-border text-muted-foreground uppercase text-[9px] tracking-wider">
                 <th className="py-2.5 px-3 font-bold">
-                  <button onClick={() => filters.toggleSort('date')} className="flex items-center gap-1 hover:text-primary transition-colors">
-                    Date {sortArrow('date')}
+                  <button
+                    onClick={() => filters.toggleSort("date")}
+                    className="flex items-center gap-1 hover:text-primary transition-colors"
+                  >
+                    Date {sortArrow("date")}
                   </button>
                 </th>
                 <th className="py-2.5 px-3 font-bold">Subject</th>
@@ -166,8 +188,11 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
                 <th className="py-2.5 px-3 font-bold">Error</th>
                 <th className="py-2.5 px-3 font-bold">Diff</th>
                 <th className="py-2.5 px-3 font-bold">
-                  <button onClick={() => filters.toggleSort('marks')} className="flex items-center gap-1 hover:text-primary transition-colors">
-                    Marks {sortArrow('marks')}
+                  <button
+                    onClick={() => filters.toggleSort("marks")}
+                    className="flex items-center gap-1 hover:text-primary transition-colors"
+                  >
+                    Marks {sortArrow("marks")}
                   </button>
                 </th>
                 <th className="py-2.5 px-3 font-bold">Time</th>
@@ -193,7 +218,7 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
                     onEdit={() => setDraft({ ...entry })}
                     onDelete={() => handleDelete(entry)}
                   />
-                )
+                ),
               )}
             </tbody>
           </table>

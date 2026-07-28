@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   AlertTriangle,
   Check,
@@ -8,10 +8,15 @@ import {
   Loader2,
   LogOut,
   RefreshCw,
-} from 'lucide-react';
-import { supabase } from './client';
-import { useAuth } from './AuthProvider';
-import { getSyncState, retrySync, subscribeSync, type SyncState } from '../db/sync';
+} from "lucide-preact";
+import { supabase } from "./client";
+import { useAuth } from "./AuthProvider";
+import {
+  getSyncState,
+  retrySync,
+  subscribeSync,
+  type SyncState,
+} from "../db/sync";
 
 /**
  * The signed-in footer of the sidebar: who you are, whether your work has made
@@ -24,14 +29,32 @@ import { getSyncState, retrySync, subscribeSync, type SyncState } from '../db/sy
  */
 
 const STATUS: Record<
-  SyncState['status'],
+  SyncState["status"],
   { icon: typeof Cloud; text: string; className: string; spin?: boolean }
 > = {
-  off: { icon: CloudOff, text: 'Local only', className: 'text-muted-foreground' },
-  pulling: { icon: Loader2, text: 'Loading your data…', className: 'text-muted-foreground', spin: true },
-  pushing: { icon: Loader2, text: 'Saving to cloud…', className: 'text-muted-foreground', spin: true },
-  synced: { icon: Cloud, text: 'Backed up', className: 'text-success' },
-  error: { icon: AlertTriangle, text: 'Not backed up', className: 'text-warning' },
+  off: {
+    icon: CloudOff,
+    text: "Local only",
+    className: "text-muted-foreground",
+  },
+  pulling: {
+    icon: Loader2,
+    text: "Loading your data…",
+    className: "text-muted-foreground",
+    spin: true,
+  },
+  pushing: {
+    icon: Loader2,
+    text: "Saving to cloud…",
+    className: "text-muted-foreground",
+    spin: true,
+  },
+  synced: { icon: Cloud, text: "Backed up", className: "text-success" },
+  error: {
+    icon: AlertTriangle,
+    text: "Not backed up",
+    className: "text-warning",
+  },
 };
 
 export default function AccountPanel({ collapsed }: { collapsed: boolean }) {
@@ -39,8 +62,8 @@ export default function AccountPanel({ collapsed }: { collapsed: boolean }) {
   const [sync, setSync] = useState<SyncState>(getSyncState);
   const [open, setOpen] = useState(false);
   const [changing, setChanging] = useState(false);
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
   const wrapper = useRef<HTMLDivElement>(null);
 
   useEffect(() => subscribeSync(setSync), []);
@@ -52,27 +75,27 @@ export default function AccountPanel({ collapsed }: { collapsed: boolean }) {
       if (!wrapper.current?.contains(e.target as Node)) {
         setOpen(false);
         setChanging(false);
-        setMessage('');
+        setMessage("");
       }
     };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
   const changePassword = async () => {
     if (!supabase) return;
     if (password.length < 6) {
-      setMessage('Use at least 6 characters.');
+      setMessage("Use at least 6 characters.");
       return;
     }
     const { error } = await supabase.auth.updateUser({ password });
-    setMessage(error ? error.message : 'Password changed.');
-    if (!error) setPassword('');
+    setMessage(error ? error.message : "Password changed.");
+    if (!error) setPassword("");
   };
 
   const status = STATUS[sync.status];
   const StatusIcon = status.icon;
-  const initial = (label.trim()[0] ?? '?').toUpperCase();
+  const initial = (label.trim()[0] ?? "?").toUpperCase();
 
   return (
     // relative + absolute, not fixed: body { zoom: 1.25 } throws off viewport
@@ -90,10 +113,13 @@ export default function AccountPanel({ collapsed }: { collapsed: boolean }) {
             className={`px-2.5 py-1.5 text-[11px] flex items-start gap-2 ${status.className}`}
             title={sync.message}
           >
-            <StatusIcon size={13} className={`flex-shrink-0 mt-px ${status.spin ? 'animate-spin' : ''}`} />
+            <StatusIcon
+              size={13}
+              className={`flex-shrink-0 mt-px ${status.spin ? "animate-spin" : ""}`}
+            />
             <span className="min-w-0">
               {status.text}
-              {sync.status === 'error' && sync.message && (
+              {sync.status === "error" && sync.message && (
                 <span className="block text-muted-foreground/80 break-words mt-0.5">
                   {sync.message}
                 </span>
@@ -101,7 +127,7 @@ export default function AccountPanel({ collapsed }: { collapsed: boolean }) {
             </span>
           </div>
 
-          {sync.status === 'error' && (
+          {sync.status === "error" && (
             <button
               onClick={() => void retrySync()}
               className="w-full px-2.5 py-2 rounded-lg text-xs text-left flex items-center gap-2 text-foreground hover:bg-sidebar-accent transition-colors"
@@ -119,7 +145,7 @@ export default function AccountPanel({ collapsed }: { collapsed: boolean }) {
                 type="password"
                 autoComplete="new-password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.currentTarget.value)}
                 placeholder="New password"
                 className="w-full h-9 px-2.5 rounded-lg bg-background border border-border text-xs"
               />
@@ -134,21 +160,23 @@ export default function AccountPanel({ collapsed }: { collapsed: boolean }) {
                 <button
                   onClick={() => {
                     setChanging(false);
-                    setPassword('');
-                    setMessage('');
+                    setPassword("");
+                    setMessage("");
                   }}
                   className="h-8 px-3 rounded-lg bg-muted border border-border text-xs"
                 >
                   Cancel
                 </button>
               </div>
-              {message && <p className="text-[11px] text-muted-foreground">{message}</p>}
+              {message && (
+                <p className="text-[11px] text-muted-foreground">{message}</p>
+              )}
             </div>
           ) : (
             <button
               onClick={() => {
                 setChanging(true);
-                setMessage('');
+                setMessage("");
               }}
               className="w-full px-2.5 py-2 rounded-lg text-xs text-left flex items-center gap-2 text-foreground hover:bg-sidebar-accent transition-colors"
             >
@@ -173,7 +201,7 @@ export default function AccountPanel({ collapsed }: { collapsed: boolean }) {
         aria-label="Account"
         aria-expanded={open}
         className={`w-full py-2 rounded-xl flex items-center gap-2.5 transition-colors hover:bg-sidebar-accent ${
-          collapsed ? 'px-0 justify-center' : 'px-2'
+          collapsed ? "px-0 justify-center" : "px-2"
         }`}
       >
         <span className="relative flex-shrink-0">
@@ -184,14 +212,16 @@ export default function AccountPanel({ collapsed }: { collapsed: boolean }) {
           <StatusIcon
             size={11}
             className={`absolute -bottom-0.5 -right-0.5 rounded-full bg-sidebar ${status.className} ${
-              status.spin ? 'animate-spin' : ''
+              status.spin ? "animate-spin" : ""
             }`}
           />
         </span>
         {!collapsed && (
           <span className="min-w-0 text-left">
             <span className="block text-xs font-medium truncate">{label}</span>
-            <span className={`block text-[10px] ${status.className}`}>{status.text}</span>
+            <span className={`block text-[10px] ${status.className}`}>
+              {status.text}
+            </span>
           </span>
         )}
       </button>

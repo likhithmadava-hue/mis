@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { viteSingleFile } from 'vite-plugin-singlefile';
+import { defineConfig } from "vite";
+import preact from "@preact/preset-vite";
+import { viteSingleFile } from "vite-plugin-singlefile";
 
 // Two shapes of build, decided by mode:
 //
@@ -17,9 +17,14 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 // 'fresh' is the hosted build's mode (it also seeds empty — see .env.fresh), and
 // nothing else uses it, so it doubles as the "this is the web build" switch.
 export default defineConfig(({ mode }) => {
-  const hosted = mode === 'fresh';
+  const hosted = mode === "fresh";
   return {
-    base: hosted ? '/' : './',
-    plugins: [react(), ...(hosted ? [] : [viteSingleFile()])],
+    base: hosted ? "/" : "./",
+    plugins: [
+      preact({
+        reactAliasesEnabled: true,
+      }),
+      ...(hosted ? [] : [viteSingleFile()]),
+    ],
   };
 });

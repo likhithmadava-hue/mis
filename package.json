@@ -12,21 +12,22 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",
     "canvas-confetti": "^1.9.3",
-    "lucide-react": "^0.462.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "lucide-preact": "^1.27.0",
+    "preact": "^10.29.7",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
     "@types/canvas-confetti": "^1.6.4",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "eslint": "^10.8.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.6.3",
     "vite": "^5.4.11",
     "vite-plugin-singlefile": "^2.3.3"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
   }
 }

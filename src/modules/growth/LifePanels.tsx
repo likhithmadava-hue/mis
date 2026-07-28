@@ -1,9 +1,20 @@
-import { BarChart3, Droplets, Hourglass, Repeat, Smile, Sparkles } from 'lucide-react';
-import { DAY_TARGET, POSTURE_TARGET, WELL_SPENT_TARGET } from '../../core/scoring';
-import Card from '../../core/ui/Card';
-import { BarChart, TrendChart } from '../../core/ui/charts';
-import TrackSummary from './TrackSummary';
-import type { Range, useGrowthData } from './useGrowthData';
+import {
+  BarChart3,
+  Droplets,
+  Hourglass,
+  Repeat,
+  Smile,
+  Sparkles,
+} from "lucide-preact";
+import {
+  DAY_TARGET,
+  POSTURE_TARGET,
+  WELL_SPENT_TARGET,
+} from "../../core/scoring";
+import Card from "../../core/ui/Card";
+import { BarChart, TrendChart } from "../../core/ui/charts";
+import TrackSummary from "./TrackSummary";
+import type { Range, useGrowthData } from "./useGrowthData";
 
 interface LifePanelsProps {
   data: ReturnType<typeof useGrowthData>;
@@ -40,7 +51,10 @@ export default function LifePanels({ data, range }: LifePanelsProps) {
         >
           <BarChart
             data={leisureBars}
-            max={Math.max(WELL_SPENT_TARGET, ...leisureBars.map((b) => b.value))}
+            max={Math.max(
+              WELL_SPENT_TARGET,
+              ...leisureBars.map((b) => b.value),
+            )}
             height={150}
             unit="m"
           />
@@ -75,14 +89,25 @@ export default function LifePanels({ data, range }: LifePanelsProps) {
       </Card>
 
       {bestDay && (
-        <Card title="Best Day" subtitle="Your strongest day in this range." icon={Sparkles}>
+        <Card
+          title="Best Day"
+          subtitle="Your strongest day in this range."
+          icon={Sparkles}
+        >
           <div className="text-sm text-muted-foreground">
-            <span className="text-foreground font-semibold">{bestDay.dateLabel}</span> scored{' '}
-            <span className="font-mono font-bold text-primary">{bestDay.byMode?.life}</span> out of{' '}
-            {DAY_TARGET}
+            <span className="text-foreground font-semibold">
+              {bestDay.dateLabel}
+            </span>{" "}
+            scored{" "}
+            <span className="font-mono font-bold text-primary">
+              {bestDay.byMode?.life}
+            </span>{" "}
+            out of {DAY_TARGET}
             {bestDay.metric && (
               <>
-                {' '}— mood {bestDay.metric.mood_score}/10, {bestDay.metric.water_count} cups,{' '}
+                {" "}
+                — mood {bestDay.metric.mood_score}/10,{" "}
+                {bestDay.metric.water_count} cups,{" "}
                 {bestDay.metric.well_spent_time} minutes of leisure.
               </>
             )}

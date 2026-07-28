@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "preact/hooks";
 import {
   Sprout,
   LineChart,
@@ -12,11 +12,11 @@ import {
   Loader2,
   UploadCloud,
   X,
-} from 'lucide-react';
-import FocusTimer from './modules/focus';
-import DailyLog from './modules/log';
-import GrowTrack from './modules/growth';
-import DatabaseExplorer from './modules/database';
+} from "lucide-preact";
+import FocusTimer from "./modules/focus";
+import DailyLog from "./modules/log";
+import GrowTrack from "./modules/growth";
+import DatabaseExplorer from "./modules/database";
 import {
   ArborDatabase,
   MODES,
@@ -24,15 +24,15 @@ import {
   dismissGuestImport,
   importGuestData,
   type AppMode,
-} from './core/db';
-import { MODE_META } from './core/scoring';
-import { AccountPanel, LoginScreen, useAuth } from './core/auth';
+} from "./core/db";
+import { MODE_META } from "./core/scoring";
+import { AccountPanel, LoginScreen, useAuth } from "./core/auth";
 
 // ── App Guard (blocking) is disabled for now ─────────────────────────────
 // Real blocking will be handled by the Python backend engine later.
 // To re-enable the simulator tab: uncomment the two lines below, the tab
 // entry in TABS, and the <ProtectGuard> line further down.
-// import { Shield } from 'lucide-react';
+// import { Shield } from 'lucide-preact';
 // import ProtectGuard from './modules/guard';
 
 // Growth Tracker leads — the Focus Timer is deliberately not the landing tab.
@@ -43,39 +43,81 @@ import { AccountPanel, LoginScreen, useAuth } from './core/auth';
 // archive and the Focus Timer credits its minutes to study_hours, so both are
 // Academic-only.
 const TABS = [
-  { id: 'grow', label: 'Growth Tracker', icon: LineChart, modes: ['academic', 'life'] },
-  { id: 'log', label: 'Daily Log', icon: CalendarCheck, modes: ['academic', 'life'] },
-  { id: 'db', label: 'Database', icon: Database, modes: ['academic'] },
+  {
+    id: "grow",
+    label: "Growth Tracker",
+    icon: LineChart,
+    modes: ["academic", "life"],
+  },
+  {
+    id: "log",
+    label: "Daily Log",
+    icon: CalendarCheck,
+    modes: ["academic", "life"],
+  },
+  { id: "db", label: "Database", icon: Database, modes: ["academic"] },
   // { id: 'guard', label: 'App Guard', icon: Shield, modes: ['academic'] },
-  { id: 'focus', label: 'Focus Timer', icon: Timer, modes: ['academic'] },
-] as const satisfies readonly { id: string; label: string; icon: unknown; modes: readonly AppMode[] }[];
+  { id: "focus", label: "Focus Timer", icon: Timer, modes: ["academic"] },
+] as const satisfies readonly {
+  id: string;
+  label: string;
+  icon: unknown;
+  modes: readonly AppMode[];
+}[];
 
-type TabId = (typeof TABS)[number]['id'];
+type TabId = (typeof TABS)[number]["id"];
 
 const QUOTES = [
-  { text: 'A quiet lab for your mind. Capture every slip, watch the patterns surface, sharpen the next attempt.', author: 'MIS' },
-  { text: 'The secret of getting ahead is getting started.', author: 'Mark Twain' },
-  { text: 'It always seems impossible until it is done.', author: 'Nelson Mandela' },
-  { text: 'Success is the sum of small efforts, repeated day in and day out.', author: 'Robert Collier' },
-  { text: 'Don’t watch the clock; do what it does. Keep going.', author: 'Sam Levenson' },
-  { text: 'A little progress each day adds up to big results.', author: 'Satya Nani' },
-  { text: 'The expert in anything was once a beginner.', author: 'Helen Hayes' },
-  { text: 'Push yourself, because no one else is going to do it for you.', author: 'Unknown' },
-  { text: 'Great things never come from comfort zones.', author: 'Unknown' },
-  { text: 'Strive for progress, not perfection.', author: 'Unknown' },
-  { text: 'Your future is created by what you do today, not tomorrow.', author: 'Robert Kiyosaki' },
+  {
+    text: "A quiet lab for your mind. Capture every slip, watch the patterns surface, sharpen the next attempt.",
+    author: "MIS",
+  },
+  {
+    text: "The secret of getting ahead is getting started.",
+    author: "Mark Twain",
+  },
+  {
+    text: "It always seems impossible until it is done.",
+    author: "Nelson Mandela",
+  },
+  {
+    text: "Success is the sum of small efforts, repeated day in and day out.",
+    author: "Robert Collier",
+  },
+  {
+    text: "Don’t watch the clock; do what it does. Keep going.",
+    author: "Sam Levenson",
+  },
+  {
+    text: "A little progress each day adds up to big results.",
+    author: "Satya Nani",
+  },
+  {
+    text: "The expert in anything was once a beginner.",
+    author: "Helen Hayes",
+  },
+  {
+    text: "Push yourself, because no one else is going to do it for you.",
+    author: "Unknown",
+  },
+  { text: "Great things never come from comfort zones.", author: "Unknown" },
+  { text: "Strive for progress, not perfection.", author: "Unknown" },
+  {
+    text: "Your future is created by what you do today, not tomorrow.",
+    author: "Robert Kiyosaki",
+  },
 ];
 
 // same quote all day, a new one tomorrow (day-of-year picks the index)
 const dayOfYear = Math.floor(
-  (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+  (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000,
 );
 
 const greeting = () => {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
 };
 
 /**
@@ -95,11 +137,14 @@ export default function App() {
   // the login is never mounted. The form buttons are inert here (there is no
   // backend to talk to) — it is purely to look at the design. Delete this block
   // once .env.local is filled in and the real login shows on its own.
-  if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('login')) {
+  if (
+    typeof location !== "undefined" &&
+    new URLSearchParams(location.search).has("login")
+  ) {
     return <LoginScreen />;
   }
 
-  if (phase === 'loading' || phase === 'preparing') {
+  if (phase === "loading" || phase === "preparing") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-muted-foreground">
         <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center glow-primary">
@@ -107,15 +152,15 @@ export default function App() {
         </div>
         <p className="text-sm flex items-center gap-2">
           <Loader2 size={14} className="animate-spin" />
-          {phase === 'preparing' ? 'Loading your data…' : 'Starting MIS…'}
+          {phase === "preparing" ? "Loading your data…" : "Starting MIS…"}
         </p>
       </div>
     );
   }
 
-  if (phase === 'signed-out') return <LoginScreen />;
+  if (phase === "signed-out") return <LoginScreen />;
 
-  return <Workspace signedIn={phase === 'ready'} />;
+  return <Workspace signedIn={phase === "ready"} />;
 }
 
 /**
@@ -135,11 +180,13 @@ function ImportOfflineData() {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold font-space">
-          {rows} row{rows === 1 ? '' : 's'} saved on this computer are not in your account
+          {rows} row{rows === 1 ? "" : "s"} saved on this computer are not in
+          your account
         </p>
         <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-          These were logged before you signed in. Bring them in and they will sync to every
-          device — but check first that they are yours and not the sample data MIS ships with.
+          These were logged before you signed in. Bring them in and they will
+          sync to every device — but check first that they are yours and not the
+          sample data MIS ships with.
         </p>
         <div className="flex gap-2 mt-3">
           <button
@@ -183,7 +230,7 @@ function ImportOfflineData() {
 
 function Workspace({ signedIn }: { signedIn: boolean }) {
   const [mode, setMode] = useState<AppMode>(() => ArborDatabase.getAppMode());
-  const [activeTab, setActiveTab] = useState<TabId>('grow');
+  const [activeTab, setActiveTab] = useState<TabId>("grow");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [triggerUpdate, setTriggerUpdate] = useState(0);
   const [quoteIndex, setQuoteIndex] = useState(dayOfYear % QUOTES.length);
@@ -193,7 +240,9 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
     document.documentElement.dataset.mode = mode;
   }, [mode]);
 
-  const visibleTabs = TABS.filter((t) => (t.modes as readonly AppMode[]).includes(mode));
+  const visibleTabs = TABS.filter((t) =>
+    (t.modes as readonly AppMode[]).includes(mode),
+  );
 
   const switchMode = (next: AppMode) => {
     setMode(next);
@@ -201,14 +250,19 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
     // the current tab may not exist in the new mode — fall back to the landing
     // tab rather than rendering nothing
     const stillThere = TABS.some(
-      (t) => t.id === activeTab && (t.modes as readonly AppMode[]).includes(next)
+      (t) =>
+        t.id === activeTab && (t.modes as readonly AppMode[]).includes(next),
     );
-    if (!stillThere) setActiveTab('grow');
+    if (!stillThere) setActiveTab("grow");
   };
 
   const refresh = () => setTriggerUpdate((n) => n + 1);
   const shuffleQuote = () =>
-    setQuoteIndex((i) => (i + 1 + Math.floor(Math.random() * (QUOTES.length - 1))) % QUOTES.length);
+    setQuoteIndex(
+      (i) =>
+        (i + 1 + Math.floor(Math.random() * (QUOTES.length - 1))) %
+        QUOTES.length,
+    );
 
   const quote = QUOTES[quoteIndex];
   const activeLabel = TABS.find((t) => t.id === activeTab)?.label;
@@ -219,16 +273,20 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
           horizontal strip, where an icon rail would gain nothing */}
       <aside
         className={`flex-shrink-0 bg-sidebar border-b sm:border-b-0 sm:border-r border-border flex sm:flex-col justify-between px-4 py-4 sm:py-6 transition-[width] duration-200 ${
-          navCollapsed ? 'sm:w-[4.75rem] sm:px-3' : 'sm:w-60'
+          navCollapsed ? "sm:w-[4.75rem] sm:px-3" : "sm:w-60"
         }`}
       >
         <div className="flex sm:block items-center gap-4 min-w-0">
-          <div className={`flex items-center gap-3 sm:mb-8 ${navCollapsed ? 'sm:justify-center' : ''}`}>
+          <div
+            className={`flex items-center gap-3 sm:mb-8 ${navCollapsed ? "sm:justify-center" : ""}`}
+          >
             <div className="w-10 h-10 flex-shrink-0 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center glow-primary">
               <Sprout className="text-primary" size={20} />
             </div>
-            <div className={navCollapsed ? 'sm:hidden' : ''}>
-              <h1 className="text-lg font-bold font-space tracking-tight leading-tight">MIS</h1>
+            <div className={navCollapsed ? "sm:hidden" : ""}>
+              <h1 className="text-lg font-bold font-space tracking-tight leading-tight">
+                MIS
+              </h1>
               <p className="text-[10px] text-muted-foreground font-medium">
                 {MODE_META[mode].tagline}
               </p>
@@ -237,7 +295,7 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
 
           <div
             className={`flex bg-background p-1 rounded-lg border border-border gap-1 sm:mb-6 ${
-              navCollapsed ? 'sm:flex-col' : ''
+              navCollapsed ? "sm:flex-col" : ""
             }`}
           >
             {MODES.map((m) => {
@@ -249,12 +307,14 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
                   title={`${label} — ${MODE_META[m].blurb}`}
                   className={`flex-1 px-2 py-1.5 rounded-md text-[11px] font-semibold font-space uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 ${
                     mode === m
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   <ModeIcon size={13} />
-                  <span className={navCollapsed ? 'sm:hidden' : ''}>{label}</span>
+                  <span className={navCollapsed ? "sm:hidden" : ""}>
+                    {label}
+                  </span>
                 </button>
               );
             })}
@@ -267,15 +327,15 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
                 onClick={() => setActiveTab(id)}
                 title={label}
                 className={`py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 whitespace-nowrap transition-colors text-left ${
-                  navCollapsed ? 'px-3 sm:px-0 sm:justify-center' : 'px-3'
+                  navCollapsed ? "px-3 sm:px-0 sm:justify-center" : "px-3"
                 } ${
                   activeTab === id
-                    ? 'bg-accent text-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent'
+                    ? "bg-accent text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
                 }`}
               >
                 <Icon size={16} className="flex-shrink-0" />
-                <span className={navCollapsed ? 'sm:hidden' : ''}>{label}</span>
+                <span className={navCollapsed ? "sm:hidden" : ""}>{label}</span>
               </button>
             ))}
 
@@ -283,11 +343,11 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
                 — hidden on mobile, where the bar is horizontal and never collapses */}
             <button
               onClick={() => setNavCollapsed((c) => !c)}
-              title={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-label={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               aria-expanded={!navCollapsed}
               className={`hidden sm:flex py-2.5 rounded-xl text-sm font-medium items-center gap-2.5 whitespace-nowrap transition-colors text-left text-muted-foreground hover:text-foreground hover:bg-sidebar-accent ${
-                navCollapsed ? 'px-3 sm:px-0 sm:justify-center' : 'px-3'
+                navCollapsed ? "px-3 sm:px-0 sm:justify-center" : "px-3"
               }`}
             >
               {navCollapsed ? (
@@ -295,7 +355,7 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
               ) : (
                 <PanelLeftClose size={16} className="flex-shrink-0" />
               )}
-              <span className={navCollapsed ? 'sm:hidden' : ''}>Collapse</span>
+              <span className={navCollapsed ? "sm:hidden" : ""}>Collapse</span>
             </button>
           </nav>
         </div>
@@ -315,9 +375,16 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
       <main className="flex-1 min-w-0 px-5 sm:px-8 py-8 space-y-6 max-w-6xl">
         <header className="flex items-end justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold font-space tracking-tight">{activeLabel}</h2>
+            <h2 className="text-2xl font-bold font-space tracking-tight">
+              {activeLabel}
+            </h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {greeting()} — {new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+              {greeting()} —{" "}
+              {new Date().toLocaleDateString([], {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
             </p>
           </div>
         </header>
@@ -327,8 +394,12 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
             <Quote size={16} className="text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-base sm:text-lg font-medium font-space leading-snug">“{quote.text}”</p>
-            <p className="text-sm text-muted-foreground mt-1.5">— {quote.author}</p>
+            <p className="text-base sm:text-lg font-medium font-space leading-snug">
+              “{quote.text}”
+            </p>
+            <p className="text-sm text-muted-foreground mt-1.5">
+              — {quote.author}
+            </p>
           </div>
           <button
             onClick={shuffleQuote}
@@ -341,11 +412,30 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
 
         {signedIn && <ImportOfflineData />}
 
-        {activeTab === 'focus' && <FocusTimer triggerUpdate={triggerUpdate} onSessionComplete={refresh} />}
-        {activeTab === 'grow' && <GrowTrack mode={mode} triggerUpdate={triggerUpdate} onLogbookChange={refresh} />}
-        {activeTab === 'log' && <DailyLog mode={mode} triggerUpdate={triggerUpdate} onLogChange={refresh} />}
+        {activeTab === "focus" && (
+          <FocusTimer
+            triggerUpdate={triggerUpdate}
+            onSessionComplete={refresh}
+          />
+        )}
+        {activeTab === "grow" && (
+          <GrowTrack
+            mode={mode}
+            triggerUpdate={triggerUpdate}
+            onLogbookChange={refresh}
+          />
+        )}
+        {activeTab === "log" && (
+          <DailyLog
+            mode={mode}
+            triggerUpdate={triggerUpdate}
+            onLogChange={refresh}
+          />
+        )}
         {/* {activeTab === 'guard' && <ProtectGuard triggerUpdate={triggerUpdate} onBlocklistChange={refresh} />} */}
-        {activeTab === 'db' && <DatabaseExplorer triggerUpdate={triggerUpdate} onChange={refresh} />}
+        {activeTab === "db" && (
+          <DatabaseExplorer triggerUpdate={triggerUpdate} onChange={refresh} />
+        )}
       </main>
     </div>
   );

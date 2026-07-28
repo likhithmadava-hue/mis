@@ -1,13 +1,13 @@
-import { useRef } from 'react';
-import { Play, Pause, RotateCcw, SkipForward, Check } from 'lucide-react';
-import { useFullscreen } from '../../core/ui/useFullscreen';
-import DonePrompt from './DonePrompt';
-import LeftTodayPanel from './LeftTodayPanel';
-import TimerFace from './TimerFace';
-import TimerToolbar from './TimerToolbar';
-import TodayFocusPanel from './TodayFocusPanel';
-import { useFocusTimer } from './useFocusTimer';
-import { useTodayProgress } from './useTodayProgress';
+import { useRef } from "preact/hooks";
+import { Play, Pause, RotateCcw, SkipForward, Check } from "lucide-preact";
+import { useFullscreen } from "../../core/ui/useFullscreen";
+import DonePrompt from "./DonePrompt";
+import LeftTodayPanel from "./LeftTodayPanel";
+import TimerFace from "./TimerFace";
+import TimerToolbar from "./TimerToolbar";
+import TodayFocusPanel from "./TodayFocusPanel";
+import { useFocusTimer } from "./useFocusTimer";
+import { useTodayProgress } from "./useTodayProgress";
 
 interface FocusTimerProps {
   triggerUpdate: number;
@@ -19,9 +19,13 @@ interface FocusTimerProps {
  * useFocusTimer, the outstanding-work numbers in useTodayProgress, and each
  * card in its own component.
  */
-export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTimerProps) {
+export default function FocusTimer({
+  triggerUpdate,
+  onSessionComplete,
+}: FocusTimerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(containerRef);
+  const { isFullscreen, toggle: toggleFullscreen } =
+    useFullscreen(containerRef);
 
   const timer = useFocusTimer(triggerUpdate, onSessionComplete);
   const { remaining, allClear } = useTodayProgress(triggerUpdate);
@@ -31,13 +35,13 @@ export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTi
       ref={containerRef}
       className={
         isFullscreen
-          ? 'flex items-center justify-center bg-background w-screen h-screen p-6'
-          : 'grid grid-cols-1 lg:grid-cols-12 gap-6'
+          ? "flex items-center justify-center bg-background w-screen h-screen p-6"
+          : "grid grid-cols-1 lg:grid-cols-12 gap-6"
       }
     >
       <div
         className={`bg-card rounded-2xl border border-border card-shadow p-6 sm:p-8 flex flex-col items-center space-y-6 ${
-          isFullscreen ? 'w-full max-w-3xl' : 'lg:col-span-7'
+          isFullscreen ? "w-full max-w-3xl" : "lg:col-span-7"
         }`}
       >
         <TimerToolbar
@@ -66,7 +70,7 @@ export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTi
           type="text"
           placeholder="What are you working on? (e.g. Physics DPP)"
           value={timer.tag}
-          onChange={(e) => timer.setTag(e.target.value)}
+          onChange={(e) => timer.setTag(e.currentTarget.value)}
           className="w-full max-w-sm px-4 py-2.5 bg-background border border-border rounded-xl text-xs text-center"
         />
 
@@ -81,10 +85,20 @@ export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTi
           <button
             onClick={timer.toggleRunning}
             className={`px-10 py-3.5 rounded-xl font-bold font-space text-sm flex items-center gap-2 transition-all glow-primary ${
-              timer.isFocus ? 'bg-primary text-primary-foreground' : 'bg-success text-primary-foreground'
+              timer.isFocus
+                ? "bg-primary text-primary-foreground"
+                : "bg-success text-primary-foreground"
             }`}
           >
-            {timer.isRunning ? <><Pause size={18} /> Pause</> : <><Play size={18} /> Start</>}
+            {timer.isRunning ? (
+              <>
+                <Pause size={18} /> Pause
+              </>
+            ) : (
+              <>
+                <Play size={18} /> Start
+              </>
+            )}
           </button>
           <button
             onClick={timer.skip}
@@ -104,13 +118,22 @@ export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTi
       </div>
 
       {/* side panels are noise in fullscreen — just the clock and controls */}
-      <div className={`lg:col-span-5 space-y-6 ${isFullscreen ? 'hidden' : ''}`}>
-        <TodayFocusPanel sessions={timer.todaySessions} minutes={timer.todayMinutes} />
+      <div
+        className={`lg:col-span-5 space-y-6 ${isFullscreen ? "hidden" : ""}`}
+      >
+        <TodayFocusPanel
+          sessions={timer.todaySessions}
+          minutes={timer.todayMinutes}
+        />
         <LeftTodayPanel remaining={remaining} allClear={allClear} />
       </div>
 
       {timer.askStage !== null && (
-        <DonePrompt stage={timer.askStage} onYes={timer.answerYes} onNo={timer.keepGoing} />
+        <DonePrompt
+          stage={timer.askStage}
+          onYes={timer.answerYes}
+          onNo={timer.keepGoing}
+        />
       )}
     </div>
   );

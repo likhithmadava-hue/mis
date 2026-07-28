@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import { useState, useRef, useEffect, useLayoutEffect } from "preact/hooks";
+import { ChevronDown, Check } from "lucide-preact";
 
 /**
  * A dropdown built out of ordinary elements instead of a native <select>.
@@ -34,7 +34,7 @@ export default function Select<T extends string>({
   onChange,
   options,
   ariaLabel,
-  className = '',
+  className = "",
 }: SelectProps<T>) {
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -45,7 +45,10 @@ export default function Select<T extends string>({
   const listRef = useRef<HTMLUListElement>(null);
 
   const selected = options.find((o) => o.value === value);
-  const selectedIdx = Math.max(0, options.findIndex((o) => o.value === value));
+  const selectedIdx = Math.max(
+    0,
+    options.findIndex((o) => o.value === value),
+  );
 
   const openMenu = () => {
     setActiveIdx(selectedIdx);
@@ -64,8 +67,8 @@ export default function Select<T extends string>({
     const onPointerDown = (e: MouseEvent) => {
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
   }, [open]);
 
   // open upwards when the menu would run off the bottom of the window
@@ -81,12 +84,17 @@ export default function Select<T extends string>({
     if (!open) return;
     listRef.current
       ?.querySelector(`[data-idx="${activeIdx}"]`)
-      ?.scrollIntoView({ block: 'nearest' });
+      ?.scrollIntoView({ block: "nearest" });
   }, [activeIdx, open]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (!open) {
-      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (
+        e.key === "Enter" ||
+        e.key === " " ||
+        e.key === "ArrowDown" ||
+        e.key === "ArrowUp"
+      ) {
         e.preventDefault();
         openMenu();
       }
@@ -94,32 +102,32 @@ export default function Select<T extends string>({
     }
 
     switch (e.key) {
-      case 'Escape':
+      case "Escape":
         e.preventDefault();
         setOpen(false);
         break;
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
         setActiveIdx((i) => Math.min(i + 1, options.length - 1));
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
         setActiveIdx((i) => Math.max(i - 1, 0));
         break;
-      case 'Home':
+      case "Home":
         e.preventDefault();
         setActiveIdx(0);
         break;
-      case 'End':
+      case "End":
         e.preventDefault();
         setActiveIdx(options.length - 1);
         break;
-      case 'Enter':
-      case ' ':
+      case "Enter":
+      case " ":
         e.preventDefault();
         commit(options[activeIdx]);
         break;
-      case 'Tab':
+      case "Tab":
         setOpen(false);
         break;
     }
@@ -127,7 +135,9 @@ export default function Select<T extends string>({
 
   const renderLabel = (option: SelectOption<T>) =>
     option.badgeClass ? (
-      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${option.badgeClass}`}>
+      <span
+        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${option.badgeClass}`}
+      >
         {option.label}
       </span>
     ) : (
@@ -147,10 +157,14 @@ export default function Select<T extends string>({
         onKeyDown={handleKeyDown}
         className="w-full h-9 pl-3 pr-2 bg-background border border-border rounded-xl text-xs text-foreground flex items-center justify-between gap-2 hover:border-primary/40 transition-colors"
       >
-        {selected ? renderLabel(selected) : <span className="text-muted-foreground">Select…</span>}
+        {selected ? (
+          renderLabel(selected)
+        ) : (
+          <span className="text-muted-foreground">Select…</span>
+        )}
         <ChevronDown
           size={14}
-          className={`flex-shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`flex-shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -160,7 +174,7 @@ export default function Select<T extends string>({
           role="listbox"
           aria-label={ariaLabel}
           className={`absolute z-40 left-0 min-w-full w-max max-w-[16rem] max-h-60 overflow-y-auto bg-card border border-border rounded-xl card-shadow p-1 animate-fade-in ${
-            dropUp ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+            dropUp ? "bottom-full mb-1.5" : "top-full mt-1.5"
           }`}
         >
           {options.map((option, i) => {
@@ -174,11 +188,15 @@ export default function Select<T extends string>({
                 onClick={() => commit(option)}
                 onMouseEnter={() => setActiveIdx(i)}
                 className={`px-2.5 py-2 rounded-lg text-xs cursor-pointer flex items-center justify-between gap-2 transition-colors ${
-                  i === activeIdx ? 'bg-accent text-foreground' : 'text-muted-foreground'
+                  i === activeIdx
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground"
                 }`}
               >
                 {renderLabel(option)}
-                {isSelected && <Check size={13} className="text-primary flex-shrink-0" />}
+                {isSelected && (
+                  <Check size={13} className="text-primary flex-shrink-0" />
+                )}
               </li>
             );
           })}

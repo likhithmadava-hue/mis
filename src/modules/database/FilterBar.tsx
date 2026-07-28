@@ -1,15 +1,18 @@
-import { Search, X } from 'lucide-react';
-import { DIFFICULTIES, MISTAKE_REASONS } from '../../core/db';
-import Select from '../../core/ui/Select';
-import { DIFFICULTY_BADGE, REASON_BADGE } from '../../core/ui/mistakes';
-import { ALL, type LogbookFilters } from './useLogbookFilters';
+import { Search, X } from "lucide-preact";
+import { DIFFICULTIES, MISTAKE_REASONS } from "../../core/db";
+import Select from "../../core/ui/Select";
+import { DIFFICULTY_BADGE, REASON_BADGE } from "../../core/ui/mistakes";
+import { ALL, type LogbookFilters } from "./useLogbookFilters";
 
 /** free-text search plus the four dropdowns that narrow the mistake table */
 export default function FilterBar({ filters }: { filters: LogbookFilters }) {
   return (
     <div className="space-y-3">
       <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Search
+          size={14}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+        />
         <input
           type="text"
           placeholder="Search subject, chapter, or notes…"
@@ -26,7 +29,7 @@ export default function FilterBar({ filters }: { filters: LogbookFilters }) {
           value={filters.fSubject}
           onChange={filters.setFSubject}
           options={[
-            { value: ALL, label: 'All subjects' },
+            { value: ALL, label: "All subjects" },
             ...filters.subjects.map((s) => ({ value: s, label: s })),
           ]}
         />
@@ -37,7 +40,7 @@ export default function FilterBar({ filters }: { filters: LogbookFilters }) {
           value={filters.fChapter}
           onChange={filters.setFChapter}
           options={[
-            { value: ALL, label: 'All chapters' },
+            { value: ALL, label: "All chapters" },
             ...filters.chapters.map((c) => ({ value: c, label: c })),
           ]}
         />
@@ -48,8 +51,12 @@ export default function FilterBar({ filters }: { filters: LogbookFilters }) {
           value={filters.fReason}
           onChange={filters.setFReason}
           options={[
-            { value: ALL, label: 'All errors' },
-            ...MISTAKE_REASONS.map((r) => ({ value: r as string, label: r, badgeClass: REASON_BADGE[r] })),
+            { value: ALL, label: "All errors" },
+            ...MISTAKE_REASONS.map((r) => ({
+              value: r as string,
+              label: r,
+              badgeClass: REASON_BADGE[r],
+            })),
           ]}
         />
 
@@ -59,8 +66,12 @@ export default function FilterBar({ filters }: { filters: LogbookFilters }) {
           value={filters.fDifficulty}
           onChange={filters.setFDifficulty}
           options={[
-            { value: ALL, label: 'Any difficulty' },
-            ...DIFFICULTIES.map((d) => ({ value: d as string, label: d, badgeClass: DIFFICULTY_BADGE[d] })),
+            { value: ALL, label: "Any difficulty" },
+            ...DIFFICULTIES.map((d) => ({
+              value: d as string,
+              label: d,
+              badgeClass: DIFFICULTY_BADGE[d],
+            })),
           ]}
         />
 

@@ -1,12 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
-import confetti from 'canvas-confetti';
-import { ArborDatabase, type FocusSettings, type FocusSession, type TimerDesign } from '../../core/db';
-import { todayIso } from '../../core/dates';
-import { playChime, startAlarm, type Alarm } from './audio';
-import { DONE_PROMPTS, MODE_LABEL, type TimerMode } from './constants';
+import { useState, useEffect, useRef } from "preact/hooks";
+import confetti from "canvas-confetti";
+import {
+  ArborDatabase,
+  type FocusSettings,
+  type FocusSession,
+  type TimerDesign,
+} from "../../core/db";
+import { todayIso } from "../../core/dates";
+import { playChime, startAlarm, type Alarm } from "./audio";
+import { DONE_PROMPTS, MODE_LABEL, type TimerMode } from "./constants";
 
 /** only the four numeric fields — timer_design is set by setDesign */
-type NumericSetting = 'focus_minutes' | 'short_break' | 'long_break' | 'rounds_before_long';
+type NumericSetting =
+  | "focus_minutes"
+  | "short_break"
+  | "long_break"
+  | "rounds_before_long";
 
 /**
  * The whole timer engine: the countdown, the pomodoro cycle, the three-step
@@ -16,15 +25,22 @@ type NumericSetting = 'focus_minutes' | 'short_break' | 'long_break' | 'rounds_b
  * Fullscreen and the clock face are deliberately not in here — those are how
  * the timer looks, not how it runs.
  */
-export function useFocusTimer(triggerUpdate: number, onSessionComplete: () => void) {
-  const [settings, setSettings] = useState<FocusSettings>(ArborDatabase.getFocusSettings());
-  const [sessions, setSessions] = useState<FocusSession[]>(ArborDatabase.getFocusSessions());
+export function useFocusTimer(
+  triggerUpdate: number,
+  onSessionComplete: () => void,
+) {
+  const [settings, setSettings] = useState<FocusSettings>(
+    ArborDatabase.getFocusSettings(),
+  );
+  const [sessions, setSessions] = useState<FocusSession[]>(
+    ArborDatabase.getFocusSessions(),
+  );
 
-  const [mode, setMode] = useState<TimerMode>('focus');
+  const [mode, setMode] = useState<TimerMode>("focus");
   const [secondsLeft, setSecondsLeft] = useState(settings.focus_minutes * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [round, setRound] = useState(1);
-  const [tag, setTag] = useState('');
+  const [tag, setTag] = useState("");
   const [justFinished, setJustFinished] = useState<string | null>(null);
   /** which of DONE_PROMPTS is on screen; null when no dialog is open */
   const [askStage, setAskStage] = useState<number | null>(null);
@@ -47,7 +63,11 @@ export function useFocusTimer(triggerUpdate: number, onSessionComplete: () => vo
   useEffect(() => stopAlarm, []);
 
   const minutesFor = (m: TimerMode) =>
-    m === 'focus' ? settings.focus_minutes : m === 'short' ? settings.short_break : settings.long_break;
+    m === "focus"
+      ? settings.focus_minutes
+      : m === "short"
+        ? settings.short_break
+        : settings.long_break;
 
   useEffect(() => {
     setSessions(ArborDatabase.getFocusSessions());
@@ -59,15 +79,15 @@ export function useFocusTimer(triggerUpdate: number, onSessionComplete: () => vo
   const handleComplete = () => {
     setIsRunning(false);
 
-    if (mode === 'focus') {
+    if (mode === "focus") {
       beginAlarm();
       setAskStage(0);
       return;
     }
 
     playChime();
-    setJustFinished('Break over — ready for the next round?');
-    setMode('focus');
+    setJustFinished("Break over — ready for the next round?");
+    setMode("focus");
     setSecondsLeft(settings.focus_minutes * 60);
     setTimeout(() => setJustFinished(null), 6000);
   };
@@ -81,15 +101,21 @@ export function useFocusTimer(triggerUpdate: number, onSessionComplete: () => vo
     ArborDatabase.addFocusSession({
       date: todayIso(),
       duration_minutes: minutes,
-      tag: tag.trim() || 'Focus session',
+      tag: tag.trim() || "Focus session",
       completed: true,
     });
     ArborDatabase.addStudyMinutes(minutes);
-    confetti({ particleCount: 90, spread: 60, colors: ['#00ccf9', '#35c177', '#ffffff'] });
-    setJustFinished(`Nice work! ${minutes} min added to today's study hours. 🌳`);
+    confetti({
+      particleCount: 90,
+      spread: 60,
+      colors: ["#00ccf9", "#35c177", "#ffffff"],
+    });
+    setJustFinished(
+      `Nice work! ${minutes} min added to today's study hours. 🌳`,
+    );
 
     const nextIsLong = round % settings.rounds_before_long === 0;
-    const nextMode: TimerMode = nextIsLong ? 'long' : 'short';
+    const nextMode: TimerMode = nextIsLong ? "long" : "short";
     setRound((r) => r + 1);
     setMode(nextMode);
     setSecondsLeft(minutesFor(nextMode) * 60);
@@ -101,9 +127,9 @@ export function useFocusTimer(triggerUpdate: number, onSessionComplete: () => vo
   const keepGoing = () => {
     stopAlarm();
     setAskStage(null);
-    setMode('focus');
+    setMode("focus");
     setSecondsLeft(settings.focus_minutes * 60);
-    setJustFinished('Timer reset — back to it. 🌱');
+    setJustFinished("Timer reset — back to it. 🌱");
     setTimeout(() => setJustFinished(null), 5000);
   };
 
@@ -122,7 +148,10 @@ export function useFocusTimer(triggerUpdate: number, onSessionComplete: () => vo
     endTimeRef.current = Date.now() + secondsLeft * 1000;
 
     const tick = setInterval(() => {
-      const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
+      const remaining = Math.max(
+        0,
+        Math.round((endTimeRef.current - Date.now()) / 1000),
+      );
       setSecondsLeft(remaining);
       if (remaining === 0) {
         clearInterval(tick);
@@ -131,17 +160,19 @@ export function useFocusTimer(triggerUpdate: number, onSessionComplete: () => vo
     }, 250);
 
     return () => clearInterval(tick);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line preact-hooks/exhaustive-deps
   }, [isRunning]);
 
-  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
-  const ss = String(secondsLeft % 60).padStart(2, '0');
+  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
+  const ss = String(secondsLeft % 60).padStart(2, "0");
 
   // show the countdown in the window title bar
   useEffect(() => {
-    document.title = isRunning ? `${mm}:${ss} — ${MODE_LABEL[mode]} | MIS` : 'MIS';
+    document.title = isRunning
+      ? `${mm}:${ss} — ${MODE_LABEL[mode]} | MIS`
+      : "MIS";
     return () => {
-      document.title = 'MIS';
+      document.title = "MIS";
     };
   }, [mm, ss, isRunning, mode]);
 
@@ -172,10 +203,14 @@ export function useFocusTimer(triggerUpdate: number, onSessionComplete: () => vo
     setSettings(next);
     ArborDatabase.saveFocusSettings(next);
     if (!isRunning) {
-      const mins = key === 'focus_minutes' && mode === 'focus' ? next.focus_minutes
-        : key === 'short_break' && mode === 'short' ? next.short_break
-        : key === 'long_break' && mode === 'long' ? next.long_break
-        : null;
+      const mins =
+        key === "focus_minutes" && mode === "focus"
+          ? next.focus_minutes
+          : key === "short_break" && mode === "short"
+            ? next.short_break
+            : key === "long_break" && mode === "long"
+              ? next.long_break
+              : null;
       if (mins !== null) setSecondsLeft(mins * 60);
     }
   };
@@ -194,7 +229,7 @@ export function useFocusTimer(triggerUpdate: number, onSessionComplete: () => vo
     progress: totalSeconds > 0 ? 1 - secondsLeft / totalSeconds : 0,
     mm,
     ss,
-    isFocus: mode === 'focus',
+    isFocus: mode === "focus",
     tag,
     setTag,
     justFinished,

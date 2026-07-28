@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
-import { BookOpen, ListChecks, ListTodo, Repeat } from 'lucide-react';
+import { useState, useEffect } from "preact/hooks";
+import { BookOpen, ListChecks, ListTodo, Repeat } from "lucide-preact";
 import {
   ArborDatabase,
   type DailyMetric,
   type Habit,
   type TopicItem,
   type UserConfig,
-} from '../../core/db';
+} from "../../core/db";
 
 export interface RemainingItem {
   key: string;
@@ -28,11 +28,15 @@ export interface RemainingItem {
  * shows you what you're still working toward while the clock runs.
  */
 export function useTodayProgress(triggerUpdate: number) {
-  const [today, setToday] = useState<DailyMetric>(ArborDatabase.getTodayMetric());
+  const [today, setToday] = useState<DailyMetric>(
+    ArborDatabase.getTodayMetric(),
+  );
   const [user, setUser] = useState<UserConfig>(ArborDatabase.getUserConfig());
   const [topics, setTopics] = useState<TopicItem[]>(ArborDatabase.getTopics());
   const [habits, setHabits] = useState<Habit[]>(ArborDatabase.getHabits());
-  const [habitsDone, setHabitsDone] = useState<string[]>(ArborDatabase.getHabitsDoneOn());
+  const [habitsDone, setHabitsDone] = useState<string[]>(
+    ArborDatabase.getHabitsDoneOn(),
+  );
 
   useEffect(() => {
     setToday(ArborDatabase.getTodayMetric());
@@ -42,44 +46,47 @@ export function useTodayProgress(triggerUpdate: number) {
     setHabitsDone(ArborDatabase.getHabitsDoneOn());
   }, [triggerUpdate]);
 
-  const toRevise = topics.filter((t) => t.type === 'revise');
+  const toRevise = topics.filter((t) => t.type === "revise");
 
   // study hours keep one decimal because a focus round adds fractions of an hour
   const remaining: RemainingItem[] = [
     {
-      key: 'study',
-      label: 'Hours of study',
+      key: "study",
+      label: "Hours of study",
       icon: BookOpen,
-      left: Math.max(0, Math.round((user.target_study_hours - today.study_hours) * 10) / 10),
+      left: Math.max(
+        0,
+        Math.round((user.target_study_hours - today.study_hours) * 10) / 10,
+      ),
       total: user.target_study_hours,
-      unit: 'h',
+      unit: "h",
       done: `${today.study_hours}h of ${user.target_study_hours}h done`,
     },
     {
-      key: 'dpps',
-      label: 'DPPs',
+      key: "dpps",
+      label: "DPPs",
       icon: ListChecks,
       left: Math.max(0, today.dpps_got - today.dpps_complete),
       total: today.dpps_got,
-      unit: '',
+      unit: "",
       done: `${today.dpps_complete} of ${today.dpps_got} finished`,
     },
     {
-      key: 'revise',
-      label: 'Topics to revise',
+      key: "revise",
+      label: "Topics to revise",
       icon: ListTodo,
       left: toRevise.filter((t) => !t.done).length,
       total: toRevise.length,
-      unit: '',
+      unit: "",
       done: `${toRevise.filter((t) => t.done).length} revised`,
     },
     {
-      key: 'habits',
-      label: 'Habits',
+      key: "habits",
+      label: "Habits",
       icon: Repeat,
       left: habits.filter((h) => !habitsDone.includes(h.id)).length,
       total: habits.length,
-      unit: '',
+      unit: "",
       done: `${habitsDone.length} of ${habits.length} ticked`,
     },
   ];

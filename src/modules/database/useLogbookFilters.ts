@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
-import { marksLost, type MarkLogbookEntry } from '../../core/db';
+import { useState, useEffect, useMemo } from "preact/hooks";
+import { marksLost, type MarkLogbookEntry } from "../../core/db";
 
 /** the "no filter" sentinel — a real value so it can sit in a Select */
-export const ALL = '__all__';
+export const ALL = "__all__";
 
-export type SortKey = 'date' | 'marks';
+export type SortKey = "date" | "marks";
 
 /**
  * Search, filtering and sorting for the mistake table.
@@ -13,23 +13,26 @@ export type SortKey = 'date' | 'marks';
  * subject list is always exactly the subjects you've actually logged.
  */
 export function useLogbookFilters(entries: MarkLogbookEntry[]) {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [fSubject, setFSubject] = useState<string>(ALL);
   const [fChapter, setFChapter] = useState<string>(ALL);
   const [fReason, setFReason] = useState<string>(ALL);
   const [fDifficulty, setFDifficulty] = useState<string>(ALL);
 
-  const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDesc, setSortDesc] = useState(true);
 
   const subjects = useMemo(
     () => [...new Set(entries.map((e) => e.subject).filter(Boolean))].sort(),
-    [entries]
+    [entries],
   );
 
   // chapters narrow to the chosen subject, so the list stays short
   const chapters = useMemo(() => {
-    const pool = fSubject === ALL ? entries : entries.filter((e) => e.subject === fSubject);
+    const pool =
+      fSubject === ALL
+        ? entries
+        : entries.filter((e) => e.subject === fSubject);
     return [...new Set(pool.map((e) => e.chapter).filter(Boolean))].sort();
   }, [entries, fSubject]);
 
@@ -47,19 +50,28 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
       if (fDifficulty !== ALL && e.difficulty !== fDifficulty) return false;
       if (!q) return true;
       return [e.subject, e.chapter, e.notes, e.mistake_reason, e.grade]
-        .join(' ')
+        .join(" ")
         .toLowerCase()
         .includes(q);
     });
 
     return rows.sort((a, b) => {
       const cmp =
-        sortKey === 'date'
+        sortKey === "date"
           ? new Date(a.date).getTime() - new Date(b.date).getTime()
           : marksLost(a) - marksLost(b);
       return sortDesc ? -cmp : cmp;
     });
-  }, [entries, search, fSubject, fChapter, fReason, fDifficulty, sortKey, sortDesc]);
+  }, [
+    entries,
+    search,
+    fSubject,
+    fChapter,
+    fReason,
+    fDifficulty,
+    sortKey,
+    sortDesc,
+  ]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDesc((d) => !d);
@@ -70,7 +82,7 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
   };
 
   const clearFilters = () => {
-    setSearch('');
+    setSearch("");
     setFSubject(ALL);
     setFChapter(ALL);
     setFReason(ALL);
@@ -78,16 +90,25 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
   };
 
   return {
-    search, setSearch,
-    fSubject, setFSubject,
-    fChapter, setFChapter,
-    fReason, setFReason,
-    fDifficulty, setFDifficulty,
-    subjects, chapters,
-    sortKey, sortDesc, toggleSort,
+    search,
+    setSearch,
+    fSubject,
+    setFSubject,
+    fChapter,
+    setFChapter,
+    fReason,
+    setFReason,
+    fDifficulty,
+    setFDifficulty,
+    subjects,
+    chapters,
+    sortKey,
+    sortDesc,
+    toggleSort,
     clearFilters,
     filtersActive:
-      search.trim() !== '' || [fSubject, fChapter, fReason, fDifficulty].some((f) => f !== ALL),
+      search.trim() !== "" ||
+      [fSubject, fChapter, fReason, fDifficulty].some((f) => f !== ALL),
     filtered,
     totalLost: filtered.reduce((sum, e) => sum + marksLost(e), 0),
   };

@@ -1,14 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Download, FileDown, FileJson, FileSpreadsheet } from 'lucide-react';
-import type { MarkLogbookEntry } from '../../core/db';
-import { todayIso } from '../../core/dates';
-import { exportCsv, exportTemplate, exportXlsx } from './sheetImport';
+import { useState, useEffect, useRef } from "preact/hooks";
+import {
+  ChevronDown,
+  Download,
+  FileDown,
+  FileJson,
+  FileSpreadsheet,
+} from "lucide-preact";
+import type { MarkLogbookEntry } from "../../core/db";
+import { todayIso } from "../../core/dates";
+import { exportCsv, exportTemplate, exportXlsx } from "./sheetImport";
 
 /** our own backup format — the only export that can be read back in */
 const downloadJson = (entries: MarkLogbookEntry[]) => {
-  const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(entries, null, 2)], {
+    type: "application/json",
+  });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = `mis-mistakes-${todayIso()}.json`;
   a.click();
@@ -16,7 +24,11 @@ const downloadJson = (entries: MarkLogbookEntry[]) => {
 };
 
 /** the four ways the logbook can leave the app */
-export default function ExportMenu({ entries }: { entries: MarkLogbookEntry[] }) {
+export default function ExportMenu({
+  entries,
+}: {
+  entries: MarkLogbookEntry[];
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -26,15 +38,19 @@ export default function ExportMenu({ entries }: { entries: MarkLogbookEntry[] })
     const onDown = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
   const actions = [
-    { label: 'Excel (.xlsx)', icon: FileSpreadsheet, run: () => exportXlsx(entries) },
-    { label: 'CSV (.csv)', icon: FileDown, run: () => exportCsv(entries) },
-    { label: 'JSON backup', icon: FileJson, run: () => downloadJson(entries) },
-    { label: 'Blank template', icon: FileSpreadsheet, run: exportTemplate },
+    {
+      label: "Excel (.xlsx)",
+      icon: FileSpreadsheet,
+      run: () => exportXlsx(entries),
+    },
+    { label: "CSV (.csv)", icon: FileDown, run: () => exportCsv(entries) },
+    { label: "JSON backup", icon: FileJson, run: () => downloadJson(entries) },
+    { label: "Blank template", icon: FileSpreadsheet, run: exportTemplate },
   ];
 
   return (
@@ -46,7 +62,12 @@ export default function ExportMenu({ entries }: { entries: MarkLogbookEntry[] })
         className="px-3 py-1.5 bg-background border border-border rounded-xl text-xs font-semibold text-muted-foreground hover:text-primary hover:border-primary/40 flex items-center gap-1.5 active:scale-95 transition-all"
       >
         <Download size={13} /> Export
-        <ChevronDown size={12} className={open ? 'rotate-180 transition-transform' : 'transition-transform'} />
+        <ChevronDown
+          size={12}
+          className={
+            open ? "rotate-180 transition-transform" : "transition-transform"
+          }
+        />
       </button>
       {open && (
         <div

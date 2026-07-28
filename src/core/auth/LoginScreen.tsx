@@ -1,6 +1,14 @@
-import { useState, type FormEvent } from 'react';
-import { AlertCircle, ArrowRight, CheckCircle2, Loader2, Mail, Sprout } from 'lucide-react';
-import { supabase, isFileBuild, redirectTo } from './client';
+import { useState } from "preact/hooks";
+import type { JSX } from "preact";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  Loader2,
+  Mail,
+  Sprout,
+} from "lucide-preact";
+import { supabase, isFileBuild, redirectTo } from "./client";
 
 /**
  * The sign-in screen. Three ways in:
@@ -15,7 +23,7 @@ import { supabase, isFileBuild, redirectTo } from './client';
  * AuthProvider turns into a loaded database.
  */
 
-type Method = 'password' | 'signup' | 'magic';
+type Method = "password" | "signup" | "magic";
 
 // Google sign-in is turned off for now. Set this back to true (and make sure the
 // Google provider is enabled in Supabase) to bring the "Continue with Google"
@@ -45,50 +53,54 @@ const GoogleMark = () => (
 );
 
 const FIELD =
-  'w-full h-9 px-3 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors';
+  "w-full h-9 px-3 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors";
 
 export default function LoginScreen() {
-  const [method, setMethod] = useState<Method>('password');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [method, setMethod] = useState<Method>("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   // A magic link and a Google sign-in both end with the provider redirecting a
   // browser to a URL. `file:///C:/…/MIS.html` is not one, so the downloaded
   // copy gets the password form only.
   const canRedirect = !isFileBuild;
 
-  const run = async (fn: () => Promise<{ error: { message: string } | null }>) => {
+  const run = async (
+    fn: () => Promise<{ error: { message: string } | null }>,
+  ) => {
     setBusy(true);
-    setError('');
-    setNotice('');
+    setError("");
+    setNotice("");
     try {
       const { error: err } = await fn();
       if (err) setError(err.message);
       return !err;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Try again.');
+      setError(
+        e instanceof Error ? e.message : "Something went wrong. Try again.",
+      );
       return false;
     } finally {
       setBusy(false);
     }
   };
 
-  const submit = async (e: FormEvent) => {
+  const submit = async (e: JSX.TargetedEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!supabase || busy) return;
 
-    if (method === 'password') {
+    if (method === "password") {
       // on success AuthProvider picks the session up and this screen unmounts
       await run(() => supabase.auth.signInWithPassword({ email, password }));
       return;
     }
 
-    if (method === 'signup') {
+    if (method === "signup") {
       if (password.length < 6) {
-        setError('Use at least 6 characters for the password.');
+        setError("Use at least 6 characters for the password.");
         return;
       }
       const ok = await run(async () => {
@@ -102,11 +114,13 @@ export default function LoginScreen() {
         // the email is clicked. Saying so beats a form that silently does
         // nothing.
         if (!err && !data.session) {
-          setNotice(`Account created. Check ${email} for a confirmation link, then sign in.`);
+          setNotice(
+            `Account created. Check ${email} for a confirmation link, then sign in.`,
+          );
         }
         return { error: err };
       });
-      if (ok) setMethod('password');
+      if (ok) setMethod("password");
       return;
     }
 
@@ -115,16 +129,17 @@ export default function LoginScreen() {
       supabase.auth.signInWithOtp({
         email,
         options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
-      })
+      }),
     );
-    if (ok) setNotice(`Sign-in link sent to ${email}. Open it in this browser.`);
+    if (ok)
+      setNotice(`Sign-in link sent to ${email}. Open it in this browser.`);
   };
 
   const google = () => {
     if (!supabase) return;
     void run(async () => {
       const { error: err } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: "google",
         options: redirectTo ? { redirectTo } : undefined,
       });
       return { error: err };
@@ -134,21 +149,28 @@ export default function LoginScreen() {
   const forgotPassword = async () => {
     if (!supabase) return;
     if (!email) {
-      setError('Type your email address first, then choose Forgot password.');
+      setError("Type your email address first, then choose Forgot password.");
       return;
     }
     const ok = await run(() =>
-      supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined)
+      supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo ? { redirectTo } : undefined,
+      ),
     );
     if (ok) {
       setNotice(
-        `Reset link sent to ${email}. Opening it signs you in — then set a new password from the account menu.`
+        `Reset link sent to ${email}. Opening it signs you in — then set a new password from the account menu.`,
       );
     }
   };
 
   const heading =
-    method === 'signup' ? 'Create your account' : method === 'magic' ? 'Sign in by email' : 'Sign in';
+    method === "signup"
+      ? "Create your account"
+      : method === "magic"
+        ? "Sign in by email"
+        : "Sign in";
 
   return (
     <div className="min-h-screen flex items-center justify-center px-5 py-10">
@@ -158,7 +180,9 @@ export default function LoginScreen() {
             <Sprout className="text-primary" size={22} />
           </div>
           <div>
-            <h1 className="text-xl font-bold font-space tracking-tight leading-tight">MIS</h1>
+            <h1 className="text-xl font-bold font-space tracking-tight leading-tight">
+              MIS
+            </h1>
             <p className="text-[11px] text-muted-foreground font-medium">
               Study the way you solve
             </p>
@@ -167,7 +191,10 @@ export default function LoginScreen() {
 
         {!supabase && (
           <div className="mb-4 rounded-lg border border-primary/30 bg-accent px-3 py-2.5 flex items-start gap-2">
-            <AlertCircle size={14} className="flex-shrink-0 mt-px text-primary" />
+            <AlertCircle
+              size={14}
+              className="flex-shrink-0 mt-px text-primary"
+            />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               Preview only — Supabase is not configured yet, so these buttons do
               nothing. Fill in <span className="font-mono">.env.local</span> and
@@ -177,37 +204,47 @@ export default function LoginScreen() {
         )}
 
         <div className="bg-card rounded-2xl border border-border card-shadow p-6">
-          <h2 className="text-lg font-bold font-space tracking-tight">{heading}</h2>
+          <h2 className="text-lg font-bold font-space tracking-tight">
+            {heading}
+          </h2>
           <p className="text-sm text-muted-foreground mt-1 mb-5">
-            {method === 'signup'
-              ? 'Your logbook, habits and focus sessions follow you to any device.'
-              : 'Welcome back — your data is waiting.'}
+            {method === "signup"
+              ? "Your logbook, habits and focus sessions follow you to any device."
+              : "Welcome back — your data is waiting."}
           </p>
 
           <form onSubmit={submit} className="space-y-3">
             <label className="block">
-              <span className="text-xs font-medium text-muted-foreground">Email</span>
+              <span className="text-xs font-medium text-muted-foreground">
+                Email
+              </span>
               <input
                 type="email"
                 required
                 autoComplete="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.currentTarget.value)}
                 placeholder="you@example.com"
                 className={`${FIELD} mt-1.5`}
               />
             </label>
 
-            {method !== 'magic' && (
+            {method !== "magic" && (
               <label className="block">
-                <span className="text-xs font-medium text-muted-foreground">Password</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Password
+                </span>
                 <input
                   type="password"
                   required
-                  autoComplete={method === 'signup' ? 'new-password' : 'current-password'}
+                  autoComplete={
+                    method === "signup" ? "new-password" : "current-password"
+                  }
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={method === 'signup' ? 'At least 6 characters' : '••••••••'}
+                  onChange={(e) => setPassword(e.currentTarget.value)}
+                  placeholder={
+                    method === "signup" ? "At least 6 characters" : "••••••••"
+                  }
                   className={`${FIELD} mt-1.5`}
                 />
               </label>
@@ -233,16 +270,16 @@ export default function LoginScreen() {
             >
               {busy ? (
                 <Loader2 size={15} className="animate-spin" />
-              ) : method === 'magic' ? (
+              ) : method === "magic" ? (
                 <Mail size={15} />
               ) : (
                 <ArrowRight size={15} />
               )}
-              {method === 'signup'
-                ? 'Create account'
-                : method === 'magic'
-                  ? 'Send me a link'
-                  : 'Sign in'}
+              {method === "signup"
+                ? "Create account"
+                : method === "magic"
+                  ? "Send me a link"
+                  : "Sign in"}
             </button>
           </form>
 
@@ -250,7 +287,9 @@ export default function LoginScreen() {
             <>
               <div className="flex items-center gap-3 my-4">
                 <span className="h-px flex-1 bg-border" />
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">or</span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  or
+                </span>
                 <span className="h-px flex-1 bg-border" />
               </div>
 
@@ -270,14 +309,16 @@ export default function LoginScreen() {
                 <button
                   type="button"
                   onClick={() => {
-                    setMethod(method === 'magic' ? 'password' : 'magic');
-                    setError('');
-                    setNotice('');
+                    setMethod(method === "magic" ? "password" : "magic");
+                    setError("");
+                    setNotice("");
                   }}
                   className="w-full h-9 rounded-lg bg-muted border border-border text-sm font-medium flex items-center justify-center gap-2 hover:border-primary/40 transition-colors"
                 >
                   <Mail size={15} className="text-muted-foreground" />
-                  {method === 'magic' ? 'Use a password instead' : 'Email me a sign-in link'}
+                  {method === "magic"
+                    ? "Use a password instead"
+                    : "Email me a sign-in link"}
                 </button>
               </div>
             </>
@@ -287,16 +328,18 @@ export default function LoginScreen() {
             <button
               type="button"
               onClick={() => {
-                setMethod(method === 'signup' ? 'password' : 'signup');
-                setError('');
-                setNotice('');
+                setMethod(method === "signup" ? "password" : "signup");
+                setError("");
+                setNotice("");
               }}
               className="text-primary hover:underline"
             >
-              {method === 'signup' ? 'I already have an account' : 'Create an account'}
+              {method === "signup"
+                ? "I already have an account"
+                : "Create an account"}
             </button>
 
-            {method === 'password' && (
+            {method === "password" && (
               <button
                 type="button"
                 onClick={forgotPassword}
@@ -310,9 +353,10 @@ export default function LoginScreen() {
 
         {isFileBuild && (
           <p className="text-[11px] text-muted-foreground/80 leading-relaxed mt-4 px-1">
-            This is the downloaded copy of MIS, so sign-in links and Google are unavailable —
-            both have to send your browser back to a web address, and a file on your disk is
-            not one. Email and password works exactly the same either way.
+            This is the downloaded copy of MIS, so sign-in links and Google are
+            unavailable — both have to send your browser back to a web address,
+            and a file on your disk is not one. Email and password works exactly
+            the same either way.
           </p>
         )}
       </div>

@@ -1,4 +1,5 @@
-import { useState, useEffect, type RefObject } from 'react';
+import { useState, useEffect } from "preact/hooks";
+import { type RefObject } from "preact";
 
 /**
  * Fullscreens one element and reports whether it currently is.
@@ -12,8 +13,8 @@ export function useFullscreen(ref: RefObject<HTMLElement>) {
 
   useEffect(() => {
     const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
-    document.addEventListener('fullscreenchange', onChange);
-    return () => document.removeEventListener('fullscreenchange', onChange);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
   const toggle = () => {
