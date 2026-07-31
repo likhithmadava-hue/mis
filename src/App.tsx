@@ -9,9 +9,7 @@ import {
   CalendarCheck,
   PanelLeftClose,
   PanelLeftOpen,
-  Loader2,
-  UploadCloud,
-  X,
+  // Loader2, UploadCloud, X — used only by the accounts block below
 } from 'lucide-react';
 import FocusTimer from './modules/focus';
 import DailyLog from './modules/log';
@@ -20,13 +18,23 @@ import DatabaseExplorer from './modules/database';
 import {
   ArborDatabase,
   MODES,
-  countImportableGuestRows,
-  dismissGuestImport,
-  importGuestData,
+  // countImportableGuestRows, dismissGuestImport, importGuestData — accounts block
   type AppMode,
 } from './core/db';
 import { MODE_META } from './core/scoring';
-import { AccountPanel, LoginScreen, useAuth } from './core/auth';
+
+// ── Accounts / login are commented out for now ───────────────────────────
+// MIS is device-only: no sign-in screen, no account panel, nothing leaves
+// this computer. Everything under src/core/auth is still there and still
+// works — it is simply not wired in.
+//
+// To bring accounts back:
+//   1. uncomment the import below, and the icon + db imports above
+//   2. uncomment the auth gate in App() and the ImportOfflineData function
+//   3. restore the `signedIn` prop on Workspace and its two uses
+//   4. uncomment AuthProvider in main.tsx
+//   5. set LOGIN_ENABLED = true in core/auth/client.ts
+// import { AccountPanel, LoginScreen, useAuth } from './core/auth';
 
 // ── App Guard (blocking) is disabled for now ─────────────────────────────
 // Real blocking will be handled by the Python backend engine later.
@@ -79,25 +87,24 @@ const greeting = () => {
 };
 
 /**
- * The gate in front of everything.
+ * The way in.
  *
- * `Workspace` reads the database as it renders, so it must not mount until the
- * right account's data is in place — hence the wait on `preparing` as well as
- * `loading`. When Supabase is not configured at all the phase is `disabled` and
- * MIS runs exactly as it always did: no login, saved to this computer only.
+ * With accounts commented out there is nothing to wait for and nobody to
+ * identify, so this hands straight to the workspace. The gate that used to
+ * live here — a loading state while the session was worked out, then either
+ * the login screen or the workspace — is kept below.
  */
 export default function App() {
-  const { phase } = useAuth();
+  return <Workspace />;
+}
 
-  // ── Temporary preview hatch ──────────────────────────────────────────────
-  // Open http://localhost:5173/?login to see the sign-in screen before Supabase
-  // is set up. Without this, an empty .env.local means `phase` is 'disabled' and
-  // the login is never mounted. The form buttons are inert here (there is no
-  // backend to talk to) — it is purely to look at the design. Delete this block
-  // once .env.local is filled in and the real login shows on its own.
-  if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('login')) {
-    return <LoginScreen />;
-  }
+/*
+// ── The auth gate, for when accounts come back ───────────────────────────
+// `Workspace` reads the database as it renders, so it must not mount until
+// the right account's data is in place — hence the wait on `preparing` as
+// well as `loading`.
+export default function App() {
+  const { phase } = useAuth();
 
   if (phase === 'loading' || phase === 'preparing') {
     return (
@@ -118,12 +125,10 @@ export default function App() {
   return <Workspace signedIn={phase === 'ready'} />;
 }
 
-/**
- * Offered once, after signing in on a machine that already had MIS data saved
- * without an account. Never automatic: the desktop build seeds two weeks of
- * sample rows on first run, and quietly uploading those into a real account
- * would be indistinguishable from real study history.
- */
+// Offered once, after signing in on a machine that already had MIS data saved
+// without an account. Never automatic: the desktop build seeds two weeks of
+// sample rows on first run, and quietly uploading those into a real account
+// would be indistinguishable from real study history.
 function ImportOfflineData() {
   const [rows, setRows] = useState(() => countImportableGuestRows());
   if (rows === 0) return null;
@@ -180,8 +185,10 @@ function ImportOfflineData() {
     </div>
   );
 }
+*/
 
-function Workspace({ signedIn }: { signedIn: boolean }) {
+// takes `{ signedIn }: { signedIn: boolean }` when accounts are wired back in
+function Workspace() {
   const [mode, setMode] = useState<AppMode>(() => ArborDatabase.getAppMode());
   const [activeTab, setActiveTab] = useState<TabId>('grow');
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -308,7 +315,8 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
               {MODE_META[mode].blurb}
             </p>
           )}
-          {signedIn && <AccountPanel collapsed={navCollapsed} />}
+          {/* accounts commented out — see the block at the top of this file */}
+          {/* {signedIn && <AccountPanel collapsed={navCollapsed} />} */}
         </div>
       </aside>
 
@@ -339,7 +347,7 @@ function Workspace({ signedIn }: { signedIn: boolean }) {
           </button>
         </div>
 
-        {signedIn && <ImportOfflineData />}
+        {/* {signedIn && <ImportOfflineData />} */}
 
         {activeTab === 'focus' && <FocusTimer triggerUpdate={triggerUpdate} onSessionComplete={refresh} />}
         {activeTab === 'grow' && <GrowTrack mode={mode} triggerUpdate={triggerUpdate} onLogbookChange={refresh} />}

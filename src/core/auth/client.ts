@@ -15,11 +15,30 @@ const url = (import.meta.env.VITE_SUPABASE_URL ?? '').trim();
 const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
 
 /**
- * False until `.env.local` is filled in. When it is false MIS keeps working
- * exactly as it did before Supabase existed — no login screen, everything saved
- * to this computer only — instead of showing a login that cannot possibly work.
+ * ── Login is switched off ────────────────────────────────────────────────────
+ * MIS is a device-first app for now: no accounts, no login screen, nothing
+ * leaving this computer. The Supabase code below is left intact rather than
+ * deleted so it is ready when accounts come back.
+ *
+ * This flag is the bottom layer. The app no longer imports any of this: the
+ * auth gate in App.tsx and the AuthProvider in main.tsx are both commented
+ * out, so nothing here is even reachable. Keeping the flag false as well means
+ * `supabase` stays null, so `core/db/remote.ts` — which is still imported by
+ * the sync layer — never tries to talk to the network.
+ *
+ * Flipping this to `true` alone will NOT bring the login screen back; the full
+ * restore list is at the top of App.tsx. `.env.local` still holds the project
+ * credentials, so nothing else needs restoring.
  */
-export const isSupabaseConfigured = Boolean(url && anonKey);
+export const LOGIN_ENABLED = false;
+
+/**
+ * False when login is switched off, or until `.env.local` is filled in. When it
+ * is false MIS keeps working exactly as it did before Supabase existed — no
+ * login screen, everything saved to this computer only — instead of showing a
+ * login that cannot possibly work.
+ */
+export const isSupabaseConfigured = LOGIN_ENABLED && Boolean(url && anonKey);
 
 /**
  * Null when unconfigured. Every caller has to check, which is deliberate: it
