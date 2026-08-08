@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en" data-mode="academic">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>MIS — Mistake Intelligence System</title>
+    <!--
+      No <link> to a font CDN, no first-run "Set up MIS" overlay, no
+      `window.__MIS__` host token. All three existed because the old build was a
+      loose HTML file that had to bootstrap itself and prove it was talking to a
+      trusted local server. An installed Tauri app is none of those things:
+      fonts ship inside the binary, the app is already installed, and the
+      frontend reaches Rust through the IPC bridge rather than over loopback.
+    -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/index.tsx"></script>
+  </body>
+</html>

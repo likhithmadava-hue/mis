@@ -1,0 +1,27 @@
+# ── Node / Vite ──────────────────────────────────────────────────────────────
+node_modules/
+dist/
+*.local
+.vite/
+
+# ── Rust / Tauri ─────────────────────────────────────────────────────────────
+src-tauri/target/
+src-tauri/gen/
+# Bundled installers. Built artefacts, not source — they belong on a GitHub
+# Release, not in the tree.
+src-tauri/target/release/bundle/
+
+# ── Secrets ──────────────────────────────────────────────────────────────────
+# The vault recovery PRIVATE key. Never commit this. The matching public key is
+# compiled into src-tauri/src/vault/recovery_key.rs and is safe to publish.
+*.pem
+dev_keys/
+.env
+.env.local
+
+# ── Editor / OS ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.swp

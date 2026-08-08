@@ -1,0 +1,195 @@
+/* The three typefaces, embedded as data URIs.
+
+   MIS is an installed desktop app with no network permission — there is no
+   Google Fonts request to make and no fallback to fall back to. `fonts.css` is
+   ~460 KB of base64 woff2 and it is loaded from disk before the first frame, so
+   the app has never once rendered in Times New Roman while a font arrived. */
+@import './fonts.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens matched to the original Mistake Intelligence System app
+   (mistakeintelligencesystem.lovable.app) — same colors, converted to HSL */
+:root {
+  /* makes native widgets (date pickers, scrollbars) render in dark mode
+     instead of the platform's default white */
+  color-scheme: dark;
+
+  --background: 213 24% 7%;        /* #0e1217 */
+  --foreground: 216 27% 96%;       /* #f3f5f8 */
+  --card: 213 20% 11%;             /* #161b21 */
+  --border: 215 13% 18%;           /* #292e35 */
+  --muted: 210 16% 15%;            /* #1f252b */
+  --muted-foreground: 209 10% 60%; /* #8f9aa4 */
+  --primary: 191 100% 49%;         /* #00ccf9 */
+  --primary-foreground: 210 58% 5%;/* #050c13 */
+  --secondary: 210 19% 16%;        /* #222a32 */
+  --accent: 194 44% 18%;           /* #193841 */
+  --destructive: 359 94% 62%;      /* #f94144 */
+  --warning: 36 93% 56%;           /* #f7a224 */
+  --success: 148 57% 48%;          /* #35c177 */
+  --sidebar: 207 33% 5%;           /* #090e12 */
+  --sidebar-accent: 210 19% 13%;   /* #1a2026 */
+
+  --gradient-glow: radial-gradient(60% 60% at 50% 0%, rgb(0 204 249 / 0.18), transparent 70%);
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-glow: 0 0 0 1px rgb(0 204 249 / 0.2), 0 8px 32px -8px rgb(0 204 249 / 0.25);
+}
+
+/* Life mode retints the whole app. Every accent in the UI resolves through
+   --primary, so overriding it here recolours the sidebar, buttons, focus
+   rings and charts without touching a single component. App.tsx sets
+   data-mode on <html>, mirroring `db.app_mode`. */
+:root[data-mode='life'] {
+  --primary: 160 84% 42%;          /* #11b981 */
+  --primary-foreground: 160 60% 5%;
+  --accent: 160 34% 15%;
+  --gradient-glow: radial-gradient(60% 60% at 50% 0%, rgb(52 211 153 / 0.16), transparent 70%);
+  --shadow-glow: 0 0 0 1px rgb(52 211 153 / 0.2), 0 8px 32px -8px rgb(52 211 153 / 0.25);
+}
+
+/* ── The one type-scale knob ──────────────────────────────────────────────
+   Every size in MIS is expressed in rem — Tailwind's text-*, p-*, gap-* and
+   w-* utilities all are, and the small caption sizes were converted from
+   pinned px (text-[10px] → text-[0.625rem]) so they scale here too. That
+   makes this rule the single place the whole app's size is decided.
+
+   The scale is fluid rather than a set of fixed steps: it grows continuously
+   with the window, from 16px at the app's minimum width to 18px maximised on a
+   large monitor, passing through ~17.5px at laptop width. Nothing changes size
+   *relative* to anything else — the whole app is one proportional system that
+   simply sits at a size the screen can carry. Steps would snap the entire
+   layout at a single pixel of resize; a clamp never does.
+
+   To read the middle term: 0.1701vw is the slope, 0.9617rem the intercept, so
+   the size hits the 1.125rem ceiling at 1536px wide. Move the first and last
+   numbers to resize the entire app — text, padding, icons and cards together.
+
+   This is what replaced the old `body { zoom: 1.25 }`. Same intent, but it
+   re-lays the page out at the new size instead of magnifying a fixed canvas,
+   so a bigger scale never pushes content out of a narrow window. */
+html {
+  font-size: clamp(1rem, 0.9617rem + 0.1701vw, 1.125rem);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: hsl(var(--background));
+  /* the original's signature: one soft cyan glow bleeding down from the top */
+  background-image: var(--gradient-glow);
+  background-repeat: no-repeat;
+  color: hsl(var(--foreground));
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* A last-resort guard: nothing should push the page sideways. Wide content
+   (the heat grid, the mistake table) scrolls inside its own box instead — see
+   the overflow-x-auto wrappers in TrackSummary and DatabaseExplorer. */
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* Media never overflows its column, whatever its intrinsic size. */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* ── Desktop chrome ───────────────────────────────────────────────────────
+   Three habits the web gave us that an installed app should not have. In a
+   browser tab these are conveniences; in a window that is supposed to feel
+   like a program, selecting the sidebar labels by dragging across them or
+   right-clicking into "Reload" breaks the illusion immediately. */
+
+/* Text is selectable where text is the point — a note, a chart tooltip, the
+   vault folder path someone needs to paste into Explorer — and nowhere else.
+   Buttons and labels opt out; anything the user might legitimately copy opts
+   back in with `select-text`. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+input,
+textarea,
+[contenteditable='true'],
+.select-text {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: auto;
+}
+
+/* Dragging an icon or a chart out of the window does nothing useful. */
+img,
+svg {
+  -webkit-user-drag: none;
+}
+
+.glow-primary,
+.border-glow {
+  box-shadow: var(--shadow-glow);
+}
+
+.card-shadow {
+  box-shadow: var(--shadow-card);
+}
+
+/* There are no native <select>s in the app. Windows draws their popup with a
+   half-native menu that ignores `option { background-color }`, so the list
+   rendered white against this dark theme no matter what was set here. They are
+   replaced by core/ui/Select.tsx, which is ours to style. `color-scheme: dark`
+   above still matters — it themes the scrollbars and the native date and time
+   pickers, which have no such replacement. */
+
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+[role='combobox']:focus-visible {
+  outline: none;
+  border-color: hsl(var(--primary) / 0.6);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+}
+
+/* slim, theme-matched scrollbars instead of the default grey ones */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 8px;
+}
+/* these two follow --primary so they retint with the mode */
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.5);
+}
+
+/* highlighted text picks up the mode accent instead of the default blue */
+::selection {
+  background: hsl(var(--primary) / 0.35);
+}
+
+/* Someone who has asked Windows to stop animating things means it. Every
+   transition in the app is decoration over a state change that has already
+   happened, so there is nothing to lose by removing them. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
