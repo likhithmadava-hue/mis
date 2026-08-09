@@ -19,6 +19,12 @@ dev_keys/
 .env
 .env.local
 
+# ── Local launchers ──────────────────────────────────────────────────────────
+# Convenience shortcuts that `cd` to a hard-coded absolute path on one machine.
+# They cannot work from a fresh clone, so they are personal tooling, not source.
+Open MIS*.bat
+MIS*.lnk
+
 # ── Editor / OS ──────────────────────────────────────────────────────────────
 .vscode/
 .idea/
