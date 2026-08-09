@@ -25,6 +25,13 @@ dev_keys/
 Open MIS*.bat
 MIS*.lnk
 
+# ── Session notes ────────────────────────────────────────────────────────────
+# Written by the Claude Code chat-progress routine (a SessionEnd hook plus a
+# 22:50 scheduled task on one machine). A running journal of what each chat did
+# and where to resume — personal working notes about the repo, not part of it.
+Chat Progress.md
+Chat Progress Log.md
+
 # ── Editor / OS ──────────────────────────────────────────────────────────────
 .vscode/
 .idea/
