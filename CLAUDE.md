@@ -7,7 +7,7 @@ Guidance for Claude Code when working in this repository.
 This is `D:\MIS(APK)\Dev` — **the working copy. Every change goes here.**
 
 - `D:\MIS(APK)\RD` — the verified copy. **Never edit it directly.** It is refreshed from Dev only when vohrim says **"Recast"**, and only then.
-- This folder is meant to be uploaded to GitHub as-is. `.gitignore` already excludes `node_modules/`, `dist/`, `src-tauri/target/` and every `*.pem`. Nothing secret is in the tree — check before adding one.
+- This folder **is** `github.com/likhithmadava-hue/mis`. Work happens on a feature branch, landed via `gh pr create` — never commit or push straight to `main`; vohrim merges, not Claude. `.gitignore` excludes `node_modules/`, `dist/`, `src-tauri/target/` and every `*.pem`. Nothing secret is in the tree — check before adding one.
 - `D:\MIS(Dev)` — **the previous app**: React + a Python FastAPI host. It still runs. This repository is its replacement, not its successor branch; the two share no code.
 - `D:\MIS(Dev)\dev_keys\mis_dev_private.pem` — the vault recovery **private** key. Never ships, never commits, back it up offline. The matching **public** key is compiled into `src-tauri/src/vault/recovery_key.rs` and is safe to publish.
 
@@ -19,7 +19,7 @@ This is `D:\MIS(APK)\Dev` — **the working copy. Every change goes here.**
 
 - **Tauri 2** shell — one process, one window, an NSIS/MSI installer.
 - **Rust** backend (`src-tauri/`, ~5,600 lines, 82 tests) — owns the encrypted vault, the scoring, the day locks, the audit log and the screen-time tracker.
-- **SolidJS + TypeScript + Tailwind** frontend (`src/`, ~8,550 lines) — draws what Rust computed.
+- **SolidJS + TypeScript + Tailwind** frontend (`src/`, ~9,300 lines) — draws what Rust computed.
 
 There is **no HTTP server, no port, no token and no `fetch`**. The old app talked to a local Python host over loopback with a per-launch token spliced into `index.html`; that whole surface is gone. The frontend reaches Rust through Tauri's IPC bridge, which is a function call in the same process.
 
@@ -194,3 +194,22 @@ The app runs in **Academic** or **Life**, chosen from the rail and persisted as 
 **"Recast" is a command:** when vohrim says it, refresh `D:\MIS(APK)\RD` from this folder — source only, never `node_modules/`, `dist/` or `src-tauri/target/`. Nothing else in this repository changes.
 
 **"Arise" is a command:** when vohrim says it, re-read the code and refresh **this file only**. Do not touch `README.md`, which is beginner-facing and updated separately on request.
+
+## Maintaining this file
+
+This file has a fixed shape. On "Arise," fit new facts into the matching section below — don't tack a new one onto the end:
+
+1. **Where you are** — which copy this is, related copies, secrets/keys.
+2. **What this project is** — the pitch, the stack, what's not built yet.
+3. **Commands** — how to run/build/test it.
+4. **Architecture** — the file tree and the rules that follow from it.
+5. **Domain sections** (the vault, the two modes) — one per subsystem that has rules worth stating.
+6. **Rules that are easy to break** / **Conventions and gotchas** — one bullet per trap, each earning its place by naming the concrete failure it prevents.
+7. **Docs** — trigger words, and what not to touch.
+
+What keeps it from rotting:
+
+- **No dated status lines.** "Verified 3 Aug 2026" is true today and false in a month. A snapshot of current progress belongs in conversation or a commit message, not here — this file states standing rules, not status.
+- **Prune on every Arise, don't just append.** Before adding a bullet to a gotchas section, check whether an existing one already describes the trap and merge into it; delete a bullet the moment its underlying code path stops existing.
+- **~250-line budget.** If a refresh would push this past ~280 lines, split the overflow into a doc next to the code it describes (e.g. a `src/README.md`) and leave one pointer line here instead of inlining it.
+- **Keep the RD copy honest.** `D:\MIS(APK)\RD\CLAUDE.md` is this file after the last "Recast" — it should only differ where the code differs (line counts, features not yet promoted). A structural gap (a section here missing there) is a sync bug, not a feature.
