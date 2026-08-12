@@ -142,6 +142,170 @@ svg {
   box-shadow: var(--shadow-card);
 }
 
+/* ── Split-flap digit ─────────────────────────────────────────────────────
+   A mechanical flip-clock tile. Four layers, two of them static:
+
+     static top     the NEW digit's top half, uncovered as the flap folds away
+     static bottom  the OLD digit's bottom half, waiting to be covered
+     flap top       the OLD digit's top half, hinged at the seam, folds down
+     flap bottom    the NEW digit's bottom half, hinged at the seam, falls in
+
+   Both flaps are half-height windows, so the element's own edge sits exactly
+   on the seam and *is* the hinge. Rotating a full-height layer instead would
+   pivot around the outside of the tile and swing through an arc nothing like
+   a fold — that is the single detail this effect lives or dies on.
+
+   Every length is in `em` so one font-size on the tile scales the card, the
+   hinge and the perspective together; nothing here needs a second size knob. */
+.flip-digit {
+  position: relative;
+  flex: none;
+  width: 1.34em;
+  height: 1.5em;
+  /* in em, so the depth of the fold reads the same at every digit size */
+  perspective: 12em;
+  perspective-origin: 50% 50%;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.4rem;
+  overflow: hidden;
+}
+
+.flip-half {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  overflow: hidden;
+  /* opaque, or the layer underneath shows through mid-rotation */
+  background: hsl(var(--background));
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-half--top {
+  top: 0;
+}
+.flip-half--bottom {
+  bottom: 0;
+}
+
+/* A full-tile-height glyph box pinned to the seam edge: the numeral is centred
+   in whole-tile space and merely cropped by its window, so the top and bottom
+   halves of the same digit line up exactly across the split. */
+.flip-glyph {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 200%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.flip-half--top .flip-glyph {
+  top: 0;
+}
+.flip-half--bottom .flip-glyph {
+  bottom: 0;
+}
+
+.flip-flap {
+  z-index: 20;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* the fold accelerates like a dropped card... */
+.flip-flap--top {
+  transform-origin: 50% 100%;
+  animation: flip-fold calc(var(--flip-dur, 520ms) / 2) cubic-bezier(0.55, 0.06, 0.68, 0.19) both;
+}
+
+/* ...and the incoming half decelerates into the seam. `both` is load-bearing:
+   a backwards fill is the only thing holding this flap folded up during its
+   delay — with `forwards` it sits unrotated and shows the new digit from the
+   first frame, which is no flip at all. */
+.flip-flap--bottom {
+  transform-origin: 50% 0%;
+  animation: flip-fall calc(var(--flip-dur, 520ms) / 2) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--flip-dur, 520ms) / 2);
+}
+
+@keyframes flip-fold {
+  from {
+    transform: rotateX(0deg);
+  }
+  to {
+    transform: rotateX(-90deg);
+  }
+}
+
+@keyframes flip-fall {
+  from {
+    transform: rotateX(90deg);
+  }
+  to {
+    transform: rotateX(0deg);
+  }
+}
+
+/* Lighting: a face turning away from the viewer loses light. Without this the
+   fold reads as a flat shape changing height rather than a panel in space. */
+.flip-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.flip-flap--top .flip-shade {
+  background: linear-gradient(180deg, rgb(0 0 0 / 0) 35%, rgb(0 0 0 / 0.75));
+  animation: flip-shade-in calc(var(--flip-dur, 520ms) / 2) cubic-bezier(0.55, 0.06, 0.68, 0.19) both;
+}
+.flip-flap--bottom .flip-shade {
+  background: linear-gradient(0deg, rgb(0 0 0 / 0) 35%, rgb(0 0 0 / 0.75));
+  animation: flip-shade-out calc(var(--flip-dur, 520ms) / 2) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--flip-dur, 520ms) / 2);
+}
+
+@keyframes flip-shade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes flip-shade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Above the flaps, so the split stays readable right through the rotation. */
+.flip-seam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  z-index: 30;
+  background: rgb(0 0 0 / 0.55);
+  pointer-events: none;
+}
+
+/* The global reduced-motion rule already collapses these animations; the
+   component also stops mounting flaps at all, so the digit simply changes. */
+@media (prefers-reduced-motion: reduce) {
+  .flip-flap {
+    display: none;
+  }
+}
+
 /* There are no native <select>s in the app. Windows draws their popup with a
    half-native menu that ignores `option { background-color }`, so the list
    rendered white against this dark theme no matter what was set here. They are
