@@ -12,8 +12,13 @@ export default {
         card: 'hsl(var(--card))',
         border: 'hsl(var(--border))',
         muted: 'hsl(var(--muted))',
+        elevated: 'hsl(var(--elevated))',
         'muted-foreground': 'hsl(var(--muted-foreground))',
+        // the third text step: quieter than muted, still legible. For
+        // denominators, empty states and anything that must recede.
+        'subtle-foreground': 'hsl(var(--subtle-foreground))',
         primary: 'hsl(var(--primary))',
+        'primary-deep': 'hsl(var(--primary-deep))',
         'primary-foreground': 'hsl(var(--primary-foreground))',
         secondary: 'hsl(var(--secondary))',
         accent: 'hsl(var(--accent))',

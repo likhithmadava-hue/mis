@@ -1,9 +1,11 @@
 import {
+  Activity,
   AlertTriangle,
   Ban,
   BarChart3,
   BookMarked,
   Clock,
+  Compass,
   Eraser,
   FileText,
   Flame,
@@ -25,7 +27,18 @@ import { shortDate } from '../../core/dates';
 import type { AppMode } from '../../core/db';
 import { DAY_TARGET, TRACK_TARGET, WELL_SPENT_TARGET } from '../../core/scoring';
 import { createHomeData, humanDuration } from './homeData';
-import { DayStrip, ScoreRing, Spark, Widget, WidgetBar } from './widgets';
+import {
+  BoardCard,
+  ContinueCard,
+  DayStrip,
+  InsightRow,
+  ScoreHero,
+  Spark,
+  StatBlock,
+  WeekChart,
+  Widget,
+  WidgetBar,
+} from './widgets';
 
 /** the tabs a widget can hand you off to */
 export type HomeTab = 'log' | 'report' | 'db' | 'screen' | 'focus';
@@ -47,13 +60,20 @@ interface HomeProps {
  * board answers a dozen at a glance and every tile is a shortcut to the tab that
  * owns it, so reading and acting are the same gesture.
  *
- * It is laid out in three bands, and the middle one is the point:
+ * It is laid out in four bands, and they are deliberately **not** of equal
+ * weight — that was the flaw in the first version of this board. Eleven
+ * identical tiles meant the day score and the sleep window were drawn the same
+ * size, so the page had no answer to "what am I looking at first?":
  *
- * - **Today** — the day's score, the streak, and the week around them.
+ * - **Today** — the score as the anchor, at more than twice the type size of
+ *   anything else, with the streak, the average and the week beside it.
+ * - **Continue** — the one card that proposes rather than reports.
  * - **Right now** — one tile per track in the current mode, each showing the
- *   score *and* the raw fact behind it, plus whatever else is outstanding.
- * - **What the data says** — the standing patterns. Papers, mistakes and marks
- *   lost in Academic; screen time, leisure and sleep in Life.
+ *   score *and* the raw fact behind it. Secondary weight: these are how today is
+ *   going, not what today is worth.
+ * - **What the data says** — the standing patterns, gathered into a single
+ *   section rather than another row of identical cards, because a pattern drawn
+ *   from the whole logbook should not compete with this morning's score.
  *
  * **The two modes get different boards, not a filtered one.** Academic ends in
  * the paper analytics because that is what moves marks; Life ends in where the
@@ -74,12 +94,12 @@ export default function Home(props: HomeProps) {
       : score >= 8
         ? 'bg-success'
         : score >= 5
-          ? 'bg-primary'
+          ? 'bar-primary'
           : score > 0
             ? 'bg-warning'
             : 'bg-border';
 
-  const muted = (empty: boolean) => (empty ? 'text-muted-foreground/40' : 'text-foreground');
+  const muted = (empty: boolean) => (empty ? 'text-subtle-foreground' : 'text-foreground');
 
   /** today's screen time, but only when it is actually a reading */
   const screenOk = () => {
@@ -100,20 +120,38 @@ export default function Home(props: HomeProps) {
   const topReason = () => papers().reasonBars[0];
   const topChapter = () => papers().chapterBars[0];
 
+  const openReport = (
+    <button
+      type="button"
+      onClick={() => props.onOpen('report')}
+      class="flex-shrink-0 h-9 px-3.5 rounded-xl bg-muted border border-border text-[0.75rem] font-semibold font-space flex items-center gap-2 text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+    >
+      <BarChart3 size={14} />
+      Open Report
+    </button>
+  );
+
   return (
-    <div class="flex-1 flex flex-col gap-5 min-h-0">
+    <div class="flex-1 flex flex-col gap-7 min-h-0">
       {/* ── Today ──────────────────────────────────────────────────────────── */}
       <Band label="Today">
-        <Widget
+        <ScoreHero
           icon={Target}
-          label="Day score"
-          value={data.logged() ? String(data.todayScore()) : '—'}
-          sub={data.logged() ? `of ${DAY_TARGET} · ${data.submitted() ? 'submitted' : 'open'}` : 'nothing logged yet'}
-          tone={muted(!data.logged())}
-          aside={<ScoreRing value={data.todayScore()} max={DAY_TARGET} />}
-          onClick={() => props.onOpen('log')}
+          label="Today’s score"
+          value={data.todayScore()}
+          max={DAY_TARGET}
+          logged={data.logged()}
+          status={
+            data.logged()
+              ? data.submitted()
+                ? 'Submitted and locked'
+                : 'Open — still editable'
+              : 'Nothing logged yet today'
+          }
+          onOpen={() => props.onOpen('log')}
           goes="Open the Daily Log"
           hint={`Today's ${props.mode()} score, out of ${DAY_TARGET}. Opens the Daily Log.`}
+          class="col-span-2"
         />
 
         <Widget
@@ -125,14 +163,11 @@ export default function Home(props: HomeProps) {
               ? `day${data.streak().days === 1 ? '' : 's'} · today is in`
               : `day${data.streak().days === 1 ? '' : 's'} · best ${data.streak().best}`
           }
-          tone={data.streak().days > 0 ? 'text-orange-400' : 'text-muted-foreground/40'}
+          tone={data.streak().days > 0 ? 'text-primary' : 'text-subtle-foreground'}
           delay={60}
           hint="Days that cleared your study target, counted over your whole history."
         >
-          <DayStrip
-            days={data.recentDays()}
-            targetHours={data.user().target_study_hours}
-          />
+          <DayStrip days={data.recentDays()} targetHours={data.user().target_study_hours} />
         </Widget>
 
         <Widget
@@ -161,6 +196,7 @@ export default function Home(props: HomeProps) {
               tone={muted(data.leisureWeek().days === 0)}
               delay={180}
               hint={`Well-spent leisure per logged day. The target is ${WELL_SPENT_TARGET} minutes.`}
+              class="col-span-2 lg:col-span-1"
             >
               <Spark
                 data={data.sparks().leisure}
@@ -177,13 +213,47 @@ export default function Home(props: HomeProps) {
             tone={muted(data.totalStudy() === 0)}
             delay={180}
             hint="Study hours across the week, however they were logged."
+            class="col-span-2 lg:col-span-1"
           >
             <Spark
               data={data.sparks().study}
-              max={Math.max(data.user().target_study_hours, ...data.sparks().study.map((v) => v ?? 0))}
+              max={Math.max(
+                data.user().target_study_hours,
+                ...data.sparks().study.map((v) => v ?? 0),
+              )}
             />
           </Widget>
         </Show>
+
+        <BoardCard
+          icon={Activity}
+          label="This week"
+          delay={240}
+          hint={`Each day's ${props.mode()} score out of ${DAY_TARGET}. A day with no log is drawn as a gap.`}
+          class="col-span-2 lg:col-span-3"
+        >
+          <WeekChart days={data.week()} max={DAY_TARGET} />
+        </BoardCard>
+      </Band>
+
+      {/* ── What to do next ────────────────────────────────────────────────── */}
+      <Band label={academic() ? 'Continue studying' : 'Pick up where you left off'}>
+        <ContinueCard
+          icon={Compass}
+          label={academic() ? 'Continue studying' : 'Still outstanding'}
+          target={
+            data.continuePick()
+              ? { ...data.continuePick()!, onGo: () => props.onOpen(data.continuePick()!.goes) }
+              : null
+          }
+          empty={{
+            line: data.continueEmptyLine(),
+            cta: 'Open Daily Log',
+            onGo: () => props.onOpen('log'),
+          }}
+          delay={300}
+          class="col-span-2 lg:col-span-4"
+        />
       </Band>
 
       {/* ── Right now ──────────────────────────────────────────────────────── */}
@@ -196,7 +266,7 @@ export default function Home(props: HomeProps) {
               value={t.score === null ? '—' : `${Math.round(t.score)}`}
               sub={t.score === null ? 'no log yet today' : t.detail}
               tone={muted(t.score === null)}
-              delay={240 + i() * 50}
+              delay={440 + i() * 50}
               onClick={() => props.onOpen('log')}
               goes={`Log ${t.label} in the Daily Log`}
               hint={`${t.label} — ${t.hint}. Scored out of ${TRACK_TARGET}.`}
@@ -206,6 +276,8 @@ export default function Home(props: HomeProps) {
           )}
         </For>
 
+        {/* Academic has two tracks to Life's four; these two are the rest of
+            "right now" in that mode, and they also square the row off. */}
         <Show when={academic()}>
           <Widget
             icon={Timer}
@@ -244,191 +316,180 @@ export default function Home(props: HomeProps) {
                   ? ((data.topics().total - data.topics().left) / data.topics().total) * 100
                   : 0
               }
-              class="bg-primary"
             />
           </Widget>
         </Show>
       </Band>
 
       {/* ── What the data says ─────────────────────────────────────────────── */}
-      <Band
+      <Section
         label={academic() ? 'What your papers say' : 'Where the day went'}
-        cols={academic() ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'}
-        action={
-          <button
-            type="button"
-            onClick={() => props.onOpen('report')}
-            class="flex-shrink-0 h-8 px-3 rounded-xl bg-muted border border-border text-[0.6875rem] font-semibold font-space flex items-center gap-2 text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
-          >
-            <BarChart3 size={13} />
-            Open Report
-          </button>
+        sub={
+          academic()
+            ? 'What your performance data is telling you, across the whole logbook — not just this week.'
+            : 'What the tracker measured, and what you planned.'
         }
+        action={openReport}
       >
         <Show
           when={academic()}
           fallback={
             <>
-              <Widget
-                icon={MonitorPlay}
-                label="Screen time"
-                value={screenOk() ? humanDuration(screenOk()!.total) : '—'}
-                sub={
-                  screenOk()
-                    ? screenOk()!.topApp
-                      ? `most of it in ${screenOk()!.topApp}`
-                      : 'nothing recorded yet today'
-                    : screenExcuse()
-                }
-                tone={muted(!screenOk())}
-                delay={440}
-                onClick={() => props.onOpen('screen')}
-                goes="Open Screen Time"
-                hint="What the tracker measured in front of you today. Opens Screen Time."
-              />
-
-              <Widget
-                icon={Ban}
-                label="Distraction"
-                value={screenOk() ? `${Math.round(screenOk()!.sharePct)}%` : '—'}
-                sub={
-                  screenOk()
-                    ? `${humanDuration(screenOk()!.distraction)} of today`
-                    : screenExcuse()
-                }
-                tone={muted(!screenOk())}
-                delay={490}
-                onClick={() => props.onOpen('screen')}
-                goes="Open Screen Time"
-                hint="The share of today's screen time spent in apps categorised as distractions."
-              >
-                <WidgetBar
-                  pct={screenOk()?.sharePct ?? 0}
-                  class="bg-[hsl(var(--destructive))]"
+              <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatBlock
+                  icon={MonitorPlay}
+                  label="Screen time"
+                  value={screenOk() ? humanDuration(screenOk()!.total) : '—'}
+                  sub={
+                    screenOk()
+                      ? screenOk()!.topApp
+                        ? `most of it in ${screenOk()!.topApp}`
+                        : 'nothing recorded yet today'
+                      : screenExcuse()
+                  }
+                  tone={muted(!screenOk())}
+                  onClick={() => props.onOpen('screen')}
+                  goes="Open Screen Time"
+                  hint="What the tracker measured in front of you today. Opens Screen Time."
                 />
-              </Widget>
 
-              <Widget
-                icon={Trophy}
-                label="Best day"
-                value={data.bestDay() ? String(data.bestDay()?.by_mode?.[props.mode()] ?? 0) : '—'}
-                sub={
-                  data.bestDay()
-                    ? `of ${DAY_TARGET} on ${shortDate(data.bestDay()!.date)}`
-                    : 'no logged day this week'
-                }
-                tone={muted(!data.bestDay())}
-                delay={540}
-                hint="The highest Life score in the last seven days."
-              />
+                <StatBlock
+                  icon={Ban}
+                  label="Distraction"
+                  value={screenOk() ? `${Math.round(screenOk()!.sharePct)}%` : '—'}
+                  sub={
+                    screenOk() ? `${humanDuration(screenOk()!.distraction)} of today` : screenExcuse()
+                  }
+                  tone={muted(!screenOk())}
+                  onClick={() => props.onOpen('screen')}
+                  goes="Open Screen Time"
+                  hint="The share of today's screen time spent in apps categorised as distractions."
+                >
+                  <WidgetBar pct={screenOk()?.sharePct ?? 0} class="bg-destructive" />
+                </StatBlock>
 
-              <Widget
-                icon={Moon}
-                label="Sleep window"
-                value={`${data.sleep().bedtime}–${data.sleep().wake}`}
-                sub={`${data.sleep().hours}h planned`}
-                delay={590}
-                hint="The sleep window set in your profile. It is a plan, not a measurement."
-              />
+                <StatBlock
+                  icon={Trophy}
+                  label="Best day"
+                  value={data.bestDay() ? String(data.bestDay()?.by_mode?.[props.mode()] ?? 0) : '—'}
+                  sub={
+                    data.bestDay()
+                      ? `of ${DAY_TARGET} on ${shortDate(data.bestDay()!.date)}`
+                      : 'no logged day this week'
+                  }
+                  tone={muted(!data.bestDay())}
+                  hint="The highest Life score in the last seven days."
+                />
+
+                <StatBlock
+                  icon={Moon}
+                  label="Sleep window"
+                  value={`${data.sleep().bedtime}–${data.sleep().wake}`}
+                  sub={`${data.sleep().hours}h planned`}
+                  hint="The sleep window set in your profile. It is a plan, not a measurement."
+                />
+              </div>
             </>
           }
         >
-          <Widget
-            icon={FileText}
-            label="Papers logged"
-            value={String(papers().totalEntries)}
-            sub={papers().totalEntries ? 'in the mark logbook' : 'log your first paper'}
-            tone={muted(papers().totalEntries === 0)}
-            delay={440}
-            onClick={() => props.onOpen('db')}
-            goes="Open the Database"
-            hint="Every paper in the logbook, not just this week's. Opens the Database."
-          />
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <StatBlock
+              icon={FileText}
+              label="Papers logged"
+              value={String(papers().totalEntries)}
+              sub={papers().totalEntries ? 'in the mark logbook' : 'log your first paper'}
+              tone={muted(papers().totalEntries === 0)}
+              onClick={() => props.onOpen('db')}
+              goes="Open the Database"
+              hint="Every paper in the logbook, not just this week's. Opens the Database."
+            />
 
-          <Widget
-            icon={TrendingDown}
-            label="Marks lost"
-            value={String(papers().totalMarksLost)}
-            sub={papers().totalEntries ? 'across every paper' : 'nothing logged yet'}
-            tone={papers().totalMarksLost > 0 ? 'text-[hsl(var(--destructive))]' : muted(true)}
-            delay={490}
-            onClick={() => props.onOpen('db')}
-            goes="Open the Database"
-            hint="Total marks dropped across the whole logbook."
-          />
+            <StatBlock
+              icon={TrendingDown}
+              label="Marks lost"
+              value={String(papers().totalMarksLost)}
+              sub={papers().totalEntries ? 'across every paper' : 'nothing logged yet'}
+              tone={papers().totalMarksLost > 0 ? 'text-destructive' : 'text-subtle-foreground'}
+              onClick={() => props.onOpen('db')}
+              goes="Open the Database"
+              hint="Total marks dropped across the whole logbook."
+            />
 
-          <Widget
-            icon={Percent}
-            label="Average paper"
-            value={papers().totalEntries ? `${papers().avgPaper}%` : '—'}
-            sub={papers().totalEntries ? `over ${papers().totalEntries} papers` : 'nothing logged yet'}
-            tone={muted(papers().totalEntries === 0)}
-            delay={540}
-            hint="The mean score across every paper in the logbook."
-          >
-            <WidgetBar
-              pct={papers().avgPaper}
-              class={
-                papers().avgPaper >= 80
-                  ? 'bg-success'
-                  : papers().avgPaper >= 60
-                    ? 'bg-warning'
-                    : 'bg-[hsl(var(--destructive))]'
+            <StatBlock
+              icon={Percent}
+              label="Average paper"
+              value={papers().totalEntries ? `${papers().avgPaper}%` : '—'}
+              sub={
+                papers().totalEntries ? `over ${papers().totalEntries} papers` : 'nothing logged yet'
+              }
+              tone={muted(papers().totalEntries === 0)}
+              hint="The mean score across every paper in the logbook."
+            >
+              <WidgetBar
+                pct={papers().avgPaper}
+                class={
+                  papers().avgPaper >= 80
+                    ? 'bg-success'
+                    : papers().avgPaper >= 60
+                      ? 'bg-warning'
+                      : 'bg-destructive'
+                }
+              />
+            </StatBlock>
+
+            <StatBlock
+              icon={Eraser}
+              label="Careless index"
+              value={data.careless().anyLoss ? `${data.careless().pct}%` : '—'}
+              sub={
+                data.careless().anyLoss
+                  ? `${data.careless().marks} marks lost to slips`
+                  : 'no marks lost yet'
+              }
+              tone={muted(!data.careless().anyLoss)}
+              hint="Marks dropped on papers tagged Careless, as a share of every mark you have dropped. The part that costs nothing to fix."
+            >
+              <WidgetBar pct={data.careless().pct} class="bg-warning" />
+            </StatBlock>
+          </div>
+
+          {/* The two findings, as rows rather than tiles: both values are names,
+              and a chapter title in a card's number slot truncates every time. */}
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <InsightRow
+              icon={AlertTriangle}
+              label="Most common error"
+              value={topReason()?.label ?? 'Nothing tagged yet'}
+              detail={topReason()?.right ?? '—'}
+              tone={topReason() ? 'text-foreground' : 'text-subtle-foreground'}
+              onClick={() => props.onOpen('report')}
+              goes="Open the Report"
+              hint={
+                topReason()
+                  ? `${topReason().label} is your most frequent mistake type — ${topReason().right}.`
+                  : 'Tag a paper with a mistake reason to see this.'
               }
             />
-          </Widget>
 
-          <Widget
-            icon={AlertTriangle}
-            label="Most common error"
-            value={topReason()?.label ?? '—'}
-            sub={topReason() ? topReason().right : 'no mistakes tagged yet'}
-            tone={muted(!topReason())}
-            delay={590}
-            onClick={() => props.onOpen('report')}
-            goes="Open the Report"
-            hint={
-              topReason()
-                ? `${topReason().label} is your most frequent mistake type — ${topReason().right}.`
-                : 'Tag a paper with a mistake reason to see this.'
-            }
-          />
-
-          <Widget
-            icon={BookMarked}
-            label="Costliest chapter"
-            value={topChapter()?.label ?? '—'}
-            sub={topChapter() ? topChapter().right : 'no marks lost yet'}
-            tone={muted(!topChapter())}
-            delay={640}
-            onClick={() => props.onOpen('report')}
-            goes="Open the Report"
-            hint={
-              topChapter()
-                ? `${topChapter().label} — ${topChapter().right}. Where revision time is worth the most.`
-                : 'Log a paper with marks lost to see this.'
-            }
-          />
-
-          <Widget
-            icon={Eraser}
-            label="Careless index"
-            value={data.careless().anyLoss ? `${data.careless().pct}%` : '—'}
-            sub={
-              data.careless().anyLoss
-                ? `${data.careless().marks} marks lost to slips`
-                : 'no marks lost yet'
-            }
-            tone={muted(!data.careless().anyLoss)}
-            delay={690}
-            hint="Marks dropped on papers tagged Careless, as a share of every mark you have dropped. The part that costs nothing to fix."
-          >
-            <WidgetBar pct={data.careless().pct} class="bg-warning" />
-          </Widget>
+            <InsightRow
+              icon={BookMarked}
+              label="Costliest chapter"
+              value={topChapter()?.label ?? 'No marks lost yet'}
+              detail={topChapter()?.right ?? '—'}
+              tone={topChapter() ? 'text-foreground' : 'text-subtle-foreground'}
+              onClick={() => props.onOpen('report')}
+              goes="Open the Report"
+              hint={
+                topChapter()
+                  ? `${topChapter().label} — ${topChapter().right}. Where revision time is worth the most.`
+                  : 'Log a paper with marks lost to see this.'
+              }
+            />
+          </div>
         </Show>
-      </Band>
+      </Section>
 
-      <p class="flex-shrink-0 text-xs text-muted-foreground/70 text-center">
+      <p class="flex-shrink-0 text-[0.75rem] text-subtle-foreground text-center">
         Every tile opens the tab it came from. Charts, trends and paper analysis live in{' '}
         <button
           type="button"
@@ -446,29 +507,61 @@ export default function Home(props: HomeProps) {
 /**
  * One labelled row of the board.
  *
- * The heading is deliberately small and quiet: it groups the tiles without
- * competing with the numbers in them, which are the only thing on this page
- * anyone is here to read.
+ * The heading is deliberately quiet: it groups the cards without competing with
+ * the numbers in them, which are the only thing on this page anyone is here to
+ * read. The grid is always four columns wide on a large window and two below
+ * that — cards that want more claim it with `col-span-*` themselves, so the
+ * spans live next to the card they describe rather than in a lookup here.
  */
 function Band(props: {
   label: string;
-  /** the grid, when this band is not the usual four across */
-  cols?: string;
-  /** a control that belongs to the whole band, e.g. "Open Report" */
+  /** a control that belongs to the whole band */
   action?: JSX.Element;
   children: JSX.Element;
 }) {
   return (
-    <section class="flex flex-col gap-2">
+    <section class="flex flex-col gap-3">
       <div class="flex items-center justify-between gap-3">
-        <h3 class="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-muted-foreground/70 font-space">
+        <h3 class="text-[0.75rem] font-bold uppercase tracking-[0.12em] text-muted-foreground font-space">
           {props.label}
         </h3>
         {props.action}
       </div>
-      <div class={`grid gap-3 items-stretch ${props.cols ?? 'grid-cols-2 lg:grid-cols-4'}`}>
-        {props.children}
+      <div class="grid gap-4 items-stretch grid-cols-2 lg:grid-cols-4">{props.children}</div>
+    </section>
+  );
+}
+
+/**
+ * The analytics band: one bordered box, not another row of tiles.
+ *
+ * These numbers are drawn from the whole logbook rather than from today, and
+ * they were previously indistinguishable from the day's own score — six
+ * identical cards saying "this is exactly as urgent as everything above". The
+ * container is the hierarchy: inside it the statistics can stay borderless and
+ * quiet and still read as belonging together.
+ */
+function Section(props: {
+  label: string;
+  sub: string;
+  action?: JSX.Element;
+  children: JSX.Element;
+}) {
+  return (
+    <section
+      style={{ 'animation-delay': '520ms' }}
+      class="animate-rise-in bg-card rounded-2xl border border-border card-shadow p-5 flex flex-col gap-4"
+    >
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="min-w-0">
+          <h3 class="text-[0.75rem] font-bold uppercase tracking-[0.12em] text-muted-foreground font-space">
+            {props.label}
+          </h3>
+          <p class="text-[0.8125rem] text-subtle-foreground mt-1.5">{props.sub}</p>
+        </div>
+        {props.action}
       </div>
+      {props.children}
     </section>
   );
 }

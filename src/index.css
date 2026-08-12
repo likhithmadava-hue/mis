@@ -10,44 +10,70 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens matched to the original Mistake Intelligence System app
-   (mistakeintelligencesystem.lovable.app) — same colors, converted to HSL */
+/* ── Design tokens ────────────────────────────────────────────────────────
+   A deep-blue surface system rather than a neutral near-black. The four
+   surfaces below are one hue (~202°) at rising lightness, which is what lets
+   depth come from the surfaces themselves instead of from heavy shadows:
+
+     --background  the room          #071116
+     --card        primary surface   #0D1A22   the ordinary card
+     --muted       secondary surface #101F28   chips, meter tracks, inset wells
+     --elevated    elevated surface  #132630   the cards that lead a page
+
+   Text has three steps, not two: --foreground for the number you came to
+   read, --muted-foreground for its caption, and --subtle-foreground for the
+   things that should recede without disappearing (a "/ 50" denominator, an
+   empty state). Two steps forced every secondary label to the same weight as
+   every tertiary one, which is most of why the old board read as flat.
+
+   --border is white at ~7% resolved over --card. Kept as HSL rather than an
+   rgba() because every consumer is a Tailwind `border-border` class, and
+   those are built as hsl(var(--border)). */
 :root {
   /* makes native widgets (date pickers, scrollbars) render in dark mode
      instead of the platform's default white */
   color-scheme: dark;
 
-  --background: 213 24% 7%;        /* #0e1217 */
-  --foreground: 216 27% 96%;       /* #f3f5f8 */
-  --card: 213 20% 11%;             /* #161b21 */
-  --border: 215 13% 18%;           /* #292e35 */
-  --muted: 210 16% 15%;            /* #1f252b */
-  --muted-foreground: 209 10% 60%; /* #8f9aa4 */
-  --primary: 191 100% 49%;         /* #00ccf9 */
-  --primary-foreground: 210 58% 5%;/* #050c13 */
-  --secondary: 210 19% 16%;        /* #222a32 */
-  --accent: 194 44% 18%;           /* #193841 */
-  --destructive: 359 94% 62%;      /* #f94144 */
-  --warning: 36 93% 56%;           /* #f7a224 */
-  --success: 148 57% 48%;          /* #35c177 */
-  --sidebar: 207 33% 5%;           /* #090e12 */
-  --sidebar-accent: 210 19% 13%;   /* #1a2026 */
+  --background: 200 52% 6%;         /* #071116 */
+  --foreground: 202 44% 96%;        /* #f2f7fa */
+  --card: 203 45% 9%;               /* #0d1a22 */
+  --border: 204 25% 16%;            /* ≈ white 7% over --card */
+  --muted: 202 43% 11%;             /* #101f28 */
+  --elevated: 201 43% 13%;          /* #132630 */
+  --muted-foreground: 201 18% 64%;  /* #91a7b3 */
+  --subtle-foreground: 202 16% 45%; /* #607784 */
+  --primary: 194 100% 55%;          /* #19c8ff */
+  --primary-deep: 195 91% 34%;      /* #087ea4 — the dark end of a meter */
+  --primary-foreground: 202 58% 5%;
+  --secondary: 201 43% 13%;
+  --accent: 194 44% 16%;
+  --destructive: 0 100% 71%;        /* #ff6b6b */
+  --warning: 36 100% 65%;           /* #ffb84d — attention, never ordinary progress */
+  --success: 158 64% 52%;           /* #36d399 */
+  --sidebar: 208 48% 6%;            /* #081017 */
+  --sidebar-accent: 202 43% 11%;
 
-  --gradient-glow: radial-gradient(60% 60% at 50% 0%, rgb(0 204 249 / 0.18), transparent 70%);
-  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px -12px rgb(0 0 0 / 0.5);
-  --shadow-glow: 0 0 0 1px rgb(0 204 249 / 0.2), 0 8px 32px -8px rgb(0 204 249 / 0.25);
+  /* One faint wash from the top right, and nothing else. Written through
+     hsl(var(--primary)) so Life mode retints it for free — see below. */
+  --gradient-glow: radial-gradient(circle at 70% 0%, hsl(var(--primary) / 0.07), transparent 35%);
+  --shadow-card: 0 1px 0 hsl(0 0% 100% / 0.03) inset, 0 6px 20px -12px hsl(0 0% 0% / 0.6);
+  --shadow-raised: 0 1px 0 hsl(0 0% 100% / 0.05) inset, 0 12px 32px -16px hsl(0 0% 0% / 0.7);
+  --shadow-glow: 0 0 0 1px hsl(var(--primary) / 0.2), 0 8px 32px -8px hsl(var(--primary) / 0.25);
 }
 
 /* Life mode retints the whole app. Every accent in the UI resolves through
    --primary, so overriding it here recolours the sidebar, buttons, focus
-   rings and charts without touching a single component. App.tsx sets
-   data-mode on <html>, mirroring `db.app_mode`. */
+   rings, meters and charts without touching a single component. App.tsx sets
+   data-mode on <html>, mirroring `db.app_mode`.
+
+   Only the two primaries and the accent need overriding now: the glow and the
+   glow shadow are expressed in terms of --primary, so they follow on their
+   own. Anything added here that hardcodes a cyan is a Life-mode bug waiting. */
 :root[data-mode='life'] {
   --primary: 160 84% 42%;          /* #11b981 */
+  --primary-deep: 166 72% 24%;     /* the dark end of a Life meter */
   --primary-foreground: 160 60% 5%;
-  --accent: 160 34% 15%;
-  --gradient-glow: radial-gradient(60% 60% at 50% 0%, rgb(52 211 153 / 0.16), transparent 70%);
-  --shadow-glow: 0 0 0 1px rgb(52 211 153 / 0.2), 0 8px 32px -8px rgb(52 211 153 / 0.25);
+  --accent: 160 34% 14%;
 }
 
 /* ── The one type-scale knob ──────────────────────────────────────────────
@@ -140,6 +166,19 @@ svg {
 
 .card-shadow {
   box-shadow: var(--shadow-card);
+}
+
+/* the cards that lead a page — a wider, fainter shadow than an ordinary card,
+   never a dramatic drop */
+.raised-shadow {
+  box-shadow: var(--shadow-raised);
+}
+
+/* The fill of every ordinary meter in the app. A gradient rather than a flat
+   --primary because a 4px bar of one colour reads as a block; the deep-to-bright
+   ramp gives it direction. Both ends are tokens, so it retints with the mode. */
+.bar-primary {
+  background-image: linear-gradient(90deg, hsl(var(--primary-deep)), hsl(var(--primary)));
 }
 
 /* ── Split-flap digit ─────────────────────────────────────────────────────

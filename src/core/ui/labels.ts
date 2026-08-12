@@ -10,3 +10,17 @@ export const TOPIC_COLUMNS: { type: TopicType; title: string }[] = [
   { type: 'revise', title: 'Left to Revise' },
   { type: 'solve', title: 'Left to Solve' },
 ];
+
+/**
+ * The same three buckets named as the work still outstanding.
+ *
+ * The column titles above head a list of everything in the bucket, done or not,
+ * so `taught` reads "Topics Taught". The home page's continue card is pointing
+ * at one row that is *not* done, where that heading would say the opposite of
+ * what it means.
+ */
+export const TOPIC_ACTION: Record<TopicType, string> = {
+  taught: 'Still to be taught',
+  revise: 'Left to revise',
+  solve: 'Left to solve',
+};
