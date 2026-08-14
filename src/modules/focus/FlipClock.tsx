@@ -1,5 +1,7 @@
 import { createEffect, createSignal, onCleanup, onMount, Show, type JSX } from 'solid-js';
 
+import { playFlipTick } from './flipSound';
+
 /** the flip reads as mechanical between roughly 450–650ms; below that it is a
  *  blur, above it the clock feels slow */
 const DEFAULT_DURATION = 520;
@@ -74,6 +76,7 @@ export function FlipDigit(props: FlipDigitProps) {
     }
 
     setFlip({ from });
+    playFlipTick();
     // a change landing mid-flip restarts the animation rather than being cut
     // short by the outgoing digit's timer
     clearTimeout(timer);
