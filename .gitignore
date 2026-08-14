@@ -19,6 +19,19 @@ dev_keys/
 .env
 .env.local
 
+# ── Local launchers ──────────────────────────────────────────────────────────
+# Convenience shortcuts that `cd` to a hard-coded absolute path on one machine.
+# They cannot work from a fresh clone, so they are personal tooling, not source.
+Open MIS*.bat
+MIS*.lnk
+
+# ── Session notes ────────────────────────────────────────────────────────────
+# Written by the Claude Code chat-progress routine (a SessionEnd hook plus a
+# 22:50 scheduled task on one machine). A running journal of what each chat did
+# and where to resume — personal working notes about the repo, not part of it.
+Chat Progress.md
+Chat Progress Log.md
+
 # ── Editor / OS ──────────────────────────────────────────────────────────────
 .vscode/
 .idea/
