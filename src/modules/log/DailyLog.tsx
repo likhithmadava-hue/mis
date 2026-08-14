@@ -8,6 +8,7 @@ import { DAY_TARGET, heat, MODE_META, TRACK_META } from '../../core/scoring';
 import { createDailyLog } from './createDailyLog';
 import PaperForm from './PaperForm';
 import PriorityPicker from './PriorityPicker';
+import TasksPanel from './TasksPanel';
 import TopicsPanel from './TopicsPanel';
 import TrackControl from './TrackControl';
 
@@ -154,6 +155,17 @@ export default function DailyLog(props: { mode: () => AppMode }) {
             );
           }}
         </For>
+      </div>
+
+      {/* the to-do list is the one entry surface both modes share */}
+      <div class={frozen()}>
+        <TasksPanel
+          mode={props.mode()}
+          tasks={log.tasks()}
+          onAdd={(title, subject, dueDate) => void log.addTask(title, subject, dueDate)}
+          onToggle={(id) => void log.toggleTask(id)}
+          onDelete={(id) => void log.deleteTask(id)}
+        />
       </div>
 
       {/* topics and papers are academic work, so they only appear in that mode */}

@@ -81,6 +81,10 @@ pub fn run() {
             commands::db_add_focus_session,
             commands::db_add_study_minutes,
             commands::db_save_focus_settings,
+            // tasks
+            commands::db_add_task,
+            commands::db_toggle_task,
+            commands::db_delete_task,
             // topics
             commands::db_add_topic,
             commands::db_toggle_topic,

@@ -377,6 +377,10 @@ pub struct Task {
     #[serde(default)]
     pub due_date: String,
     pub completed: bool,
+    /// which mode's to-do list this belongs to — a vault from before this field
+    /// existed defaults every task to Academic, where the feature started
+    #[serde(default)]
+    pub mode: AppMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

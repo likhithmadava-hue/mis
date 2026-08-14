@@ -32,3 +32,9 @@ dev_keys/
 Thumbs.db
 desktop.ini
 *.swp
+
+# ── Chat logs ────────────────────────────────────────────────────────────────
+# Session notes auto-written by the chat-progress hooks, not project source —
+# never committed or pushed.
+/Chat Progress.md
+/Chat Progress Log.md

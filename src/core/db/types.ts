@@ -147,6 +147,8 @@ export interface Task {
   subject: string;
   due_date: string;
   completed: boolean;
+  /** which mode's to-do list this belongs to */
+  mode: AppMode;
 }
 
 export interface TopicItem {

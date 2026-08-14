@@ -138,6 +138,15 @@ export const addStudyMinutes = (minutes: number) =>
 export const saveFocusSettings = (settings: FocusSettings) =>
   invoke<void>('db_save_focus_settings', { settings });
 
+// ── Tasks ───────────────────────────────────────────────────────────────────
+
+export const addTask = (title: string, subject: string, dueDate: string, mode: AppMode) =>
+  invoke<void>('db_add_task', { title, subject, dueDate, mode });
+
+export const toggleTask = (id: string) => invoke<void>('db_toggle_task', { id });
+
+export const deleteTask = (id: string) => invoke<void>('db_delete_task', { id });
+
 // ── Topics ──────────────────────────────────────────────────────────────────
 
 export const addTopic = (name: string, kind: TopicType) =>

@@ -159,6 +159,29 @@ pub fn db_save_focus_settings(state: State<AppState>, settings: FocusSettings) -
     })
 }
 
+// ── Tasks ───────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn db_add_task(
+    state: State<AppState>,
+    title: String,
+    subject: String,
+    due_date: String,
+    mode: AppMode,
+) -> Result<()> {
+    state.mutate(|db| db::add_task(db, title, subject, due_date, mode))
+}
+
+#[tauri::command]
+pub fn db_toggle_task(state: State<AppState>, id: String) -> Result<()> {
+    state.mutate(|db| db::toggle_task_done(db, &id))
+}
+
+#[tauri::command]
+pub fn db_delete_task(state: State<AppState>, id: String) -> Result<()> {
+    state.mutate(|db| db::delete_task(db, &id))
+}
+
 // ── Topics ──────────────────────────────────────────────────────────────────
 
 #[tauri::command]

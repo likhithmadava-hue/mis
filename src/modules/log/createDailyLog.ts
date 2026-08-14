@@ -78,6 +78,7 @@ export function createDailyLog(mode: () => AppMode) {
     db.habit_log.filter((h) => h.date === todayIso()).map((h) => h.habit_id),
   );
   const todayTopics = createMemo(() => db.topics.filter((t) => t.date === todayIso()));
+  const tasks = createMemo(() => db.tasks.filter((t) => t.mode === mode()));
 
   // Today's scores, computed in Rust from the same data the day is fingerprinted
   // with. Asking for a one-day range is how the Log gets exactly the numbers the
@@ -171,6 +172,15 @@ export function createDailyLog(mode: () => AppMode) {
   const toggleTopic = (id: string) => run(api.toggleTopic(id));
   const deleteTopic = (id: string) => run(api.deleteTopic(id));
 
+  const addTask = (title: string, subject: string, dueDate: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    return run(api.addTask(trimmed, subject.trim(), dueDate, mode()));
+  };
+
+  const toggleTask = (id: string) => run(api.toggleTask(id));
+  const deleteTask = (id: string) => run(api.deleteTask(id));
+
   /**
    * Finalise today: lock it and stamp the submitted data's fingerprint.
    *
@@ -232,6 +242,10 @@ export function createDailyLog(mode: () => AppMode) {
     addTopic,
     toggleTopic,
     deleteTopic,
+    tasks,
+    addTask,
+    toggleTask,
+    deleteTask,
     addPaper,
   };
 }

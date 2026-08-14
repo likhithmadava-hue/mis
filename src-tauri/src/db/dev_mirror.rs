@@ -165,11 +165,18 @@ mod imp {
 
         {
             let mut stmt = tx.prepare(
-                "INSERT INTO tasks (id, title, subject, due_date, completed)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT INTO tasks (id, title, subject, due_date, completed, mode)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             )?;
             for t in &db.tasks {
-                stmt.execute(params![t.id, t.title, t.subject, t.due_date, t.completed])?;
+                stmt.execute(params![
+                    t.id,
+                    t.title,
+                    t.subject,
+                    t.due_date,
+                    t.completed,
+                    ser_str(&t.mode)
+                ])?;
             }
         }
 
@@ -317,7 +324,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     title TEXT NOT NULL,
     subject TEXT NOT NULL,
     due_date TEXT NOT NULL,
-    completed INTEGER NOT NULL
+    completed INTEGER NOT NULL,
+    mode TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS topics (
