@@ -138,6 +138,72 @@ impl Default for TimerDesign {
     }
 }
 
+/// Which background music loop plays behind the Focus Timer, if any.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FocusMusic {
+    Off,
+    Jazz,
+    Lofi,
+}
+
+impl Default for FocusMusic {
+    fn default() -> Self {
+        FocusMusic::Off
+    }
+}
+
+fn default_music_volume() -> f64 {
+    0.5
+}
+
+/// Ambient noise layer behind the Focus Timer — synthesised in the frontend
+/// with Web Audio, not shipped as files. Independent of `FocusMusic`: the two
+/// can run at once.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AmbientSound {
+    Off,
+    White,
+    Pink,
+    Brown,
+    Rain,
+    Ocean,
+}
+
+impl Default for AmbientSound {
+    fn default() -> Self {
+        AmbientSound::Off
+    }
+}
+
+fn default_ambient_volume() -> f64 {
+    0.5
+}
+
+/// Binaural-beat brainwave entrainment tone — also synthesised, not a file.
+/// Only audible as intended over headphones (one carrier per ear).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Brainwave {
+    Off,
+    Delta,
+    Theta,
+    Alpha,
+    Beta,
+    Gamma,
+}
+
+impl Default for Brainwave {
+    fn default() -> Self {
+        Brainwave::Off
+    }
+}
+
+fn default_brainwave_volume() -> f64 {
+    0.5
+}
+
 /// The two habits whose state is mirrored into `DailyMetric` for the Growth
 /// Tracker's streak matrix. New habits do not get one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -331,6 +397,18 @@ pub struct FocusSettings {
     pub rounds_before_long: f64,
     #[serde(default)]
     pub timer_design: TimerDesign,
+    #[serde(default)]
+    pub focus_music: FocusMusic,
+    #[serde(default = "default_music_volume")]
+    pub music_volume: f64,
+    #[serde(default)]
+    pub ambient_sound: AmbientSound,
+    #[serde(default = "default_ambient_volume")]
+    pub ambient_volume: f64,
+    #[serde(default)]
+    pub brainwave: Brainwave,
+    #[serde(default = "default_brainwave_volume")]
+    pub brainwave_volume: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

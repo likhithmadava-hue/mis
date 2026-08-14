@@ -2,11 +2,18 @@ import { Check, Pause, Play, RotateCcw, SkipForward } from 'lucide-solid';
 import { Show } from 'solid-js';
 
 import { useFullscreen } from '../../core/ui';
+import AmbientPanel from './AmbientPanel';
 import DonePrompt from './DonePrompt';
+import FocusMusicPanel from './FocusMusicPanel';
+import HabitsEditor from './HabitsEditor';
 import LeftTodayPanel from './LeftTodayPanel';
 import TimerFace from './TimerFace';
 import TimerToolbar from './TimerToolbar';
 import TodayFocusPanel from './TodayFocusPanel';
+import { createAmbientSound } from './createAmbientSound';
+import { createBrainwave } from './createBrainwave';
+import { createFocusHabits } from './createFocusHabits';
+import { createFocusMusic } from './createFocusMusic';
 import { createFocusTimer } from './createFocusTimer';
 import { createTodayProgress } from './todayProgress';
 
@@ -20,6 +27,9 @@ export default function FocusTimer() {
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(() => container);
 
   const timer = createFocusTimer();
+  const music = createFocusMusic();
+  const ambient = createAmbientSound();
+  const brainwave = createBrainwave();
   // The panel tracks the clock: switching phase, running, and finishing a round
   // all move the "Left Today" numbers. Accessors, not values — read lazily so a
   // ticking clock only redraws the one bar it affects.
@@ -30,6 +40,14 @@ export default function FocusTimer() {
     round: timer.round,
     awaitingConfirm: () => timer.askStage() !== null,
   });
+  // Habits are the one line in that panel you can work on from here — see
+  // `createFocusHabits`.
+  const habits = createFocusHabits();
+  // Built once and handed to the panel as the same node every time. Ticking a
+  // habit rebuilds the "Left Today" rows; if this were built inside that render
+  // it would be torn down and rebuilt with it, and a half-typed habit name in
+  // the add box would vanish on an unrelated tick.
+  const habitsEditor = <HabitsEditor habits={habits} />;
 
   return (
     <div
@@ -126,7 +144,13 @@ export default function FocusTimer() {
       {/* side panels are noise in fullscreen — just the clock and controls */}
       <div class={`lg:col-span-5 space-y-6 ${isFullscreen() ? 'hidden' : ''}`}>
         <TodayFocusPanel sessions={timer.todaySessions()} minutes={timer.todayMinutes()} />
-        <LeftTodayPanel remaining={progress.remaining()} allClear={progress.allClear()} />
+        <FocusMusicPanel music={music} />
+        <AmbientPanel ambient={ambient} brainwave={brainwave} />
+        <LeftTodayPanel
+          remaining={progress.remaining()}
+          allClear={progress.allClear()}
+          detail={(key) => (key === 'habits' ? habitsEditor : undefined)}
+        />
       </div>
 
       <Show when={timer.askStage() !== null}>

@@ -21,6 +21,12 @@ pub fn default_focus_settings() -> FocusSettings {
         long_break: 15.0,
         rounds_before_long: 4.0,
         timer_design: TimerDesign::Ring,
+        focus_music: FocusMusic::Off,
+        music_volume: 0.5,
+        ambient_sound: AmbientSound::Off,
+        ambient_volume: 0.5,
+        brainwave: Brainwave::Off,
+        brainwave_volume: 0.5,
     }
 }
 
