@@ -9,6 +9,7 @@ import {
   Eraser,
   FileText,
   Flame,
+  GraduationCap,
   Hourglass,
   ListTodo,
   MonitorPlay,
@@ -28,6 +29,7 @@ import type { AppMode } from '../../core/db';
 import { DAY_TARGET, TRACK_TARGET, WELL_SPENT_TARGET } from '../../core/scoring';
 import { createHomeData, humanDuration } from './homeData';
 import {
+  BacklogCard,
   BoardCard,
   ContinueCard,
   DayStrip,
@@ -252,8 +254,27 @@ export default function Home(props: HomeProps) {
             onGo: () => props.onOpen('log'),
           }}
           delay={300}
-          class="col-span-2 lg:col-span-4"
+          class={academic() ? 'col-span-2 lg:col-span-3' : 'col-span-2 lg:col-span-4'}
         />
+
+        {/* The card proposes one topic; this says how deep the pile behind it
+            is, split the way you filed it. Both piles are yours to clear —
+            "taught in school" is not, so it is not counted here. */}
+        <Show when={academic()}>
+          <BacklogCard
+            icon={ListTodo}
+            label="Topic backlog"
+            rows={[
+              { label: 'Left to revise', value: data.topics().revise },
+              { label: 'Left to solve', value: data.topics().solve },
+            ]}
+            delay={340}
+            onClick={() => props.onOpen('log')}
+            goes="Open the Daily Log"
+            hint="Topics on your revise and solve lists that you have not ticked off yet. Opens the Daily Log."
+            class="col-span-2 lg:col-span-1"
+          />
+        </Show>
       </Band>
 
       {/* ── Right now ──────────────────────────────────────────────────────── */}
@@ -295,29 +316,20 @@ export default function Home(props: HomeProps) {
             hint="Rounds you confirmed and banked today. Opens the Focus Timer."
           />
 
+          {/* A tally, not a backlog: these are the lessons school has actually
+              covered, which is why there is no meter under it — there is
+              nothing here to complete. */}
           <Widget
-            icon={ListTodo}
-            label="Topics left"
-            value={String(data.topics().left)}
-            sub={
-              data.topics().total
-                ? `of ${data.topics().total} on the list`
-                : 'nothing on the list yet'
-            }
-            tone={muted(data.topics().total === 0)}
+            icon={GraduationCap}
+            label="Taught in school"
+            value={String(data.topics().taught)}
+            sub={data.topics().taught ? 'topics covered so far' : 'nothing logged as taught yet'}
+            tone={muted(data.topics().taught === 0)}
             delay={390}
             onClick={() => props.onOpen('log')}
             goes="Open the Daily Log"
-            hint="Topics still to be taught, revised or solved. Opens the Daily Log."
-          >
-            <WidgetBar
-              pct={
-                data.topics().total
-                  ? ((data.topics().total - data.topics().left) / data.topics().total) * 100
-                  : 0
-              }
-            />
-          </Widget>
+            hint="Topics your school has taught, as you logged them. Opens the Daily Log."
+          />
         </Show>
       </Band>
 

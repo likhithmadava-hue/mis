@@ -556,6 +556,59 @@ export function ContinueCard(props: {
   );
 }
 
+/**
+ * Two or three counts that are only worth reading together, in one tile.
+ *
+ * "Left to revise" and "Left to solve" are the same kind of fact and answer the
+ * same question — what is still on me — so a tile each would say *twice* what
+ * the board already says once, and summing them into a single "topics left"
+ * hides which of the two is the pile. This draws them as a short list of
+ * label-and-number rows instead: one card's worth of room, both numbers whole.
+ *
+ * A count of zero is drawn muted rather than hidden. An empty pile is a real
+ * answer here, and a row that disappears when it is cleared makes the tile
+ * change shape every time you finish something.
+ */
+export function BacklogCard(props: {
+  icon: Icon;
+  label: string;
+  rows: { label: string; value: number }[];
+  hint?: string;
+  delay?: number;
+  onClick?: () => void;
+  goes?: string;
+  class?: string;
+}) {
+  return (
+    <section
+      title={props.hint}
+      style={{ 'animation-delay': `${props.delay ?? 0}ms` }}
+      class={`${shell('secondary', !!props.onClick)} ${props.class ?? ''}`}
+    >
+      <CardLabel icon={props.icon} label={props.label} />
+
+      <div class="flex-1 flex flex-col justify-center gap-3 min-w-0">
+        <For each={props.rows}>
+          {(row) => (
+            <div class="flex items-baseline justify-between gap-2.5 min-w-0">
+              <span class="text-[0.75rem] text-muted-foreground truncate">{row.label}</span>
+              <span
+                class={`text-xl font-bold font-space leading-none flex-shrink-0 ${
+                  row.value > 0 ? 'text-foreground' : 'text-subtle-foreground'
+                }`}
+              >
+                {row.value}
+              </span>
+            </div>
+          )}
+        </For>
+      </div>
+
+      <GoOverlay onClick={props.onClick} goes={props.goes} label={props.label} />
+    </section>
+  );
+}
+
 /** the accented call to action — the only filled primary button on the board */
 function GoButton(props: { label: string; onGo: () => void }) {
   return (

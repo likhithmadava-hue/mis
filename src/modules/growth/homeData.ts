@@ -8,6 +8,7 @@ import {
   marksLost,
   revision,
   type AppMode,
+  type TopicType,
   type TrackId,
 } from '../../core/db';
 import { POSTURE_TARGET, TRACK_META, WELL_SPENT_TARGET } from '../../core/scoring';
@@ -207,10 +208,23 @@ export function createHomeData(mode: () => AppMode) {
     };
   });
 
-  const topics = createMemo(() => ({
-    left: db.topics.filter((t) => !t.done).length,
-    total: db.topics.length,
-  }));
+  /**
+   * The three topic buckets, each counted the way it actually means something.
+   *
+   * `taught` is a **record of what school has covered** — a tally that only goes
+   * up, with nothing in it to finish. The other two are backlogs, so the number
+   * worth showing there is what is still unticked. Counting all three together
+   * gave a "topics left" that grew every time a lesson happened.
+   */
+  const topics = createMemo(() => {
+    const rows = db.topics;
+    const left = (type: TopicType) => rows.filter((t) => t.type === type && !t.done).length;
+    return {
+      taught: rows.filter((t) => t.type === 'taught').length,
+      revise: left('revise'),
+      solve: left('solve'),
+    };
+  });
 
   /**
    * How much of the damage is avoidable.
@@ -299,18 +313,23 @@ export function createHomeData(mode: () => AppMode) {
    * bleeding the most marks, which is the logbook's answer to the same question.
    * Life asks what is still unticked today.
    *
+   * **Only the revise and solve buckets can be picked.** `taught` records what
+   * school has already covered; it has no tick, so every row in it is forever
+   * `done: false` and it would otherwise monopolise this card with work that is
+   * not yours to do.
+   *
    * The order inside each mode is "oldest first": the thing that has been
    * waiting longest is the thing most likely to be quietly abandoned.
    */
   const continuePick = createMemo<ContinuePick | null>(() => {
-    const topics = db.topics;
-    const total = topics.length;
-    const done = topics.filter((t) => t.done).length;
+    const backlog = db.topics.filter((t) => t.type !== 'taught');
+    const total = backlog.length;
+    const done = backlog.filter((t) => t.done).length;
 
     if (mode() === 'academic') {
       // `db.topics` is newest-first (Rust inserts at 0), so reversing before the
       // stable date sort puts the oldest row of a given day first.
-      const next = [...topics]
+      const next = [...backlog]
         .reverse()
         .filter((t) => !t.done)
         .sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -399,9 +418,9 @@ export function createHomeData(mode: () => AppMode) {
    */
   const continueEmptyLine = () => {
     if (mode() === 'academic') {
-      return db.topics.length > 0
-        ? 'Every topic on your list is done, and the logbook has no marks lost to point at. Add what’s next in the Daily Log.'
-        : 'Nothing queued yet. Add the topics you mean to teach, revise or solve in the Daily Log and the next one shows up here.';
+      return db.topics.some((t) => t.type !== 'taught')
+        ? 'Everything on your revise and solve lists is ticked, and the logbook has no marks lost to point at. Add what’s next in the Daily Log.'
+        : 'Nothing queued yet. Put what you have to revise or solve on the list in the Daily Log and the next one shows up here.';
     }
     return db.habits.length > 0
       ? 'Everything on today’s list is ticked and your targets are met. Nothing left to pick up.'
