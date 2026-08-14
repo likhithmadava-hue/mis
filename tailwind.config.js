@@ -12,8 +12,13 @@ export default {
         card: 'hsl(var(--card))',
         border: 'hsl(var(--border))',
         muted: 'hsl(var(--muted))',
+        elevated: 'hsl(var(--elevated))',
         'muted-foreground': 'hsl(var(--muted-foreground))',
+        // the third text step: quieter than muted, still legible. For
+        // denominators, empty states and anything that must recede.
+        'subtle-foreground': 'hsl(var(--subtle-foreground))',
         primary: 'hsl(var(--primary))',
+        'primary-deep': 'hsl(var(--primary-deep))',
         'primary-foreground': 'hsl(var(--primary-foreground))',
         secondary: 'hsl(var(--secondary))',
         accent: 'hsl(var(--accent))',
@@ -56,12 +61,9 @@ export default {
           from: { transform: 'translateX(-100%)' },
           to: { transform: 'translateX(100%)' },
         },
-        // flip-clock digits: the new number swings down into place
-        flip: {
-          '0%': { transform: 'rotateX(-90deg)', opacity: '0.2' },
-          '60%': { transform: 'rotateX(8deg)', opacity: '1' },
-          '100%': { transform: 'rotateX(0deg)', opacity: '1' },
-        },
+        /* the split-flap digit's keyframes live in index.css beside the rest of
+           its layers — the flaps need shading overlays and a duration driven by
+           a custom property, neither of which a utility class can carry */
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-out',
@@ -72,7 +74,6 @@ export default {
         'row-in': 'row-in 0.35s ease-out both',
         'pop-in': 'pop-in 0.35s ease-out both',
         scan: 'scan 1s ease-in-out',
-        flip: 'flip 0.35s ease-out',
       },
     },
   },

@@ -53,10 +53,12 @@ export interface FocusContext {
 /**
  * What's still outstanding today, for the timer's "Left Today" panel.
  *
- * Read-only on purpose: the Daily Log owns editing all of this. The timer just
- * shows you what you are still working toward while the clock runs — and
- * because it reads the same store the Log writes to, ticking a habit there
- * updates this list mid-session with no wiring between the two tabs at all.
+ * Numbers only — this module never writes. The Daily Log owns entering all of
+ * it, with one exception: the habits row opens into a live list you can tick
+ * and edit here (see `createFocusHabits`), because a habit is what you remember
+ * mid-session and leaving the clock to record it is how it gets forgotten.
+ * Either way both tabs read the same store, so a change on one side is already
+ * in the other's numbers with no wiring between them at all.
  *
  * The focus rounds row is the one place the timer and this panel meet. Its goal
  * is *derived* from the study-hours target rather than configured separately —

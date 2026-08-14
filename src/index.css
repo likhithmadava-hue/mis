@@ -10,44 +10,70 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens matched to the original Mistake Intelligence System app
-   (mistakeintelligencesystem.lovable.app) — same colors, converted to HSL */
+/* ── Design tokens ────────────────────────────────────────────────────────
+   A deep-blue surface system rather than a neutral near-black. The four
+   surfaces below are one hue (~202°) at rising lightness, which is what lets
+   depth come from the surfaces themselves instead of from heavy shadows:
+
+     --background  the room          #071116
+     --card        primary surface   #0D1A22   the ordinary card
+     --muted       secondary surface #101F28   chips, meter tracks, inset wells
+     --elevated    elevated surface  #132630   the cards that lead a page
+
+   Text has three steps, not two: --foreground for the number you came to
+   read, --muted-foreground for its caption, and --subtle-foreground for the
+   things that should recede without disappearing (a "/ 50" denominator, an
+   empty state). Two steps forced every secondary label to the same weight as
+   every tertiary one, which is most of why the old board read as flat.
+
+   --border is white at ~7% resolved over --card. Kept as HSL rather than an
+   rgba() because every consumer is a Tailwind `border-border` class, and
+   those are built as hsl(var(--border)). */
 :root {
   /* makes native widgets (date pickers, scrollbars) render in dark mode
      instead of the platform's default white */
   color-scheme: dark;
 
-  --background: 213 24% 7%;        /* #0e1217 */
-  --foreground: 216 27% 96%;       /* #f3f5f8 */
-  --card: 213 20% 11%;             /* #161b21 */
-  --border: 215 13% 18%;           /* #292e35 */
-  --muted: 210 16% 15%;            /* #1f252b */
-  --muted-foreground: 209 10% 60%; /* #8f9aa4 */
-  --primary: 191 100% 49%;         /* #00ccf9 */
-  --primary-foreground: 210 58% 5%;/* #050c13 */
-  --secondary: 210 19% 16%;        /* #222a32 */
-  --accent: 194 44% 18%;           /* #193841 */
-  --destructive: 359 94% 62%;      /* #f94144 */
-  --warning: 36 93% 56%;           /* #f7a224 */
-  --success: 148 57% 48%;          /* #35c177 */
-  --sidebar: 207 33% 5%;           /* #090e12 */
-  --sidebar-accent: 210 19% 13%;   /* #1a2026 */
+  --background: 200 52% 6%;         /* #071116 */
+  --foreground: 202 44% 96%;        /* #f2f7fa */
+  --card: 203 45% 9%;               /* #0d1a22 */
+  --border: 204 25% 16%;            /* ≈ white 7% over --card */
+  --muted: 202 43% 11%;             /* #101f28 */
+  --elevated: 201 43% 13%;          /* #132630 */
+  --muted-foreground: 201 18% 64%;  /* #91a7b3 */
+  --subtle-foreground: 202 16% 45%; /* #607784 */
+  --primary: 194 100% 55%;          /* #19c8ff */
+  --primary-deep: 195 91% 34%;      /* #087ea4 — the dark end of a meter */
+  --primary-foreground: 202 58% 5%;
+  --secondary: 201 43% 13%;
+  --accent: 194 44% 16%;
+  --destructive: 0 100% 71%;        /* #ff6b6b */
+  --warning: 36 100% 65%;           /* #ffb84d — attention, never ordinary progress */
+  --success: 158 64% 52%;           /* #36d399 */
+  --sidebar: 208 48% 6%;            /* #081017 */
+  --sidebar-accent: 202 43% 11%;
 
-  --gradient-glow: radial-gradient(60% 60% at 50% 0%, rgb(0 204 249 / 0.18), transparent 70%);
-  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px -12px rgb(0 0 0 / 0.5);
-  --shadow-glow: 0 0 0 1px rgb(0 204 249 / 0.2), 0 8px 32px -8px rgb(0 204 249 / 0.25);
+  /* One faint wash from the top right, and nothing else. Written through
+     hsl(var(--primary)) so Life mode retints it for free — see below. */
+  --gradient-glow: radial-gradient(circle at 70% 0%, hsl(var(--primary) / 0.07), transparent 35%);
+  --shadow-card: 0 1px 0 hsl(0 0% 100% / 0.03) inset, 0 6px 20px -12px hsl(0 0% 0% / 0.6);
+  --shadow-raised: 0 1px 0 hsl(0 0% 100% / 0.05) inset, 0 12px 32px -16px hsl(0 0% 0% / 0.7);
+  --shadow-glow: 0 0 0 1px hsl(var(--primary) / 0.2), 0 8px 32px -8px hsl(var(--primary) / 0.25);
 }
 
 /* Life mode retints the whole app. Every accent in the UI resolves through
    --primary, so overriding it here recolours the sidebar, buttons, focus
-   rings and charts without touching a single component. App.tsx sets
-   data-mode on <html>, mirroring `db.app_mode`. */
+   rings, meters and charts without touching a single component. App.tsx sets
+   data-mode on <html>, mirroring `db.app_mode`.
+
+   Only the two primaries and the accent need overriding now: the glow and the
+   glow shadow are expressed in terms of --primary, so they follow on their
+   own. Anything added here that hardcodes a cyan is a Life-mode bug waiting. */
 :root[data-mode='life'] {
   --primary: 160 84% 42%;          /* #11b981 */
+  --primary-deep: 166 72% 24%;     /* the dark end of a Life meter */
   --primary-foreground: 160 60% 5%;
-  --accent: 160 34% 15%;
-  --gradient-glow: radial-gradient(60% 60% at 50% 0%, rgb(52 211 153 / 0.16), transparent 70%);
-  --shadow-glow: 0 0 0 1px rgb(52 211 153 / 0.2), 0 8px 32px -8px rgb(52 211 153 / 0.25);
+  --accent: 160 34% 14%;
 }
 
 /* ── The one type-scale knob ──────────────────────────────────────────────
@@ -140,6 +166,183 @@ svg {
 
 .card-shadow {
   box-shadow: var(--shadow-card);
+}
+
+/* the cards that lead a page — a wider, fainter shadow than an ordinary card,
+   never a dramatic drop */
+.raised-shadow {
+  box-shadow: var(--shadow-raised);
+}
+
+/* The fill of every ordinary meter in the app. A gradient rather than a flat
+   --primary because a 4px bar of one colour reads as a block; the deep-to-bright
+   ramp gives it direction. Both ends are tokens, so it retints with the mode. */
+.bar-primary {
+  background-image: linear-gradient(90deg, hsl(var(--primary-deep)), hsl(var(--primary)));
+}
+
+/* ── Split-flap digit ─────────────────────────────────────────────────────
+   A mechanical flip-clock tile. Four layers, two of them static:
+
+     static top     the NEW digit's top half, uncovered as the flap folds away
+     static bottom  the OLD digit's bottom half, waiting to be covered
+     flap top       the OLD digit's top half, hinged at the seam, folds down
+     flap bottom    the NEW digit's bottom half, hinged at the seam, falls in
+
+   Both flaps are half-height windows, so the element's own edge sits exactly
+   on the seam and *is* the hinge. Rotating a full-height layer instead would
+   pivot around the outside of the tile and swing through an arc nothing like
+   a fold — that is the single detail this effect lives or dies on.
+
+   Every length is in `em` so one font-size on the tile scales the card, the
+   hinge and the perspective together; nothing here needs a second size knob. */
+.flip-digit {
+  position: relative;
+  flex: none;
+  width: 1.34em;
+  height: 1.5em;
+  /* in em, so the depth of the fold reads the same at every digit size */
+  perspective: 12em;
+  perspective-origin: 50% 50%;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.4rem;
+  overflow: hidden;
+}
+
+.flip-half {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  overflow: hidden;
+  /* opaque, or the layer underneath shows through mid-rotation */
+  background: hsl(var(--background));
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-half--top {
+  top: 0;
+}
+.flip-half--bottom {
+  bottom: 0;
+}
+
+/* A full-tile-height glyph box pinned to the seam edge: the numeral is centred
+   in whole-tile space and merely cropped by its window, so the top and bottom
+   halves of the same digit line up exactly across the split. */
+.flip-glyph {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 200%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.flip-half--top .flip-glyph {
+  top: 0;
+}
+.flip-half--bottom .flip-glyph {
+  bottom: 0;
+}
+
+.flip-flap {
+  z-index: 20;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* the fold accelerates like a dropped card... */
+.flip-flap--top {
+  transform-origin: 50% 100%;
+  animation: flip-fold calc(var(--flip-dur, 520ms) / 2) cubic-bezier(0.55, 0.06, 0.68, 0.19) both;
+}
+
+/* ...and the incoming half decelerates into the seam. `both` is load-bearing:
+   a backwards fill is the only thing holding this flap folded up during its
+   delay — with `forwards` it sits unrotated and shows the new digit from the
+   first frame, which is no flip at all. */
+.flip-flap--bottom {
+  transform-origin: 50% 0%;
+  animation: flip-fall calc(var(--flip-dur, 520ms) / 2) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--flip-dur, 520ms) / 2);
+}
+
+@keyframes flip-fold {
+  from {
+    transform: rotateX(0deg);
+  }
+  to {
+    transform: rotateX(-90deg);
+  }
+}
+
+@keyframes flip-fall {
+  from {
+    transform: rotateX(90deg);
+  }
+  to {
+    transform: rotateX(0deg);
+  }
+}
+
+/* Lighting: a face turning away from the viewer loses light. Without this the
+   fold reads as a flat shape changing height rather than a panel in space. */
+.flip-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.flip-flap--top .flip-shade {
+  background: linear-gradient(180deg, rgb(0 0 0 / 0) 35%, rgb(0 0 0 / 0.75));
+  animation: flip-shade-in calc(var(--flip-dur, 520ms) / 2) cubic-bezier(0.55, 0.06, 0.68, 0.19) both;
+}
+.flip-flap--bottom .flip-shade {
+  background: linear-gradient(0deg, rgb(0 0 0 / 0) 35%, rgb(0 0 0 / 0.75));
+  animation: flip-shade-out calc(var(--flip-dur, 520ms) / 2) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--flip-dur, 520ms) / 2);
+}
+
+@keyframes flip-shade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes flip-shade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Above the flaps, so the split stays readable right through the rotation. */
+.flip-seam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  z-index: 30;
+  background: rgb(0 0 0 / 0.55);
+  pointer-events: none;
+}
+
+/* The global reduced-motion rule already collapses these animations; the
+   component also stops mounting flaps at all, so the digit simply changes. */
+@media (prefers-reduced-motion: reduce) {
+  .flip-flap {
+    display: none;
+  }
 }
 
 /* There are no native <select>s in the app. Windows draws their popup with a

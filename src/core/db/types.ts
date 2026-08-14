@@ -60,6 +60,15 @@ export type TopicType = (typeof TOPIC_TYPES)[number];
 /** which clock face the Focus Timer draws */
 export type TimerDesign = 'ring' | 'flip';
 
+/** which background music loop plays behind the Focus Timer, if any */
+export type FocusMusic = 'off' | 'jazz' | 'lofi';
+
+/** ambient noise layer behind the Focus Timer, if any — independent of `FocusMusic` */
+export type AmbientSound = 'off' | 'white' | 'pink' | 'brown' | 'rain' | 'ocean';
+
+/** binaural-beat brainwave tone behind the Focus Timer, if any */
+export type Brainwave = 'off' | 'delta' | 'theta' | 'alpha' | 'beta' | 'gamma';
+
 // ── Records ─────────────────────────────────────────────────────────────────
 
 export interface UserConfig {
@@ -154,6 +163,12 @@ export interface FocusSettings {
   long_break: number;
   rounds_before_long: number;
   timer_design: TimerDesign;
+  focus_music: FocusMusic;
+  music_volume: number;
+  ambient_sound: AmbientSound;
+  ambient_volume: number;
+  brainwave: Brainwave;
+  brainwave_volume: number;
 }
 
 export interface Habit {

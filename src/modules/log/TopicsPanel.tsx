@@ -12,9 +12,12 @@ interface TopicsPanelProps {
 }
 
 /**
- * The running backlog of what's been taught, what still needs revising, and
- * what still needs solving. Academic mode only — the Growth Tracker charts the
- * same three buckets as progress bars.
+ * Three lists: what school has already taught you, what still needs revising,
+ * and what still needs solving. Academic mode only — the Growth Tracker charts
+ * the same three buckets as progress bars.
+ *
+ * Only the last two can be ticked. "Taught in School" is a record of lessons
+ * that have happened, so there is nothing in it to finish.
  */
 export default function TopicsPanel(props: TopicsPanelProps) {
   const [name, setName] = createSignal('');

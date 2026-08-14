@@ -11,6 +11,13 @@ src-tauri/gen/
 # Release, not in the tree.
 src-tauri/target/release/bundle/
 
+# ── Focus music ──────────────────────────────────────────────────────────────
+# The CC0 jazz/lofi tracks (~67 MB) — same call as the installers above: they
+# belong on a GitHub Release, not baked into every clone's history. CREDITS.txt
+# stays tracked so the license/source is still checkable without the files.
+public/audio/*/
+!public/audio/CREDITS.txt
+
 # ── Secrets ──────────────────────────────────────────────────────────────────
 # The vault recovery PRIVATE key. Never commit this. The matching public key is
 # compiled into src-tauri/src/vault/recovery_key.rs and is safe to publish.
