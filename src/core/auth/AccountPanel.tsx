@@ -61,8 +61,13 @@ export default function AccountPanel({ collapsed }: { collapsed: boolean }) {
 
   const changePassword = async () => {
     if (!supabase) return;
+    // Security check: Minimum 6 chars, maximum 72 chars to prevent bcrypt password hashing DoS vectors
     if (password.length < 6) {
       setMessage('Use at least 6 characters.');
+      return;
+    }
+    if (password.length > 72) {
+      setMessage('Password must be 72 characters or less.');
       return;
     }
     const { error } = await supabase.auth.updateUser({ password });

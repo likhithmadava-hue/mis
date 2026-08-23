@@ -49,6 +49,14 @@ export {
   type SyncStatus,
 } from './sync';
 
+/**
+ * Optional vault boot hook for desktop app host integration.
+ * Resolves immediately when running in standalone browser environment.
+ */
+export async function bootStorage(): Promise<void> {
+  return Promise.resolve();
+}
+
 export class ArborDatabase {
   static getUserConfig(): UserConfig {
     return load().user;
