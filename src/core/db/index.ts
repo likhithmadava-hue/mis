@@ -49,6 +49,11 @@ export {
   type SyncStatus,
 } from './sync';
 
+export async function bootStorage(): Promise<void> {
+  // Vault storage stub for browser environment
+  return Promise.resolve();
+}
+
 export class ArborDatabase {
   static getUserConfig(): UserConfig {
     return load().user;
