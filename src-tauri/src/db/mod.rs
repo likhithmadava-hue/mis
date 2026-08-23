@@ -95,23 +95,32 @@ impl NewEntry {
 
 // ── Day locking ─────────────────────────────────────────────────────────────
 
-/// True when today's log has been submitted and not reopened.
-pub fn today_is_locked(db: &DbShape) -> bool {
-    let today = today_iso();
+/// True when the log for `date` has been submitted and not reopened.
+pub fn date_is_locked(db: &DbShape, date: &str) -> bool {
     db.daily_metrics
         .iter()
-        .find(|m| m.date == today)
+        .find(|m| m.date == date)
         .map(DailyMetric::is_locked)
         .unwrap_or(false)
+}
+
+/// True when today's log has been submitted and not reopened.
+pub fn today_is_locked(db: &DbShape) -> bool {
+    date_is_locked(db, &today_iso())
+}
+
+/// Guard against modifications to a specific date's locked log.
+fn refuse_if_date_locked(db: &DbShape, date: &str) -> Result<()> {
+    if date_is_locked(db, date) {
+        return Err(MisError::DayLocked);
+    }
+    Ok(())
 }
 
 /// The guard every write against today has to pass. Returning an error rather
 /// than silently doing nothing is the point: a refused write must be visible.
 fn refuse_if_locked(db: &DbShape) -> Result<()> {
-    if today_is_locked(db) {
-        return Err(MisError::DayLocked);
-    }
-    Ok(())
+    refuse_if_date_locked(db, &today_iso())
 }
 
 // ── User ────────────────────────────────────────────────────────────────────
@@ -309,7 +318,9 @@ pub fn add_topic(db: &mut DbShape, name: String, kind: TopicType) -> Result<()> 
 }
 
 pub fn toggle_topic_done(db: &mut DbShape, id: &str) -> Result<()> {
-    refuse_if_locked(db)?;
+    if let Some(t) = db.topics.iter().find(|t| t.id == id) {
+        refuse_if_date_locked(db, &t.date)?;
+    }
     if let Some(t) = db.topics.iter_mut().find(|t| t.id == id) {
         t.done = !t.done;
     }
@@ -317,7 +328,9 @@ pub fn toggle_topic_done(db: &mut DbShape, id: &str) -> Result<()> {
 }
 
 pub fn delete_topic(db: &mut DbShape, id: &str) -> Result<()> {
-    refuse_if_locked(db)?;
+    if let Some(t) = db.topics.iter().find(|t| t.id == id) {
+        refuse_if_date_locked(db, &t.date)?;
+    }
     db.topics.retain(|t| t.id != id);
     Ok(())
 }
@@ -504,5 +517,39 @@ mod tests {
 
         update_today_metric(&mut db, MetricPatch { dpps_complete: Some(4.0), ..Default::default() }).unwrap();
         assert!(db.user.free_time_unlocked);
+    }
+
+    #[test]
+    fn a_locked_past_days_topics_cannot_be_toggled_or_deleted() {
+        let mut db = seed::fresh_db();
+        let past_date = "2026-08-01";
+        db.daily_metrics.push(DailyMetric {
+            id: uid(),
+            date: past_date.into(),
+            study_hours: 2.0,
+            dpps_got: 1.0,
+            dpps_complete: 1.0,
+            reading_habit: false,
+            revision_habit: false,
+            mood_score: 8.0,
+            well_spent_time: 1.0,
+            posture_count: 0.0,
+            water_count: 5.0,
+            locked: Some(true),
+            submitted_at: Some(now_iso()),
+            submit_hash: Some("hash".into()),
+        });
+
+        let topic_id = uid();
+        db.topics.push(TopicItem {
+            id: topic_id.clone(),
+            date: past_date.into(),
+            name: "Kinematics".into(),
+            kind: TopicType::Taught,
+            done: false,
+        });
+
+        assert!(matches!(toggle_topic_done(&mut db, &topic_id), Err(MisError::DayLocked)));
+        assert!(matches!(delete_topic(&mut db, &topic_id), Err(MisError::DayLocked)));
     }
 }
