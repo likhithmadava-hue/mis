@@ -25,12 +25,13 @@ export const clamp10 = (n: number) => Math.max(0, Math.min(10, n));
 export const scoreDay = (
   m: DailyMetric,
   habits: Habit[],
-  doneIds: string[],
+  doneIds: string[] | Set<string>,
   user: UserConfig
 ): Record<TrackId, number> => {
   const habitTotal = habits.reduce((sum, h) => sum + PRIORITY_WEIGHT[h.priority], 0);
+  const doneSet = doneIds instanceof Set ? doneIds : new Set(doneIds);
   const habitDone = habits
-    .filter((h) => doneIds.includes(h.id))
+    .filter((h) => doneSet.has(h.id))
     .reduce((sum, h) => sum + PRIORITY_WEIGHT[h.priority], 0);
 
   // hydration carries most of the wellness score; posture tops it up
@@ -103,18 +104,29 @@ export const scoreRange = (days: number): ScoredDay[] => {
   const priorities = ArborDatabase.getTrackPriorities();
   const metrics = ArborDatabase.getDailyMetrics();
 
-  // bucket the habit log once instead of re-reading storage per day
-  const doneByDate = new Map<string, string[]>();
-  for (const entry of ArborDatabase.getHabitLog() as HabitLogEntry[]) {
-    const list = doneByDate.get(entry.date);
-    if (list) list.push(entry.habit_id);
-    else doneByDate.set(entry.date, [entry.habit_id]);
+  // Bolt Optimization: Pre-index metrics by date to avoid O(N) array search per day (reduces from O(D * N) to O(D + N)).
+  const metricsByDate = new Map<string, DailyMetric>();
+  for (const m of metrics) {
+    metricsByDate.set(m.date, m);
   }
+
+  // Bolt Optimization: Bucket completed habits in a Set per date for O(1) membership checks during scoring.
+  const doneByDate = new Map<string, Set<string>>();
+  for (const entry of ArborDatabase.getHabitLog() as HabitLogEntry[]) {
+    let set = doneByDate.get(entry.date);
+    if (!set) {
+      set = new Set();
+      doneByDate.set(entry.date, set);
+    }
+    set.add(entry.habit_id);
+  }
+
+  const emptySet = new Set<string>();
 
   return Array.from({ length: days }, (_, i) => {
     const date = isoDaysAgo(days - 1 - i);
-    const metric = metrics.find((m) => m.date === date) ?? null;
-    const scores = metric ? scoreDay(metric, habits, doneByDate.get(date) ?? [], user) : null;
+    const metric = metricsByDate.get(date) ?? null;
+    const scores = metric ? scoreDay(metric, habits, doneByDate.get(date) ?? emptySet, user) : null;
     return {
       date,
       label: new Date(date).toLocaleDateString([], { weekday: 'short' }).slice(0, 2),
