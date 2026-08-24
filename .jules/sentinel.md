@@ -1,0 +1,4 @@
+## 2026-03-31 - CSV / Excel Formula Injection in Data Export
+**Vulnerability:** User-controlled input fields (such as subject, chapter, or notes) exported to CSV or Excel (`.xlsx`) were written without escaping formula trigger characters (`=`, `+`, `-`, `@`, `\t`, `\r`). Opening exported files in spreadsheet software like Excel or LibreOffice Calc could execute arbitrary formulas, DDE commands, or exfiltrate data.
+**Learning:** Even client-side export functions using libraries like SheetJS must sanitize text fields before generating tabular files, as external spreadsheet viewers treat leading symbols as formula syntax regardless of source origin.
+**Prevention:** Always sanitize string cell values in spreadsheet exports by prepending a single quote (`'`) to any string starting with `=`, `+`, `-`, `@`, `\t`, or `\r`.
