@@ -46,16 +46,19 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
       if (fReason !== ALL && e.mistake_reason !== fReason) return false;
       if (fDifficulty !== ALL && e.difficulty !== fDifficulty) return false;
       if (!q) return true;
-      return [e.subject, e.chapter, e.notes, e.mistake_reason, e.grade]
-        .join(' ')
-        .toLowerCase()
-        .includes(q);
+      // Performance optimization: Template literal concatenation with nullish coalescing
+      // avoids array instantiation and .join(' ') while ensuring undefined/null values
+      // don't stringify into "undefined" or "null" in search text.
+      const text = `${e.subject ?? ''} ${e.chapter ?? ''} ${e.notes ?? ''} ${e.mistake_reason ?? ''} ${e.grade ?? ''}`.toLowerCase();
+      return text.includes(q);
     });
 
     return rows.sort((a, b) => {
+      // Performance optimization: All dates in MIS are ISO YYYY-MM-DD strings.
+      // Direct string comparison avoids instantiating new Date() objects inside O(N log N) sort calls.
       const cmp =
         sortKey === 'date'
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
           : marksLost(a) - marksLost(b);
       return sortDesc ? -cmp : cmp;
     });

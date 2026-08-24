@@ -69,6 +69,13 @@ export const load = (): DbShape => {
   return db;
 };
 
+/**
+ * Boot storage before React mounts. Pre-loads database into cache.
+ */
+export const bootStorage = async (): Promise<void> => {
+  load();
+};
+
 export const save = (db: DbShape) => {
   cache = db;
   localStorage.setItem(storageKey(), JSON.stringify(db));
