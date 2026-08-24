@@ -1,5 +1,5 @@
 import { isoDaysAgo, todayIso } from '../dates';
-import { load, save } from './storage';
+import { bootStorage, load, save } from './storage';
 import { seedDb } from './seed';
 import { uid } from './uid';
 import type {
@@ -35,6 +35,7 @@ export * from './types';
 
 // the Supabase side of the same data layer — attaching an account, the sync
 // status the sidebar shows, and bringing offline data into an account
+export { bootStorage } from './storage';
 export {
   attachUser,
   countImportableGuestRows,

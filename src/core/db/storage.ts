@@ -54,6 +54,11 @@ const readKey = (key: string): DbShape | null => {
 };
 
 /** read the database, migrating it forward — reseeds if nothing is saved yet */
+/** Boot/pull local vault storage cache before app renders. No-op in web/dev environment. */
+export async function bootStorage(): Promise<void> {
+  return;
+}
+
 export const load = (): DbShape => {
   if (cache) return cache;
 
