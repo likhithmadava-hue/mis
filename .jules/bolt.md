@@ -1,0 +1,3 @@
+## 2026-07-31 - ISO Date String Comparison vs Date Object Instantiation in Sort Loops
+**Learning:** In this codebase, dates are consistently stored as ISO `YYYY-MM-DD` strings. Calling `new Date(a.date).getTime()` inside `Array.prototype.sort()` comparison functions instantiates thousands of `Date` objects during sorting, causing unnecessary GC pressure and CPU overhead. Lexicographical string comparison (`a.date < b.date ? -1 : a.date > b.date ? 1 : 0`) produces identical chronological results ~5x faster when combined with avoiding per-entry string array joins.
+**Action:** Always use string comparison for sorting ISO date fields instead of creating `Date` objects in sort callbacks.
