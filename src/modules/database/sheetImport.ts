@@ -405,9 +405,17 @@ const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | n
   { header: 'Notes', get: (e) => e.notes },
 ];
 
+/** Prevent CSV/Formula Injection by escaping leading formula trigger characters (=, +, -, @, \t, \r). */
+export function sanitizeFormula<T extends string | number>(val: T): T {
+  if (typeof val === 'string' && /^[=+\-@\t\r]/.test(val)) {
+    return `'${val}` as T;
+  }
+  return val;
+}
+
 function sheetFrom(entries: MarkLogbookEntry[]) {
   const rows = entries.map((e) =>
-    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, c.get(e)])),
+    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, sanitizeFormula(c.get(e))])),
   );
   const sheet = XLSX.utils.json_to_sheet(rows, { header: EXPORT_COLUMNS.map((c) => c.header) });
   sheet['!cols'] = EXPORT_COLUMNS.map((c) => ({ wch: Math.max(10, c.header.length + 2) }));
