@@ -33,17 +33,24 @@ export default function PaperForm({ onSubmit }: PaperFormProps) {
   const [reason, setReason] = useState<MistakeReason>('Careless');
   const [notes, setNotes] = useState('');
 
+  // Validate numerical inputs defensively before submitting
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subject.trim()) return;
+    const trimmedSubject = subject.trim();
+    if (!trimmedSubject) return;
+
+    const validatedScore = Number.isFinite(Number(score)) ? Math.max(0, Number(score)) : 0;
+    const validatedMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+    const validatedTimeSpent = Number.isFinite(Number(timeSpent)) ? Math.max(0, Number(timeSpent)) : 0;
+
     onSubmit({
-      subject: subject.trim(),
+      subject: trimmedSubject,
       chapter: chapter.trim(),
       grade,
-      score: Number(score),
-      max_score: Number(maxScore),
+      score: validatedScore,
+      max_score: validatedMaxScore,
       difficulty,
-      time_spent: Number(timeSpent),
+      time_spent: validatedTimeSpent,
       mistake_reason: reason,
       notes: notes.trim(),
     });

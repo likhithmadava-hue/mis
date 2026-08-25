@@ -46,8 +46,24 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
 
   const saveEdit = () => {
     if (!draft) return;
-    const { id, ...patch } = draft;
-    ArborDatabase.updateMarkLogbookEntry(id, patch);
+    const scoreVal = Number.isFinite(Number(draft.score)) ? Math.max(0, Number(draft.score)) : 0;
+    const maxVal = Number.isFinite(Number(draft.max_score)) && Number(draft.max_score) > 0 ? Number(draft.max_score) : 100;
+    const timeVal = Number.isFinite(Number(draft.time_spent)) ? Math.max(0, Number(draft.time_spent)) : 0;
+
+    const sanitizedPatch: Omit<MarkLogbookEntry, 'id'> = {
+      subject: draft.subject.trim(),
+      chapter: draft.chapter.trim(),
+      grade: draft.grade,
+      score: scoreVal,
+      max_score: maxVal,
+      difficulty: draft.difficulty,
+      time_spent: timeVal,
+      mistake_reason: draft.mistake_reason,
+      notes: draft.notes.trim(),
+      date: draft.date,
+    };
+
+    ArborDatabase.updateMarkLogbookEntry(draft.id, sanitizedPatch);
     setDraft(null);
     reload();
   };

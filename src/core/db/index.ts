@@ -49,6 +49,14 @@ export {
   type SyncStatus,
 } from './sync';
 
+/**
+ * Vault boot helper. When running in web/browser mode without a local vault
+ * server, this returns immediately so storage falls back to localStorage.
+ */
+export async function bootStorage(): Promise<void> {
+  return Promise.resolve();
+}
+
 export class ArborDatabase {
   static getUserConfig(): UserConfig {
     return load().user;
