@@ -359,8 +359,14 @@ export function buildEntries(
     if (!subject) return void problems.push({ row: rowNumber, reason: 'no subject' });
     if (date === null) return void problems.push({ row: rowNumber, reason: 'date not understood' });
     if (score === null) return void problems.push({ row: rowNumber, reason: 'no score' });
-    if (max === null || max <= 0)
-      return void problems.push({ row: rowNumber, reason: 'no max score' });
+    if (max === null || max <= 0 || max > 10000)
+      return void problems.push({ row: rowNumber, reason: 'invalid max score (must be > 0 and <= 10000)' });
+    if (score < 0 || score > max)
+      return void problems.push({ row: rowNumber, reason: 'score must be between 0 and max score' });
+
+    const rawTime = toNumber(cell(row, 'time_spent')) ?? 0;
+    if (rawTime < 0 || rawTime > 1440)
+      return void problems.push({ row: rowNumber, reason: 'time spent must be between 0 and 1440 minutes' });
 
     const gradeCell = String(cell(row, 'grade') ?? '').trim();
 
@@ -372,7 +378,7 @@ export function buildEntries(
       score,
       max_score: max,
       difficulty: toDifficulty(cell(row, 'difficulty')),
-      time_spent: toNumber(cell(row, 'time_spent')) ?? 0,
+      time_spent: rawTime,
       mistake_reason: toReason(cell(row, 'mistake_reason')),
       notes: String(cell(row, 'notes') ?? '').trim(),
     };
