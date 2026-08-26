@@ -74,13 +74,27 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
       try {
         const parsed = JSON.parse(String(reader.result));
         if (!Array.isArray(parsed)) throw new Error('not a list');
+
+        // Security validation: ensure all entries match expected schema before writing to storage
+        const isValid = parsed.every(
+          (item) =>
+            item &&
+            typeof item === 'object' &&
+            typeof item.id === 'string' &&
+            typeof item.date === 'string' &&
+            typeof item.subject === 'string' &&
+            typeof item.score === 'number' &&
+            typeof item.max_score === 'number'
+        );
+        if (!isValid) throw new Error('invalid schema');
+
         if (!confirm(`Replace all ${entries.length} records with ${parsed.length} from the backup?`))
           return;
         ArborDatabase.replaceMarkLogbook(parsed as MarkLogbookEntry[]);
         reload();
         notify(`Restored ${parsed.length} records from the backup.`);
       } catch {
-        alert("Couldn't read that file — a .json import has to be a backup MIS exported.");
+        alert("Couldn't read that file — a .json import has to be a valid backup MIS exported.");
       }
     };
     reader.readAsText(file);
