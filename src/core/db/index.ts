@@ -32,6 +32,7 @@ import type {
 // re-exported so the rest of the app imports shapes and the database together,
 // from `core/db`, without needing to know which file each one lives in
 export * from './types';
+export { bootStorage } from './storage';
 
 // the Supabase side of the same data layer — attaching an account, the sync
 // status the sidebar shows, and bringing offline data into an account
