@@ -76,6 +76,23 @@ pub struct NewEntry {
 }
 
 impl NewEntry {
+    /// Validate input values to prevent storing non-finite numbers (NaN/Infinity) or invalid ranges.
+    pub fn validate(&self) -> Result<()> {
+        if self.subject.trim().is_empty() {
+            return Err(MisError::InvalidInput("subject cannot be empty".into()));
+        }
+        if !self.score.is_finite() || self.score < 0.0 {
+            return Err(MisError::InvalidInput("score must be a finite non-negative number".into()));
+        }
+        if !self.max_score.is_finite() || self.max_score <= 0.0 {
+            return Err(MisError::InvalidInput("max_score must be a finite positive number".into()));
+        }
+        if !self.time_spent.is_finite() || self.time_spent < 0.0 {
+            return Err(MisError::InvalidInput("time_spent must be a finite non-negative number".into()));
+        }
+        Ok(())
+    }
+
     fn into_entry(self) -> MarkLogbookEntry {
         MarkLogbookEntry {
             id: uid(),
@@ -91,6 +108,16 @@ impl NewEntry {
             notes: self.notes,
         }
     }
+}
+
+/// Ensure float inputs are finite and non-negative to prevent vault serialization failures (DoS).
+fn validate_non_negative_finite(val: Option<f64>, field_name: &str) -> Result<()> {
+    if let Some(v) = val {
+        if !v.is_finite() || v < 0.0 {
+            return Err(MisError::InvalidInput(format!("{field_name} must be a finite non-negative number")));
+        }
+    }
+    Ok(())
 }
 
 // ── Day locking ─────────────────────────────────────────────────────────────
@@ -145,6 +172,14 @@ pub fn today_metric(db: &DbShape) -> DailyMetric {
 
 pub fn update_today_metric(db: &mut DbShape, patch: MetricPatch) -> Result<()> {
     refuse_if_locked(db)?;
+
+    validate_non_negative_finite(patch.study_hours, "study_hours")?;
+    validate_non_negative_finite(patch.dpps_got, "dpps_got")?;
+    validate_non_negative_finite(patch.dpps_complete, "dpps_complete")?;
+    validate_non_negative_finite(patch.mood_score, "mood_score")?;
+    validate_non_negative_finite(patch.well_spent_time, "well_spent_time")?;
+    validate_non_negative_finite(patch.posture_count, "posture_count")?;
+    validate_non_negative_finite(patch.water_count, "water_count")?;
 
     let today = today_iso();
     // First edit of the day: this is where the row is created. See `today_metric`
@@ -234,8 +269,10 @@ pub fn day_is_intact(db: &DbShape, date: &str) -> bool {
 
 // ── Mark logbook ────────────────────────────────────────────────────────────
 
-pub fn add_mark_entry(db: &mut DbShape, entry: NewEntry) {
+pub fn add_mark_entry(db: &mut DbShape, entry: NewEntry) -> Result<()> {
+    entry.validate()?;
     db.mark_logbook.insert(0, entry.into_entry());
+    Ok(())
 }
 
 /// Bulk insert from a spreadsheet import — one write for the whole batch.
@@ -282,15 +319,22 @@ pub fn logbook_fingerprints(db: &DbShape) -> Vec<String> {
 
 // ── Focus ───────────────────────────────────────────────────────────────────
 
-pub fn add_focus_session(db: &mut DbShape, duration_minutes: f64, tag: String, completed: bool) {
+pub fn add_focus_session(db: &mut DbShape, duration_minutes: f64, tag: String, completed: bool) -> Result<()> {
+    if !duration_minutes.is_finite() || duration_minutes <= 0.0 {
+        return Err(MisError::InvalidInput("duration_minutes must be a finite positive number".into()));
+    }
     db.focus_sessions.insert(
         0,
         FocusSession { id: uid(), date: today_iso(), duration_minutes, tag, completed },
     );
+    Ok(())
 }
 
 /// Credits finished focus minutes toward today's study hours.
 pub fn add_study_minutes(db: &mut DbShape, minutes: f64) -> Result<()> {
+    if !minutes.is_finite() || minutes < 0.0 {
+        return Err(MisError::InvalidInput("minutes must be a finite non-negative number".into()));
+    }
     let current = today_metric(db).study_hours;
     let hours = ((current + minutes / 60.0) * 10.0).round() / 10.0;
     update_today_metric(db, MetricPatch { study_hours: Some(hours), ..Default::default() })
@@ -504,5 +548,38 @@ mod tests {
 
         update_today_metric(&mut db, MetricPatch { dpps_complete: Some(4.0), ..Default::default() }).unwrap();
         assert!(db.user.free_time_unlocked);
+    }
+
+    #[test]
+    fn non_finite_and_negative_inputs_are_rejected() {
+        let mut db = db_with_today();
+
+        assert!(matches!(
+            update_today_metric(&mut db, MetricPatch { study_hours: Some(f64::NAN), ..Default::default() }),
+            Err(MisError::InvalidInput(_))
+        ));
+        assert!(matches!(
+            update_today_metric(&mut db, MetricPatch { study_hours: Some(-1.0), ..Default::default() }),
+            Err(MisError::InvalidInput(_))
+        ));
+
+        assert!(matches!(
+            add_focus_session(&mut db, f64::INFINITY, "tag".into(), true),
+            Err(MisError::InvalidInput(_))
+        ));
+
+        let bad_entry = NewEntry {
+            date: today_iso(),
+            subject: "Physics".into(),
+            chapter: "".into(),
+            grade: "".into(),
+            score: 10.0,
+            max_score: 0.0,
+            difficulty: Difficulty::Medium,
+            time_spent: 10.0,
+            mistake_reason: MistakeReason::Other,
+            notes: "".into(),
+        };
+        assert!(matches!(add_mark_entry(&mut db, bad_entry), Err(MisError::InvalidInput(_))));
     }
 }

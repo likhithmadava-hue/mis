@@ -88,10 +88,7 @@ pub fn db_day_is_intact(state: State<AppState>, date: String) -> Result<bool> {
 
 #[tauri::command]
 pub fn db_add_mark_entry(state: State<AppState>, entry: NewEntry) -> Result<()> {
-    state.mutate(|db| {
-        db::add_mark_entry(db, entry);
-        Ok(())
-    })
+    state.mutate(|db| db::add_mark_entry(db, entry))
 }
 
 /// Bulk insert from a spreadsheet import — one vault write for the whole batch.
@@ -140,10 +137,7 @@ pub fn db_add_focus_session(
     tag: String,
     completed: bool,
 ) -> Result<()> {
-    state.mutate(|db| {
-        db::add_focus_session(db, duration_minutes, tag, completed);
-        Ok(())
-    })
+    state.mutate(|db| db::add_focus_session(db, duration_minutes, tag, completed))
 }
 
 #[tauri::command]
