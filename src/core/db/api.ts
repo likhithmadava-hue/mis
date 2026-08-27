@@ -59,6 +59,7 @@ export interface MisError {
     | 'day-locked'
     | 'audit'
     | 'screen-time'
+    | 'invalid-input'
     | 'io';
   message: string;
 }

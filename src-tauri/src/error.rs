@@ -40,6 +40,9 @@ pub enum MisError {
     #[error("screen time: {0}")]
     ScreenTime(String),
 
+    #[error("invalid input: {0}")]
+    InvalidInput(String),
+
     #[error("{0}")]
     Io(String),
 }
@@ -69,6 +72,7 @@ impl MisError {
             MisError::DayLocked => "day-locked",
             MisError::Audit(_) => "audit",
             MisError::ScreenTime(_) => "screen-time",
+            MisError::InvalidInput(_) => "invalid-input",
             MisError::Io(_) => "io",
         }
     }
