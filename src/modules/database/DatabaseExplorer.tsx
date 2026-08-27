@@ -74,13 +74,45 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
       try {
         const parsed = JSON.parse(String(reader.result));
         if (!Array.isArray(parsed)) throw new Error('not a list');
-        if (!confirm(`Replace all ${entries.length} records with ${parsed.length} from the backup?`))
+
+        // Security: Validate and sanitize untrusted JSON data to prevent storage corruption or app crashes
+        const validEntries: MarkLogbookEntry[] = parsed
+          .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+          .map((item, index) => {
+            const dateStr = typeof item.date === 'string' && item.date.trim() ? item.date.trim() : new Date().toISOString().slice(0, 10);
+            const subjectStr = typeof item.subject === 'string' ? item.subject.trim() : '';
+            const scoreNum = typeof item.score === 'number' && isFinite(item.score) ? item.score : Number(item.score) || 0;
+            const maxScoreNum = typeof item.max_score === 'number' && isFinite(item.max_score) ? item.max_score : Number(item.max_score) || 100;
+
+            if (!subjectStr) return null;
+
+            return {
+              id: typeof item.id === 'string' && item.id.trim() ? item.id.trim() : `imported_${Date.now()}_${index}`,
+              date: dateStr,
+              subject: subjectStr,
+              chapter: typeof item.chapter === 'string' ? item.chapter.trim() : '',
+              grade: typeof item.grade === 'string' ? item.grade.trim() : 'N/A',
+              score: scoreNum,
+              max_score: maxScoreNum,
+              difficulty: (['Easy', 'Medium', 'Hard'].includes(String(item.difficulty)) ? item.difficulty : 'Medium') as MarkLogbookEntry['difficulty'],
+              time_spent: typeof item.time_spent === 'number' && isFinite(item.time_spent) ? item.time_spent : 0,
+              mistake_reason: (['Conceptual', 'Calculation', 'Careless', 'Reading', 'Unit', 'Sign', 'Formula Recall', 'Time Pressure', 'Other'].includes(String(item.mistake_reason)) ? item.mistake_reason : 'Other') as MarkLogbookEntry['mistake_reason'],
+              notes: typeof item.notes === 'string' ? item.notes.trim() : '',
+            };
+          })
+          .filter((entry): entry is MarkLogbookEntry => entry !== null);
+
+        if (validEntries.length === 0 && parsed.length > 0) {
+          throw new Error('No valid mark logbook entries found in JSON file.');
+        }
+
+        if (!confirm(`Replace all ${entries.length} records with ${validEntries.length} from the backup?`))
           return;
-        ArborDatabase.replaceMarkLogbook(parsed as MarkLogbookEntry[]);
+        ArborDatabase.replaceMarkLogbook(validEntries);
         reload();
-        notify(`Restored ${parsed.length} records from the backup.`);
+        notify(`Restored ${validEntries.length} records from the backup.`);
       } catch {
-        alert("Couldn't read that file — a .json import has to be a backup MIS exported.");
+        alert("Couldn't read that file — a .json import has to be a valid backup MIS exported.");
       }
     };
     reader.readAsText(file);
