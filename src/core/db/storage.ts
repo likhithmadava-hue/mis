@@ -54,6 +54,11 @@ const readKey = (key: string): DbShape | null => {
 };
 
 /** read the database, migrating it forward — reseeds if nothing is saved yet */
+/** Boot/pre-warm storage cache. Returns a promise for async compatibility. */
+export const bootStorage = async (): Promise<void> => {
+  load();
+};
+
 export const load = (): DbShape => {
   if (cache) return cache;
 
