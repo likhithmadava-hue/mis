@@ -108,3 +108,8 @@ export const replaceLocal = (db: DbShape) => {
 export const setSaveHook = (fn: ((db: DbShape) => void) | null) => {
   onSave = fn;
 };
+
+/** Boot storage host if present; defaults to resolving immediately. */
+export const bootStorage = async () => {
+  return Promise.resolve();
+};
