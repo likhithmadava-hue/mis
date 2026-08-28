@@ -9,6 +9,7 @@ import ExportMenu from './ExportMenu';
 import FilterBar from './FilterBar';
 import ImportSheet from './ImportSheet';
 import { createLogbookFilters } from './logbookFilters';
+import { validateBackupEntries } from './sheetImport';
 
 /**
  * The Database tab: the raw record of every paper logged, searchable and
@@ -67,16 +68,16 @@ export default function DatabaseExplorer() {
 
     try {
       const parsed: unknown = JSON.parse(await file.text());
-      if (!Array.isArray(parsed)) throw new Error('not a list');
+      const validated = validateBackupEntries(parsed);
 
       const yes = await confirm(
-        `Replace all ${entries().length} records with ${parsed.length} from the backup?`,
+        `Replace all ${entries().length} records with ${validated.length} from the backup?`,
         { title: 'Restore backup', kind: 'warning' },
       );
       if (!yes) return;
 
-      await act(api.replaceMarkLogbook(parsed as MarkLogbookEntry[]));
-      notify(`Restored ${parsed.length} records from the backup.`);
+      await act(api.replaceMarkLogbook(validated));
+      notify(`Restored ${validated.length} records from the backup.`);
     } catch (e) {
       await message(
         `A .json import has to be a backup MIS exported.\n\n${errorMessage(e)}`,
