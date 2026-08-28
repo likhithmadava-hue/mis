@@ -94,8 +94,10 @@ function usePaperAnalytics(logbook: MarkLogbookEntry[]) {
       label, value, pct: (value / worst) * 100, right: `${value} lost`, className: 'bg-destructive',
     }));
 
+    // Optimization (⚡ Bolt): ISO `YYYY-MM-DD` strings compare lexicographically identical
+    // to chronological ordering, avoiding 2 Date object allocations per comparison in O(N log N) sort
     const markTrend: TrendPoint[] = [...logbook]
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0))
       .map((e) => ({
         label: new Date(e.date).toLocaleDateString([], { day: 'numeric', month: 'short' }),
         sub: `${e.subject}${e.chapter ? ` — ${e.chapter}` : ''}`,
