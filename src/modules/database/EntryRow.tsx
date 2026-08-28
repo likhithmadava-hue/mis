@@ -46,10 +46,20 @@ export default function EntryRow({ entry, index, onEdit, onDelete }: EntryRowPro
       </td>
       <td className="py-2.5 px-3">
         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-          <button onClick={onEdit} title="Edit" className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted">
+          <button
+            onClick={onEdit}
+            title="Edit"
+            aria-label={`Edit mistake entry for ${entry.subject}`}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
             <Pencil size={12} />
           </button>
-          <button onClick={onDelete} title="Delete" className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted">
+          <button
+            onClick={onDelete}
+            title="Delete"
+            aria-label={`Delete mistake entry for ${entry.subject}`}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted focus-visible:ring-2 focus-visible:ring-destructive/50"
+          >
             <Trash2 size={12} />
           </button>
         </div>
