@@ -53,9 +53,11 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
     });
 
     return rows.sort((a, b) => {
+      // Optimization (⚡ Bolt): ISO `YYYY-MM-DD` strings compare lexicographically identical
+      // to chronological ordering, avoiding 2 Date object allocations per comparison in O(N log N) sort
       const cmp =
         sortKey === 'date'
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          ? (a.date > b.date ? 1 : a.date < b.date ? -1 : 0)
           : marksLost(a) - marksLost(b);
       return sortDesc ? -cmp : cmp;
     });
