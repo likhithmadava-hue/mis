@@ -389,6 +389,53 @@ export function buildEntries(
   return { entries, problems, duplicates };
 }
 
+/**
+ * Validate and sanitize JSON backup data before replacing logbook entries.
+ * Prevents corrupted or malformed data from being imported into the app state.
+ */
+export function validateBackupEntries(data: unknown): MarkLogbookEntry[] {
+  if (!Array.isArray(data)) {
+    throw new Error('Backup file must contain an array of records.');
+  }
+
+  return data.map((item, index) => {
+    if (!item || typeof item !== 'object') {
+      throw new Error(`Record #${index + 1} is not a valid object.`);
+    }
+
+    const row = item as Record<string, unknown>;
+    const subject = typeof row.subject === 'string' ? row.subject.trim() : '';
+    if (!subject) {
+      throw new Error(`Record #${index + 1} is missing a subject.`);
+    }
+
+    const date = toIsoDate(row.date) ?? todayIso();
+    const score = toNumber(row.score);
+    if (score === null || !isFinite(score)) {
+      throw new Error(`Record #${index + 1} ("${subject}") has an invalid score.`);
+    }
+
+    const maxScore = toNumber(row.max_score);
+    if (maxScore === null || !isFinite(maxScore) || maxScore <= 0) {
+      throw new Error(`Record #${index + 1} ("${subject}") has an invalid max score.`);
+    }
+
+    return {
+      id: typeof row.id === 'string' && row.id ? row.id : crypto.randomUUID(),
+      date,
+      subject,
+      chapter: typeof row.chapter === 'string' ? row.chapter.trim() : '',
+      grade: typeof row.grade === 'string' ? row.grade.trim() : gradeFor(score, maxScore),
+      score,
+      max_score: maxScore,
+      difficulty: toDifficulty(row.difficulty),
+      time_spent: toNumber(row.time_spent) ?? 0,
+      mistake_reason: toReason(row.mistake_reason),
+      notes: typeof row.notes === 'string' ? row.notes.trim() : '',
+    };
+  });
+}
+
 // ── exporting ─────────────────────────────────────────────────────────────
 
 const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | number }[] = [
