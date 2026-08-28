@@ -74,6 +74,19 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
       try {
         const parsed = JSON.parse(String(reader.result));
         if (!Array.isArray(parsed)) throw new Error('not a list');
+        // Validate each entry structure to prevent data corruption
+        const isValid = parsed.every(
+          (item) =>
+            item &&
+            typeof item === 'object' &&
+            typeof item.id === 'string' &&
+            typeof item.date === 'string' &&
+            typeof item.subject === 'string' &&
+            typeof item.score === 'number' &&
+            typeof item.max_score === 'number'
+        );
+        if (!isValid) throw new Error('invalid entry structure');
+
         if (!confirm(`Replace all ${entries.length} records with ${parsed.length} from the backup?`))
           return;
         ArborDatabase.replaceMarkLogbook(parsed as MarkLogbookEntry[]);
