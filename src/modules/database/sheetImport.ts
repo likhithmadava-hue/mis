@@ -197,6 +197,17 @@ export function autoMap(headers: string[]): Mapping {
 // ── coercion ──────────────────────────────────────────────────────────────
 
 /**
+ * Validate that year, month (1..12), and day (1..31) form a real calendar date.
+ * Security concern: Sanitize and validate untrusted date input from external sheets
+ * to prevent storing malformed dates (e.g. 2026-02-31 or 2026-99-99).
+ */
+function isValidDate(y: number, m: number, d: number): boolean {
+  if (y < 1000 || y > 9999 || m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+
+/**
  * Dates arrive as a Date (a real Excel cell), a serial number, or free text.
  * For ambiguous numeric text like 07/08/2026 we read **day-first** — this app
  * is used in India, where that is what people write.
@@ -206,14 +217,16 @@ export function toIsoDate(value: unknown): string | null {
     // the cell is a local wall-clock date; toISOString would shift it a day
     // backwards for anyone east of UTC, so build the string by hand
     const y = value.getFullYear();
-    const m = String(value.getMonth() + 1).padStart(2, '0');
-    const d = String(value.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    const m = value.getMonth() + 1;
+    const d = value.getDate();
+    if (!isValidDate(y, m, d)) return null;
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   }
 
   if (typeof value === 'number' && isFinite(value)) {
     const parsed = XLSX.SSF.parse_date_code(value);
     if (!parsed) return null;
+    if (!isValidDate(parsed.y, parsed.m, parsed.d)) return null;
     return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
   }
 
@@ -222,24 +235,36 @@ export function toIsoDate(value: unknown): string | null {
 
   // already ISO
   const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (iso) return `${iso[1]}-${iso[2].padStart(2, '0')}-${iso[3].padStart(2, '0')}`;
+  if (iso) {
+    const y = Number(iso[1]);
+    const m = Number(iso[2]);
+    const d = Number(iso[3]);
+    if (!isValidDate(y, m, d)) return null;
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
 
   // d/m/y or d-m-y, two- or four-digit year
   const dmy = text.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/);
   if (dmy) {
-    let [, d, m, y] = dmy;
-    if (y.length === 2) y = String(2000 + Number(y));
+    let [, dStr, mStr, yStr] = dmy;
+    if (yStr.length === 2) yStr = String(2000 + Number(yStr));
+    let d = Number(dStr);
+    let m = Number(mStr);
+    let y = Number(yStr);
     // a "day" over 12 can only be a day, so a leading value ≤12 with a second
     // value >12 means the sheet is month-first after all
-    if (Number(d) <= 12 && Number(m) > 12) [d, m] = [m, d];
-    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    if (d <= 12 && m > 12) [d, m] = [m, d];
+    if (!isValidDate(y, m, d)) return null;
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   }
 
   const loose = new Date(text);
   if (!isNaN(loose.getTime())) {
-    return `${loose.getFullYear()}-${String(loose.getMonth() + 1).padStart(2, '0')}-${String(
-      loose.getDate(),
-    ).padStart(2, '0')}`;
+    const y = loose.getFullYear();
+    const m = loose.getMonth() + 1;
+    const d = loose.getDate();
+    if (!isValidDate(y, m, d)) return null;
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   }
 
   return null;
