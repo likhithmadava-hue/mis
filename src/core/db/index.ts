@@ -1,5 +1,6 @@
 import { isoDaysAgo, todayIso } from '../dates';
-import { load, save } from './storage';
+import { bootStorage, load, save } from './storage';
+export { bootStorage };
 import { seedDb } from './seed';
 import { uid } from './uid';
 import type {

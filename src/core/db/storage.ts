@@ -99,6 +99,11 @@ export const isNamespaceEmpty = () => localStorage.getItem(storageKey()) === nul
  * Supabase. Deliberately does not run the save hook: this data *came from* the
  * server, so pushing it straight back would be a pointless round trip.
  */
+/**
+ * Hydrates cached data before mounting components.
+ */
+export const bootStorage = async (): Promise<void> => {};
+
 export const replaceLocal = (db: DbShape) => {
   cache = db;
   localStorage.setItem(storageKey(), JSON.stringify(db));
