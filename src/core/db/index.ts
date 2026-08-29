@@ -49,6 +49,8 @@ export {
   type SyncStatus,
 } from './sync';
 
+export const bootStorage = async () => {};
+
 export class ArborDatabase {
   static getUserConfig(): UserConfig {
     return load().user;

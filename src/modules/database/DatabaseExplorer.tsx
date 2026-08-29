@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowDown, ArrowUp, Check, Database, Upload } from 'lucide-react';
 import { ArborDatabase, type MarkLogbookEntry } from '../../core/db';
 import EntryEditor from './EntryEditor';
@@ -34,10 +34,10 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
     setEntries(ArborDatabase.getMarkLogbook());
   }, [triggerUpdate]);
 
-  const reload = () => {
+  const reload = useCallback(() => {
     setEntries(ArborDatabase.getMarkLogbook());
     onChange();
-  };
+  }, [onChange]);
 
   const notify = (msg: string) => {
     setFlash(msg);
@@ -52,12 +52,16 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
     reload();
   };
 
-  const handleDelete = (entry: MarkLogbookEntry) => {
+  const handleEdit = useCallback((entry: MarkLogbookEntry) => {
+    setDraft({ ...entry });
+  }, []);
+
+  const handleDelete = useCallback((entry: MarkLogbookEntry) => {
     if (confirm(`Delete the ${entry.subject} — ${entry.chapter || 'entry'} record?`)) {
       ArborDatabase.deleteMarkLogbookEntry(entry.id);
       reload();
     }
-  };
+  }, [reload]);
 
   /**
    * JSON is our own backup format, so it still replaces the logbook wholesale.
@@ -190,8 +194,8 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
                     key={entry.id}
                     entry={entry}
                     index={idx}
-                    onEdit={() => setDraft({ ...entry })}
-                    onDelete={() => handleDelete(entry)}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
                   />
                 )
               )}
