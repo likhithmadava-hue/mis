@@ -388,9 +388,22 @@ const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | n
   { header: 'Notes', get: (e) => e.notes },
 ];
 
+/**
+ * Prevents CSV / Formula Injection vulnerabilities by sanitizing string values that start
+ * with formula trigger characters (`=`, `+`, `-`, `@`, `\t`, `\r`).
+ * Such strings are prefixed with a single quote `'` so spreadsheet applications (Excel,
+ * Google Sheets) treat them as text rather than executing formulas.
+ */
+export function sanitizeFormula(value: unknown): unknown {
+  if (typeof value === 'string' && /^[=+@\-\t\r]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
 function sheetFrom(entries: MarkLogbookEntry[]) {
   const rows = entries.map((e) =>
-    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, c.get(e)]))
+    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, sanitizeFormula(c.get(e))]))
   );
   const sheet = XLSX.utils.json_to_sheet(rows, {
     header: EXPORT_COLUMNS.map((c) => c.header),
