@@ -391,6 +391,18 @@ export function buildEntries(
 
 // ── exporting ─────────────────────────────────────────────────────────────
 
+/**
+ * Sanitize cell values against CSV/Formula Injection.
+ * Strings starting with '=', '+', '-', '@', '\t', or '\r' are prefixed with '\''
+ * so spreadsheet applications do not execute them as formulas.
+ */
+export function sanitizeFormula(value: string | number): string | number {
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
 const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | number }[] = [
   { header: 'Date', get: (e) => e.date },
   { header: 'Subject', get: (e) => e.subject },
@@ -407,7 +419,7 @@ const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | n
 
 function sheetFrom(entries: MarkLogbookEntry[]) {
   const rows = entries.map((e) =>
-    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, c.get(e)])),
+    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, sanitizeFormula(c.get(e))])),
   );
   const sheet = XLSX.utils.json_to_sheet(rows, { header: EXPORT_COLUMNS.map((c) => c.header) });
   sheet['!cols'] = EXPORT_COLUMNS.map((c) => ({ wch: Math.max(10, c.header.length + 2) }));
