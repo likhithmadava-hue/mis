@@ -49,6 +49,15 @@ export {
   type SyncStatus,
 } from './sync';
 
+/**
+ * When MIS runs in standalone desktop vault mode, bootStorage pre-hydrates
+ * storage cache before synchronous React rendering starts. In pure localStorage
+ * mode, storage hydration is instant.
+ */
+export const bootStorage = async (): Promise<void> => {
+  load();
+};
+
 export class ArborDatabase {
   static getUserConfig(): UserConfig {
     return load().user;
