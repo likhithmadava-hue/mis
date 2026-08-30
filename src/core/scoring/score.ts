@@ -103,6 +103,12 @@ export const scoreRange = (days: number): ScoredDay[] => {
   const priorities = ArborDatabase.getTrackPriorities();
   const metrics = ArborDatabase.getDailyMetrics();
 
+  // Map daily metrics by date for O(1) lookup instead of O(n) array scan per day
+  const metricsByDate = new Map<string, DailyMetric>();
+  for (const m of metrics) {
+    metricsByDate.set(m.date, m);
+  }
+
   // bucket the habit log once instead of re-reading storage per day
   const doneByDate = new Map<string, string[]>();
   for (const entry of ArborDatabase.getHabitLog() as HabitLogEntry[]) {
@@ -113,7 +119,7 @@ export const scoreRange = (days: number): ScoredDay[] => {
 
   return Array.from({ length: days }, (_, i) => {
     const date = isoDaysAgo(days - 1 - i);
-    const metric = metrics.find((m) => m.date === date) ?? null;
+    const metric = metricsByDate.get(date) ?? null;
     const scores = metric ? scoreDay(metric, habits, doneByDate.get(date) ?? [], user) : null;
     return {
       date,
