@@ -151,6 +151,7 @@ export default function TrackControl({ id, log }: { id: TrackId; log: DailyLogSt
               >
                 <button
                   onClick={() => log.toggleHabit(h.id)}
+                  aria-label={`Mark habit ${h.name} as ${done ? 'incomplete' : 'complete'}`}
                   className={`w-5 h-5 flex-shrink-0 rounded-md border flex items-center justify-center ${
                     done
                       ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/50'
@@ -166,6 +167,7 @@ export default function TrackControl({ id, log }: { id: TrackId; log: DailyLogSt
                 <button
                   onClick={() => log.deleteHabit(h.id)}
                   title="Remove habit"
+                  aria-label={`Remove habit ${h.name}`}
                   className="text-muted-foreground/50 hover:text-destructive transition-colors"
                 >
                   <Trash2 size={13} />
