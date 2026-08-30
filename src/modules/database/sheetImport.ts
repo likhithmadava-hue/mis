@@ -117,6 +117,21 @@ export interface SheetData {
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ');
 
+/**
+ * Prevent Formula Injection (CSV Injection / Command Execution) in spreadsheet applications
+ * (Excel, Calc, Sheets). Strings starting with `=, +, -, @, \t, \r` can be executed as code
+ * or macros when opened. Prefixing with a single quote `'` forces spreadsheet tools to treat
+ * the value as literal text.
+ */
+export function sanitizeFormula(value: string): string {
+  if (typeof value !== 'string' || !value) return value;
+  const trimmed = value.trimStart();
+  if (/^[=+\-@\t\r]/.test(trimmed)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
 // ── reading ───────────────────────────────────────────────────────────────
 
 /**
@@ -376,16 +391,16 @@ export function buildEntries(
 
 const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | number }[] = [
   { header: 'Date', get: (e) => e.date },
-  { header: 'Subject', get: (e) => e.subject },
-  { header: 'Chapter', get: (e) => e.chapter },
-  { header: 'Grade', get: (e) => e.grade },
+  { header: 'Subject', get: (e) => sanitizeFormula(e.subject) },
+  { header: 'Chapter', get: (e) => sanitizeFormula(e.chapter) },
+  { header: 'Grade', get: (e) => sanitizeFormula(e.grade) },
   { header: 'Score', get: (e) => e.score },
   { header: 'Max score', get: (e) => e.max_score },
   { header: 'Marks lost', get: (e) => Math.max(0, e.max_score - e.score) },
   { header: 'Difficulty', get: (e) => e.difficulty },
   { header: 'Error type', get: (e) => e.mistake_reason },
   { header: 'Time (min)', get: (e) => e.time_spent },
-  { header: 'Notes', get: (e) => e.notes },
+  { header: 'Notes', get: (e) => sanitizeFormula(e.notes) },
 ];
 
 function sheetFrom(entries: MarkLogbookEntry[]) {
