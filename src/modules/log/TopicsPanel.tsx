@@ -100,7 +100,8 @@ export default function TopicsPanel({ topics, onAdd, onToggle, onDelete }: Topic
                           <button
                             onClick={() => onToggle(t.id)}
                             title={t.done ? 'Mark as not done' : 'Mark as done'}
-                            className={`w-5 h-5 rounded border flex items-center justify-center ${
+                            aria-label={t.done ? `Mark topic "${t.name}" as not done` : `Mark topic "${t.name}" as done`}
+                            className={`w-5 h-5 rounded border flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                               t.done
                                 ? 'bg-success/20 border-success text-success'
                                 : 'bg-muted border-border text-muted-foreground hover:border-success/60 hover:text-success'
@@ -111,7 +112,9 @@ export default function TopicsPanel({ topics, onAdd, onToggle, onDelete }: Topic
                         )}
                         <button
                           onClick={() => onDelete(t.id)}
-                          className="text-muted-foreground hover:text-destructive p-0.5 opacity-0 group-hover:opacity-100"
+                          title="Delete topic"
+                          aria-label={`Delete topic "${t.name}"`}
+                          className="text-muted-foreground hover:text-destructive p-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive rounded"
                         >
                           <Trash2 size={12} />
                         </button>
