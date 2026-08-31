@@ -49,6 +49,12 @@ export {
   type SyncStatus,
 } from './sync';
 
+/**
+ * Stub bootStorage for standalone/web mode where storage is initialized
+ * synchronously via localStorage.
+ */
+export async function bootStorage(): Promise<void> {}
+
 export class ArborDatabase {
   static getUserConfig(): UserConfig {
     return load().user;

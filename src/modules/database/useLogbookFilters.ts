@@ -53,9 +53,11 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
     });
 
     return rows.sort((a, b) => {
+      // Dates in MIS are stored as standard ISO 'YYYY-MM-DD' strings.
+      // Using localeCompare avoids instantiating Date objects and parsing dates on every comparison.
       const cmp =
         sortKey === 'date'
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          ? a.date.localeCompare(b.date)
           : marksLost(a) - marksLost(b);
       return sortDesc ? -cmp : cmp;
     });

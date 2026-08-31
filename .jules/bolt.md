@@ -1,0 +1,3 @@
+## 2026-08-31 - ISO Date String Sorting Optimization
+**Learning:** Dates across MIS are consistently stored as ISO `YYYY-MM-DD` strings. Performing `new Date(a.date).getTime() - new Date(b.date).getTime()` inside array sort comparators causes redundant `Date` object instantiations and string parsing overhead on every element comparison ($O(N \log N)$). `a.date.localeCompare(b.date)` (or direct string comparison) yields identical chronological ordering without object allocations or date parsing.
+**Action:** When sorting or comparing ISO date strings (`YYYY-MM-DD`), use string comparison (`localeCompare` or `<` / `>`) instead of instantiating `Date` objects.
