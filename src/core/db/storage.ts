@@ -108,3 +108,10 @@ export const replaceLocal = (db: DbShape) => {
 export const setSaveHook = (fn: ((db: DbShape) => void) | null) => {
   onSave = fn;
 };
+
+/**
+ * Hydrates cached database data before mounting components.
+ */
+export const bootStorage = async (): Promise<void> => {
+  load();
+};
