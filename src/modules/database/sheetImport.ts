@@ -391,18 +391,30 @@ export function buildEntries(
 
 // ── exporting ─────────────────────────────────────────────────────────────
 
+/**
+ * Prevents CSV / Excel formula injection by prefixing string values starting
+ * with `=`, `+`, `-`, `@`, `\t`, or `\r` with a single quote (`'`).
+ */
+export function sanitizeFormula(val: unknown): string {
+  const s = String(val ?? '');
+  if (/^[=+\-@\t\r]/.test(s)) {
+    return `'${s}`;
+  }
+  return s;
+}
+
 const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | number }[] = [
-  { header: 'Date', get: (e) => e.date },
-  { header: 'Subject', get: (e) => e.subject },
-  { header: 'Chapter', get: (e) => e.chapter },
-  { header: 'Grade', get: (e) => e.grade },
+  { header: 'Date', get: (e) => sanitizeFormula(e.date) },
+  { header: 'Subject', get: (e) => sanitizeFormula(e.subject) },
+  { header: 'Chapter', get: (e) => sanitizeFormula(e.chapter) },
+  { header: 'Grade', get: (e) => sanitizeFormula(e.grade) },
   { header: 'Score', get: (e) => e.score },
   { header: 'Max score', get: (e) => e.max_score },
   { header: 'Marks lost', get: (e) => Math.max(0, e.max_score - e.score) },
-  { header: 'Difficulty', get: (e) => e.difficulty },
-  { header: 'Error type', get: (e) => e.mistake_reason },
+  { header: 'Difficulty', get: (e) => sanitizeFormula(e.difficulty) },
+  { header: 'Error type', get: (e) => sanitizeFormula(e.mistake_reason) },
   { header: 'Time (min)', get: (e) => e.time_spent },
-  { header: 'Notes', get: (e) => e.notes },
+  { header: 'Notes', get: (e) => sanitizeFormula(e.notes) },
 ];
 
 function sheetFrom(entries: MarkLogbookEntry[]) {
