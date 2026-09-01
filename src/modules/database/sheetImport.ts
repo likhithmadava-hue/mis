@@ -391,6 +391,14 @@ export function buildEntries(
 
 // ── exporting ─────────────────────────────────────────────────────────────
 
+/** Prevents CSV formula injection by prefixing formula trigger chars with a single quote */
+export function sanitizeFormula<T>(value: T): T {
+  if (typeof value === 'string' && /^[=+@\-\t\r]/.test(value)) {
+    return `'${value}` as unknown as T;
+  }
+  return value;
+}
+
 const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | number }[] = [
   { header: 'Date', get: (e) => e.date },
   { header: 'Subject', get: (e) => e.subject },
@@ -407,7 +415,7 @@ const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | n
 
 function sheetFrom(entries: MarkLogbookEntry[]) {
   const rows = entries.map((e) =>
-    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, c.get(e)])),
+    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, sanitizeFormula(c.get(e))])),
   );
   const sheet = XLSX.utils.json_to_sheet(rows, { header: EXPORT_COLUMNS.map((c) => c.header) });
   sheet['!cols'] = EXPORT_COLUMNS.map((c) => ({ wch: Math.max(10, c.header.length + 2) }));
