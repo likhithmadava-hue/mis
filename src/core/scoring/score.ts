@@ -111,9 +111,15 @@ export const scoreRange = (days: number): ScoredDay[] => {
     else doneByDate.set(entry.date, [entry.habit_id]);
   }
 
+  // Bolt optimization: bucket metrics by date once (O(M)) to avoid O(days * M) linear searches
+  const metricsByDate = new Map<string, DailyMetric>();
+  for (const metric of metrics) {
+    metricsByDate.set(metric.date, metric);
+  }
+
   return Array.from({ length: days }, (_, i) => {
     const date = isoDaysAgo(days - 1 - i);
-    const metric = metrics.find((m) => m.date === date) ?? null;
+    const metric = metricsByDate.get(date) ?? null;
     const scores = metric ? scoreDay(metric, habits, doneByDate.get(date) ?? [], user) : null;
     return {
       date,
