@@ -74,6 +74,7 @@ export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTi
           <button
             onClick={timer.reset}
             title="Reset"
+            aria-label="Reset timer"
             className="p-3 rounded-xl bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors"
           >
             <RotateCcw size={18} />
@@ -89,6 +90,7 @@ export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTi
           <button
             onClick={timer.skip}
             title="Skip to next"
+            aria-label="Skip to next session"
             className="p-3 rounded-xl bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors"
           >
             <SkipForward size={18} />
