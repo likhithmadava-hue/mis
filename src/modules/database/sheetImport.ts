@@ -374,6 +374,19 @@ export function buildEntries(
 
 // ── exporting ─────────────────────────────────────────────────────────────
 
+/**
+ * Sanitizes cell values to prevent CSV / Spreadsheet Formula Injection vulnerabilities.
+ * Strings starting with '=', '+', '-', '@', '\t', or '\r' are prefixed with a single quote.
+ */
+export function sanitizeFormula(val: unknown): string | number {
+  if (typeof val === 'number') return val;
+  const str = String(val ?? '');
+  if (/^[=+\-@\t\r]/.test(str)) {
+    return `'${str}`;
+  }
+  return str;
+}
+
 const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | number }[] = [
   { header: 'Date', get: (e) => e.date },
   { header: 'Subject', get: (e) => e.subject },
@@ -390,7 +403,7 @@ const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | n
 
 function sheetFrom(entries: MarkLogbookEntry[]) {
   const rows = entries.map((e) =>
-    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, c.get(e)]))
+    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, sanitizeFormula(c.get(e))]))
   );
   const sheet = XLSX.utils.json_to_sheet(rows, {
     header: EXPORT_COLUMNS.map((c) => c.header),

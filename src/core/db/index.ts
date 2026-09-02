@@ -49,6 +49,8 @@ export {
   type SyncStatus,
 } from './sync';
 
+export { bootStorage } from './storage';
+
 export class ArborDatabase {
   static getUserConfig(): UserConfig {
     return load().user;
