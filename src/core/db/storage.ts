@@ -108,3 +108,11 @@ export const replaceLocal = (db: DbShape) => {
 export const setSaveHook = (fn: ((db: DbShape) => void) | null) => {
   onSave = fn;
 };
+
+/**
+ * Boot storage for desktop vault / host if present.
+ * In web / standard dev mode, resolves immediately.
+ */
+export const bootStorage = async (): Promise<void> => {
+  load();
+};
