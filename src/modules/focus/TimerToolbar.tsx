@@ -86,7 +86,8 @@ export default function TimerToolbar({
           <button
             onClick={onToggleFullscreen}
             title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            className="p-2 rounded-xl bg-background border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            className="p-2 rounded-xl bg-background border border-border text-muted-foreground hover:text-primary hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/50 outline-none transition-colors"
           >
             {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
           </button>
@@ -94,8 +95,9 @@ export default function TimerToolbar({
           <button
             onClick={() => setShowSettings((s) => !s)}
             title={`Timer settings — ${settings.focus_minutes}/${settings.short_break}/${settings.long_break} min`}
+            aria-label="Timer settings"
             aria-expanded={showSettings}
-            className={`p-2 rounded-xl border transition-colors ${
+            className={`p-2 rounded-xl border transition-colors focus-visible:ring-2 focus-visible:ring-primary/50 outline-none ${
               showSettings
                 ? 'bg-primary/10 border-primary/40 text-primary'
                 : 'bg-background border-border text-muted-foreground hover:text-primary hover:border-primary/40'
