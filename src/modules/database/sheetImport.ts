@@ -391,6 +391,17 @@ export function buildEntries(
 
 // ── exporting ─────────────────────────────────────────────────────────────
 
+/**
+ * Prevents CSV / Spreadsheet Formula Injection (CWE-1236) by prefixing string values that
+ * start with formula trigger characters (`=`, `+`, `-`, `@`, `\t`, `\r`) with a single quote.
+ */
+export function sanitizeFormula(value: string): string {
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
 const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | number }[] = [
   { header: 'Date', get: (e) => e.date },
   { header: 'Subject', get: (e) => e.subject },
@@ -407,7 +418,12 @@ const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | n
 
 function sheetFrom(entries: MarkLogbookEntry[]) {
   const rows = entries.map((e) =>
-    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, c.get(e)])),
+    Object.fromEntries(
+      EXPORT_COLUMNS.map((c) => {
+        const val = c.get(e);
+        return [c.header, typeof val === 'string' ? sanitizeFormula(val) : val];
+      }),
+    ),
   );
   const sheet = XLSX.utils.json_to_sheet(rows, { header: EXPORT_COLUMNS.map((c) => c.header) });
   sheet['!cols'] = EXPORT_COLUMNS.map((c) => ({ wch: Math.max(10, c.header.length + 2) }));
