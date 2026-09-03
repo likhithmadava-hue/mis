@@ -1,10 +1,16 @@
 /**
- * The one source of truth for what a score means.
+ * Scoring, as the frontend sees it.
  *
- *   meta.ts   targets, labels, icons, the red → green heat scale
- *   score.ts  the maths: per-track 0–10, per-mode out of DAY_TARGET
+ * The maths used to be here — `score.ts` computed every track out of ten and
+ * summed them. It now lives in `src-tauri/src/scoring.rs`, behind the
+ * `score_range` and `study_streak` commands, with unit tests beside it. What
+ * remains on this side is naming and presentation.
  *
- * Import from `core/scoring` rather than reaching into either file.
+ * Moving it was not only tidiness. The score is what the day *was*, and having
+ * it computed in the window meant the browser could be handed a locked day's
+ * data and reach a different number than the one the day was fingerprinted
+ * with. Now there is exactly one implementation and the day hash agrees with it
+ * by construction.
  */
+
 export * from './meta';
-export * from './score';

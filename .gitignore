@@ -1,8 +1,53 @@
+# ── Node / Vite ──────────────────────────────────────────────────────────────
 node_modules/
 dist/
-dist-netlify/
+*.local
+.vite/
 
-# Your Supabase keys. `.env.example` is the committed template; this one holds
-# the real values and stays on your machine. (The anon key is public anyway —
-# it is baked into every build — but keys belong in one place, not two.)
+# ── Rust / Tauri ─────────────────────────────────────────────────────────────
+src-tauri/target/
+src-tauri/gen/
+# Bundled installers. Built artefacts, not source — they belong on a GitHub
+# Release, not in the tree.
+src-tauri/target/release/bundle/
+
+# ── Focus music ──────────────────────────────────────────────────────────────
+# The CC0 jazz/lofi tracks (~67 MB) — same call as the installers above: they
+# belong on a GitHub Release, not baked into every clone's history. CREDITS.txt
+# stays tracked so the license/source is still checkable without the files.
+public/audio/*/
+!public/audio/CREDITS.txt
+
+# ── Secrets ──────────────────────────────────────────────────────────────────
+# The vault recovery PRIVATE key. Never commit this. The matching public key is
+# compiled into src-tauri/src/vault/recovery_key.rs and is safe to publish.
+*.pem
+dev_keys/
+.env
 .env.local
+
+# ── Local launchers ──────────────────────────────────────────────────────────
+# Convenience shortcuts that `cd` to a hard-coded absolute path on one machine.
+# They cannot work from a fresh clone, so they are personal tooling, not source.
+Open MIS*.bat
+MIS*.lnk
+
+# ── Session notes ────────────────────────────────────────────────────────────
+# Written by the Claude Code chat-progress routine (a SessionEnd hook plus a
+# 22:50 scheduled task on one machine). A running journal of what each chat did
+# and where to resume — personal working notes about the repo, not part of it.
+Chat Progress.md
+Chat Progress Log.md
+
+# ── Editor / OS ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.swp
+
+# ── Chat logs ────────────────────────────────────────────────────────────────
+# Session notes auto-written by the chat-progress hooks, not project source —
+# never committed or pushed.
+/Chat Progress.md
+/Chat Progress Log.md

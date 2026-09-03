@@ -1,0 +1,64 @@
+[package]
+name = "mis"
+version = "1.0.0"
+description = "MIS — Mistake Intelligence System"
+authors = ["vohrim"]
+edition = "2021"
+rust-version = "1.77"
+
+# The binary is what Windows installs and launches. `mis_lib` exists so the
+# vault, scoring and migration logic can be unit-tested with `cargo test`
+# without dragging a window up.
+[lib]
+name = "mis_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+# ── Vault crypto ────────────────────────────────────────────────────────────
+# AES-256-GCM seals the vault body; the data key is wrapped twice — once by
+# Windows DPAPI for the logged-in user, once by an RSA public key for offline
+# recovery. Same design the Python host used, same guarantees.
+aes-gcm = "0.10"
+rsa = { version = "0.9", features = ["sha2"] }
+sha2 = "0.10"
+rand = "0.8"
+base64 = "0.22"
+zeroize = { version = "1", features = ["derive"] }
+
+chrono = { version = "0.4", features = ["serde", "clock"] }
+uuid = { version = "1", features = ["v4"] }
+thiserror = "2"
+parking_lot = "0.12"
+rusqlite = { version = "0.40.1", features = ["bundled"] }
+
+# No `windows` crate. Everything Win32 that MIS touches — DPAPI for the vault
+# key, and the foreground-window/idle calls for screen time — is nine functions
+# with signatures that have not changed since Windows 2000. They are declared by
+# hand in `vault/dpapi.rs` and `screentime/winapi.rs`. That keeps a heavyweight
+# dependency (and its regular breaking releases) out of the two places where a
+# silently changed signature would either mis-seal the vault key or mis-record
+# what you were doing.
+
+[features]
+# Tauri's custom-protocol feature is switched on by `tauri build`; in `tauri
+# dev` the frontend is served by Vite instead.
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+# A study app does not need to be 12 MB. These four together roughly halve the
+# installed size and strip the symbol table.
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

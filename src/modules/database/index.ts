@@ -1,1 +1,1 @@
-export { default } from './DatabaseExplorer';
+export { default as DatabaseExplorer } from './DatabaseExplorer';

@@ -1,3 +1,5 @@
+import { For } from 'solid-js';
+
 import { DONE_PROMPTS } from './constants';
 
 interface DonePromptProps {
@@ -9,43 +11,50 @@ interface DonePromptProps {
 
 /**
  * The three-step confirmation a finished focus round has to pass before it is
- * written to the database. "No" at any stage resets the whole round.
+ * written to the vault. "No" at any stage resets the whole round.
  *
  * This renders inside the timer's fullscreen container on purpose — a `fixed`
- * element outside the fullscreened node would not paint at all.
+ * element outside the fullscreened node would not paint at all, and the alarm
+ * would ring with nothing on screen to answer it.
  */
-export default function DonePrompt({ stage, onYes, onNo }: DonePromptProps) {
-  const prompt = DONE_PROMPTS[stage];
+export default function DonePrompt(props: DonePromptProps) {
+  const prompt = () => DONE_PROMPTS[props.stage];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-card border border-primary/30 rounded-2xl card-shadow glow-primary p-6 max-w-sm w-full space-y-4 text-center">
-        <div className="text-4xl">{stage === DONE_PROMPTS.length - 1 ? '🌳' : '🌱'}</div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-fade-in">
+      <div class="bg-card border border-primary/30 rounded-2xl card-shadow glow-primary p-6 max-w-sm w-full space-y-4 text-center">
+        <div class="text-4xl">{props.stage === DONE_PROMPTS.length - 1 ? '🌳' : '🌱'}</div>
 
         <div>
-          <h3 className="text-lg font-bold font-space tracking-tight">{prompt.title}</h3>
-          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{prompt.body}</p>
+          <h3 class="text-lg font-bold font-space tracking-tight">{prompt().title}</h3>
+          <p class="text-xs text-muted-foreground mt-1.5 leading-relaxed">{prompt().body}</p>
         </div>
 
         {/* how many of the three checks are done */}
-        <div className="flex items-center justify-center gap-1.5">
-          {DONE_PROMPTS.map((_, i) => (
-            <span key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i <= stage ? 'bg-primary' : 'bg-muted'}`} />
-          ))}
+        <div class="flex items-center justify-center gap-1.5">
+          <For each={DONE_PROMPTS}>
+            {(_, i) => (
+              <span
+                class={`w-1.5 h-1.5 rounded-full transition-colors ${
+                  i() <= props.stage ? 'bg-primary' : 'bg-muted'
+                }`}
+              />
+            )}
+          </For>
         </div>
 
-        <div className="flex flex-col gap-2 pt-1">
+        <div class="flex flex-col gap-2 pt-1">
           <button
-            onClick={onYes}
-            className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold font-space text-sm active:scale-95 transition-transform"
+            onClick={props.onYes}
+            class="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold font-space text-sm active:scale-95 transition-transform"
           >
-            {prompt.yes}
+            {prompt().yes}
           </button>
           <button
-            onClick={onNo}
-            className="px-4 py-2.5 rounded-xl bg-muted border border-border text-foreground font-semibold text-sm hover:border-primary/40 active:scale-95 transition-all"
+            onClick={props.onNo}
+            class="px-4 py-2.5 rounded-xl bg-muted border border-border text-foreground font-semibold text-sm hover:border-primary/40 active:scale-95 transition-all"
           >
-            {prompt.no}
+            {prompt().no}
           </button>
         </div>
       </div>

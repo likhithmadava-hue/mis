@@ -3,14 +3,22 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      // Every colour resolves through a CSS variable declared in index.css, so
+      // `:root[data-mode='life']` can retint the entire app by overriding
+      // --primary. Use these token classes; a hardcoded hex breaks Life mode.
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: 'hsl(var(--card))',
         border: 'hsl(var(--border))',
         muted: 'hsl(var(--muted))',
+        elevated: 'hsl(var(--elevated))',
         'muted-foreground': 'hsl(var(--muted-foreground))',
+        // the third text step: quieter than muted, still legible. For
+        // denominators, empty states and anything that must recede.
+        'subtle-foreground': 'hsl(var(--subtle-foreground))',
         primary: 'hsl(var(--primary))',
+        'primary-deep': 'hsl(var(--primary-deep))',
         'primary-foreground': 'hsl(var(--primary-foreground))',
         secondary: 'hsl(var(--secondary))',
         accent: 'hsl(var(--accent))',
@@ -20,8 +28,9 @@ export default {
         sidebar: 'hsl(var(--sidebar))',
         'sidebar-accent': 'hsl(var(--sidebar-accent))',
       },
-      // same font system as the original app:
-      // Inter for body, Space Grotesk for headings, JetBrains Mono for numbers
+      // Inter for body, Space Grotesk for headings, JetBrains Mono for numbers.
+      // Shipped as local woff2 files (see src/fonts.css) — an installed desktop
+      // app must not reach out to Google Fonts on launch.
       fontFamily: {
         space: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
@@ -48,24 +57,23 @@ export default {
           '70%': { opacity: '1', transform: 'scale(1.15)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
-        'scan': {
+        scan: {
           from: { transform: 'translateX(-100%)' },
           to: { transform: 'translateX(100%)' },
         },
-        // flip-clock digits: the new number swings down into place
-        'flip': {
-          '0%': { transform: 'rotateX(-90deg)', opacity: '0.2' },
-          '60%': { transform: 'rotateX(8deg)', opacity: '1' },
-          '100%': { transform: 'rotateX(0deg)', opacity: '1' },
-        },
+        /* the split-flap digit's keyframes live in index.css beside the rest of
+           its layers — the flaps need shading overlays and a duration driven by
+           a custom property, neither of which a utility class can carry */
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-out',
+        // same motion as fade-in but `both`, so a staggered animation-delay
+        // holds the element invisible instead of flashing it first
+        'rise-in': 'fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both',
         'bounce-short': 'bounce-short 0.6s ease-out',
         'row-in': 'row-in 0.35s ease-out both',
         'pop-in': 'pop-in 0.35s ease-out both',
-        'scan': 'scan 1s ease-in-out',
-        'flip': 'flip 0.35s ease-out',
+        scan: 'scan 1s ease-in-out',
       },
     },
   },

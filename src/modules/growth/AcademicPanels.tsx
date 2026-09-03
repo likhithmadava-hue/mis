@@ -1,216 +1,316 @@
 import {
+  Activity,
   Award,
   BarChart3,
   BookOpen,
   Flame,
-  Layers,
   ShieldAlert,
   Sparkles,
   Target,
   TrendingUp,
-} from 'lucide-react';
-import { DAY_TARGET } from '../../core/scoring';
-import Card from '../../core/ui/Card';
-import { BarChart, Donut, EmptyChart, HBarList, TrendChart } from '../../core/ui/charts';
-import { TOPIC_COLUMNS } from '../../core/ui/labels';
-import TrackSummary from './TrackSummary';
-import type { Range, useGrowthData } from './useGrowthData';
+} from 'lucide-solid';
+import { For, Show } from 'solid-js';
 
-interface AcademicPanelsProps {
-  data: ReturnType<typeof useGrowthData>;
-  range: Range;
-}
+import { longDate } from '../../core/dates';
+import { DAY_TARGET } from '../../core/scoring';
+import {
+  BarChart,
+  Donut,
+  EmptyChart,
+  HBarList,
+  SeriesLabel,
+  TOPIC_COLUMNS,
+  TrendChart,
+  type PanelDef,
+} from '../../core/ui';
+import { Meter, Stat } from './parts';
+import TrackSummary from './TrackSummary';
+import type { GrowthData, Range } from './growthData';
 
 /**
- * The Academic half of the tracker: hours and papers, then everything the
- * mistake logbook has to say about where the marks are actually going.
+ * The Academic deck: hours and papers, then everything the mistake logbook has
+ * to say about where the marks are actually going.
+ *
+ * This was eleven full-width cards stacked down the page. It is now seven
+ * panels, several of them merging two charts that were only ever read together
+ * — hours with the papers they produced, subjects with the chapters inside
+ * them, the gate with the backlog it is gating. Each panel renders small for
+ * the grid and large for the zoom view; where a tile has to drop something it
+ * drops rows off the end of a list, never a whole series.
  */
-export default function AcademicPanels({ data, range }: AcademicPanelsProps) {
-  const { days, user, topics, bestDay, modeTracks, academic, papers } = data;
-  const { studyBars, dppBars, gate } = academic;
 
-  return (
-    <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card
-          title="Study Hours"
-          subtitle={`Green bars cleared your ${user.target_study_hours}h target.`}
-          icon={Target}
-        >
-          <BarChart
-            data={studyBars}
-            max={Math.max(user.target_study_hours, ...studyBars.map((b) => b.value))}
-            height={150}
-            unit="h"
-          />
-        </Card>
+export const ACADEMIC_GROUPS = [
+  { value: 'overview', label: 'Overview' },
+  { value: 'papers', label: 'Papers & Marks' },
+  { value: 'all', label: 'Everything' },
+];
 
-        <Card title="DPPs Completed" subtitle="Papers finished each day." icon={Layers}>
-          <BarChart data={dppBars} max={Math.max(1, ...dppBars.map((b) => b.value))} height={150} />
-        </Card>
-      </div>
+export function academicPanels(data: GrowthData, range: Range): PanelDef[] {
+  const user = data.user();
 
-      <Card
-        title={`Last ${range} Days`}
-        subtitle="Each academic track scored 0–10 per day, ordered by the priority you set in the Log."
-        icon={BarChart3}
-      >
-        <TrackSummary days={days} tracks={modeTracks} mode="academic" />
-      </Card>
+  const backlog = () => data.topics().filter((t) => t.type !== 'taught');
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card
-          title="Error Analysis Engine"
-          subtitle="Classified distribution across every paper logged."
-          icon={Flame}
-        >
-          <HBarList data={papers.reasonBars} empty="No mistakes logged yet." />
-          <div className="border-t border-border pt-4 grid grid-cols-3 gap-2 text-center">
-            <div className="p-3 bg-background rounded-xl border border-border">
-              <span className="text-[10px] text-muted-foreground uppercase">Avg Score</span>
-              <p className="text-lg font-bold font-space">{papers.avgPaper}%</p>
+  return [
+    {
+      id: 'day-score',
+      title: 'Day Score',
+      subtitle: `Out of ${DAY_TARGET}, one point per day. Gaps are days with no log.`,
+      icon: Activity,
+      group: 'overview',
+      render: (view) => (
+        <TrendChart data={data.scoreTrend()} max={DAY_TARGET} height={view === 'full' ? 300 : 76} />
+      ),
+    },
+
+    {
+      id: 'study',
+      title: 'Study & DPPs',
+      subtitle: `Hours studied against your ${user.target_study_hours}h target, and the papers finished each day.`,
+      icon: Target,
+      group: 'overview',
+      render: (view) => {
+        const full = view === 'full';
+        const studyBars = () => data.academic().studyBars;
+        const dppBars = () => data.academic().dppBars;
+        return (
+          <div class={full ? 'space-y-5' : 'space-y-2'}>
+            <div>
+              <SeriesLabel>Study hours · target {user.target_study_hours}h</SeriesLabel>
+              {/* the axis never shrinks below the target, so a bad week still
+                  shows how far short of it the bars fell */}
+              <BarChart
+                data={studyBars()}
+                max={Math.max(user.target_study_hours, ...studyBars().map((b) => b.value))}
+                height={full ? 180 : 44}
+                unit="h"
+                showLabels={full}
+              />
             </div>
-            <div className="p-3 bg-background rounded-xl border border-border">
-              <span className="text-[10px] text-muted-foreground uppercase">Papers</span>
-              <p className="text-lg font-bold font-space">{papers.totalEntries}</p>
-            </div>
-            <div className="p-3 bg-background rounded-xl border border-border">
-              <span className="text-[10px] text-muted-foreground uppercase">Marks Lost</span>
-              <p className="text-lg font-bold font-space text-destructive">{papers.totalMarksLost}</p>
+            <div>
+              <SeriesLabel>DPPs completed</SeriesLabel>
+              <BarChart
+                data={dppBars()}
+                max={Math.max(1, ...dppBars().map((b) => b.value))}
+                height={full ? 180 : 44}
+                showLabels={full}
+              />
             </div>
           </div>
-        </Card>
+        );
+      },
+    },
 
-        <Card title="Difficulty Mix" subtitle="What kind of paper you actually attempt." icon={Layers}>
-          {papers.difficultySegments.length === 0 ? (
-            <EmptyChart message="No papers logged yet." />
-          ) : (
-            <Donut
-              segments={papers.difficultySegments}
-              centerValue={String(papers.totalEntries)}
-              centerLabel="papers"
+    {
+      id: 'tracks',
+      title: `Last ${range} Days`,
+      subtitle:
+        'Each academic track scored 0–10 per day, ordered by the priority you set in the Log.',
+      icon: BarChart3,
+      group: 'overview',
+      wide: true,
+      render: () => (
+        <TrackSummary days={data.days()} tracks={data.modeTracks()} mode="academic" />
+      ),
+    },
+
+    {
+      id: 'targets',
+      title: "Today's Targets",
+      subtitle:
+        'Leisure stays restricted until both benchmarks hit 100%. The backlog is what you still owe yourself.',
+      icon: Award,
+      group: 'overview',
+      render: (view) => {
+        const full = view === 'full';
+        const gate = () => data.academic().gate;
+        return (
+          <div class="space-y-3">
+            <Meter
+              label="Deep study"
+              right={`${gate().studyHours}/${user.target_study_hours}h`}
+              pct={gate().studyProgress}
+              class={gate().studyProgress >= 100 ? 'bg-success' : 'bg-primary'}
             />
-          )}
-        </Card>
+            <Meter
+              label="DPPs complete"
+              right={`${gate().dppsComplete}/${gate().dppTarget}`}
+              pct={gate().dppProgress}
+              class={gate().dppProgress >= 100 ? 'bg-success' : 'bg-yellow-500'}
+            />
 
-        <Card
-          title="Subject Performance"
-          subtitle="Average percentage per subject — weakest first."
-          icon={BookOpen}
-        >
-          <HBarList data={papers.subjectBars} empty="No papers logged yet." />
-        </Card>
-
-        <Card
-          title="Where Marks Go"
-          subtitle="Total marks lost per chapter. Your top six revision targets."
-          icon={ShieldAlert}
-        >
-          <HBarList data={papers.chapterBars} empty="No marks lost yet — or nothing logged." />
-        </Card>
-      </div>
-
-      <Card title="Score History" subtitle="Every paper in order, as a percentage." icon={TrendingUp}>
-        {papers.markTrend.length < 2 ? (
-          <EmptyChart message="Log at least two papers to see a trend." />
-        ) : (
-          <TrendChart data={papers.markTrend} max={100} height={170} unit="%" color="#10b981" />
-        )}
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card
-          title="Free Time Gate"
-          subtitle="Leisure apps stay restricted until today's academic benchmarks hit 100%."
-          icon={Award}
-        >
-          <div className="p-4 bg-background rounded-xl border border-border space-y-4">
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Deep Study Hours</span>
-                <span className={`font-bold ${gate.studyProgress >= 100 ? 'text-success' : ''}`}>
-                  {gate.studyHours}/{user.target_study_hours}h
-                </span>
-              </div>
-              <div className="w-full bg-card h-2 rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${gate.studyProgress >= 100 ? 'bg-success' : 'bg-primary'}`}
-                  style={{ width: `${gate.studyProgress}%` }}
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">DPPs Complete</span>
-                <span className={`font-bold ${gate.dppProgress >= 100 ? 'text-success' : ''}`}>
-                  {gate.dppsComplete}/{gate.dppTarget}
-                </span>
-              </div>
-              <div className="w-full bg-card h-2 rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${gate.dppProgress >= 100 ? 'bg-success' : 'bg-yellow-500'}`}
-                  style={{ width: `${gate.dppProgress}%` }}
-                />
-              </div>
-            </div>
-          </div>
-          {gate.unlocked ? (
-            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-2.5 animate-fade-in">
-              <Sparkles className="text-emerald-400 mt-0.5 flex-shrink-0" size={16} />
-              <div className="text-xs text-muted-foreground">
-                <span className="font-bold block text-emerald-400">Gate open</span>
-                Both benchmarks cleared. Enjoy the leisure guilt-free.
-              </div>
-            </div>
-          ) : (
-            <div className="p-4 bg-red-500/5 border border-red-500/15 rounded-xl flex items-start gap-2.5">
-              <ShieldAlert className="text-red-400 mt-0.5 flex-shrink-0" size={16} />
-              <div className="text-xs text-muted-foreground">
-                <span className="font-bold block text-red-400">Gate locked</span>
-                Finish the remaining study hours and DPPs.
-              </div>
-            </div>
-          )}
-        </Card>
-
-        <Card title="Topic Backlog" subtitle="Add and tick topics in the Daily Log." icon={BookOpen}>
-          <div className="space-y-4">
-            {TOPIC_COLUMNS.map(({ type, title }) => {
-              const items = topics.filter((t) => t.type === type);
-              const done = items.filter((t) => t.done).length;
-              const pct = items.length > 0 ? (done / items.length) * 100 : 0;
-              return (
-                <div key={type} className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-medium">
-                    <span>{title}</span>
-                    <span className="font-mono text-muted-foreground">
-                      {type === 'taught'
-                        ? `${items.length} total`
-                        : `${items.length - done} left of ${items.length}`}
-                    </span>
-                  </div>
-                  <div className="w-full bg-background h-2.5 rounded-lg overflow-hidden">
-                    <div
-                      className={`h-full rounded-lg transition-all ${
-                        type === 'taught' ? 'bg-primary' : pct === 100 ? 'bg-success' : 'bg-yellow-500'
-                      }`}
-                      style={{ width: `${type === 'taught' ? 100 : pct}%` }}
-                    />
+            <Show
+              when={gate().unlocked}
+              fallback={
+                <div class="p-3 bg-red-500/5 border border-red-500/15 rounded-xl flex items-start gap-2.5">
+                  <ShieldAlert class="text-red-400 mt-0.5 flex-shrink-0" size={15} />
+                  <div class="text-xs text-muted-foreground">
+                    <span class="font-bold block text-red-400">Gate locked</span>
+                    {full && 'Finish the remaining study hours and DPPs.'}
                   </div>
                 </div>
-              );
-            })}
-            {bestDay && (
-              <div className="pt-2 border-t border-border text-xs text-muted-foreground">
-                Best day in this range:{' '}
-                <span className="text-foreground font-semibold">{bestDay.dateLabel}</span> at{' '}
-                <span className="font-mono font-bold text-primary">{bestDay.byMode?.academic}</span>/
-                {DAY_TARGET}
+              }
+            >
+              <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-2.5">
+                <Sparkles class="text-emerald-400 mt-0.5 flex-shrink-0" size={15} />
+                <div class="text-xs text-muted-foreground">
+                  <span class="font-bold block text-emerald-400">Gate open</span>
+                  {full && 'Both benchmarks cleared. Enjoy the leisure guilt-free.'}
+                </div>
               </div>
-            )}
+            </Show>
+
+            {/* the tile says how big the backlog is; the zoom view breaks it down */}
+            <Show
+              when={full}
+              fallback={
+                <p class="text-xs text-muted-foreground">
+                  Backlog ·{' '}
+                  <span class="font-mono text-foreground font-semibold">
+                    {backlog().filter((t) => !t.done).length}
+                  </span>{' '}
+                  left of {backlog().length}
+                </p>
+              }
+            >
+              <div class="border-t border-border pt-4 space-y-3">
+                <For each={TOPIC_COLUMNS}>
+                  {({ type, title }) => {
+                    const items = () => data.topics().filter((t) => t.type === type);
+                    const done = () => items().filter((t) => t.done).length;
+                    const pct = () => (items().length > 0 ? (done() / items().length) * 100 : 0);
+                    return (
+                      <Meter
+                        label={title}
+                        right={
+                          type === 'taught'
+                            ? `${items().length} total`
+                            : `${items().length - done()} left of ${items().length}`
+                        }
+                        // "Taught" is a tally, not a backlog — there is nothing
+                        // to complete, so its bar is always full.
+                        pct={type === 'taught' ? 100 : pct()}
+                        class={
+                          type === 'taught'
+                            ? 'bg-primary'
+                            : pct() === 100
+                              ? 'bg-success'
+                              : 'bg-yellow-500'
+                        }
+                      />
+                    );
+                  }}
+                </For>
+                <Show when={data.bestDay()}>
+                  {(best) => (
+                    <p class="pt-2 border-t border-border text-xs text-muted-foreground">
+                      Best day in this range:{' '}
+                      <span class="text-foreground font-semibold">{longDate(best().date)}</span> at{' '}
+                      <span class="font-mono font-bold text-primary">
+                        {best().by_mode?.academic}
+                      </span>
+                      /{DAY_TARGET}
+                    </p>
+                  )}
+                </Show>
+              </div>
+            </Show>
           </div>
-        </Card>
-      </div>
-    </>
-  );
+        );
+      },
+    },
+
+    {
+      id: 'errors',
+      title: 'Error Analysis',
+      subtitle: 'How your mistakes classify, and what kind of paper you actually attempt.',
+      icon: Flame,
+      group: 'papers',
+      render: (view) => {
+        const full = view === 'full';
+        const papers = () => data.papers();
+        return (
+          <div class="space-y-4">
+            <Show when={full && papers().difficultySegments.length > 0}>
+              <Donut
+                segments={papers().difficultySegments}
+                centerValue={String(papers().totalEntries)}
+                centerLabel="papers"
+              />
+            </Show>
+            <HBarList
+              data={full ? papers().reasonBars : papers().reasonBars.slice(0, 3)}
+              empty="No mistakes logged yet."
+            />
+            <div
+              class={`grid grid-cols-3 gap-2 text-center ${
+                full ? 'border-t border-border pt-4' : ''
+              }`}
+            >
+              <Stat label="Avg" value={`${papers().avgPaper}%`} />
+              <Stat label="Papers" value={String(papers().totalEntries)} />
+              <Stat label="Lost" value={String(papers().totalMarksLost)} tone="text-destructive" />
+            </div>
+          </div>
+        );
+      },
+    },
+
+    {
+      id: 'subjects',
+      title: 'Subjects & Chapters',
+      subtitle:
+        'Average percentage per subject, weakest first — then the chapters those marks were lost in.',
+      icon: BookOpen,
+      group: 'papers',
+      render: (view) => {
+        const full = view === 'full';
+        const papers = () => data.papers();
+        return (
+          <div class={full ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : 'space-y-3'}>
+            <div>
+              <SeriesLabel>Subject performance</SeriesLabel>
+              <HBarList
+                data={full ? papers().subjectBars : papers().subjectBars.slice(0, 2)}
+                empty="No papers logged yet."
+              />
+            </div>
+            <div>
+              <SeriesLabel>Where marks go</SeriesLabel>
+              <HBarList
+                data={full ? papers().chapterBars : papers().chapterBars.slice(0, 2)}
+                empty="No marks lost yet."
+              />
+            </div>
+          </div>
+        );
+      },
+    },
+
+    {
+      id: 'history',
+      title: 'Score History',
+      subtitle: 'Every paper in the logbook, in order, as a percentage.',
+      icon: TrendingUp,
+      group: 'papers',
+      render: (view) => (
+        <Show
+          when={data.papers().markTrend.length >= 2}
+          fallback={
+            <EmptyChart
+              message="Log at least two papers to see a trend."
+              compact={view === 'tile'}
+            />
+          }
+        >
+          <TrendChart
+            data={data.papers().markTrend}
+            max={100}
+            height={view === 'full' ? 300 : 76}
+            unit="%"
+            color="#10b981"
+          />
+        </Show>
+      ),
+    },
+  ];
 }

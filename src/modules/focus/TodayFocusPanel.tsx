@@ -1,4 +1,6 @@
-import { Flame } from 'lucide-react';
+import { Flame } from 'lucide-solid';
+import { For, Show } from 'solid-js';
+
 import type { FocusSession } from '../../core/db';
 
 interface TodayFocusPanelProps {
@@ -7,35 +9,64 @@ interface TodayFocusPanelProps {
 }
 
 /** what you've already banked today: rounds completed and minutes logged */
-export default function TodayFocusPanel({ sessions, minutes }: TodayFocusPanelProps) {
+export default function TodayFocusPanel(props: TodayFocusPanelProps) {
   return (
-    <div className="bg-card rounded-2xl border border-border card-shadow p-6 space-y-4">
-      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground font-space flex items-center gap-2">
-        <Flame size={16} className="text-primary" /> Today's Focus
+    <div class="bg-card rounded-2xl border border-border card-shadow p-6 space-y-4">
+      <h3 class="text-sm font-bold uppercase tracking-wider text-muted-foreground font-space flex items-center gap-2">
+        <Flame size={16} class="text-primary" /> Today's Focus
       </h3>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className={`p-4 rounded-xl border text-center ${sessions.length > 0 ? 'bg-success/5 border-success/40' : 'bg-background border-border'}`}>
-          <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Sessions</p>
-          <p className={`text-2xl font-bold font-space ${sessions.length > 0 ? 'text-success' : ''}`}>{sessions.length}</p>
+      <div class="grid grid-cols-2 gap-3">
+        <div
+          class={`p-4 rounded-xl border text-center ${
+            props.sessions.length > 0
+              ? 'bg-success/5 border-success/40'
+              : 'bg-background border-border'
+          }`}
+        >
+          <p class="text-[0.625rem] uppercase tracking-wider font-bold text-muted-foreground">
+            Sessions
+          </p>
+          <p class={`text-2xl font-bold font-space ${props.sessions.length > 0 ? 'text-success' : ''}`}>
+            {props.sessions.length}
+          </p>
         </div>
-        <div className={`p-4 rounded-xl border text-center ${minutes > 0 ? 'bg-success/5 border-success/40' : 'bg-background border-border'}`}>
-          <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Minutes</p>
-          <p className={`text-2xl font-bold font-space ${minutes > 0 ? 'text-success' : ''}`}>{minutes}</p>
+        <div
+          class={`p-4 rounded-xl border text-center ${
+            props.minutes > 0 ? 'bg-success/5 border-success/40' : 'bg-background border-border'
+          }`}
+        >
+          <p class="text-[0.625rem] uppercase tracking-wider font-bold text-muted-foreground">
+            Minutes
+          </p>
+          <p class={`text-2xl font-bold font-space ${props.minutes > 0 ? 'text-success' : ''}`}>
+            {props.minutes}
+          </p>
         </div>
       </div>
 
-      <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-        {sessions.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-6">No sessions yet today — plant your first tree. 🌱</p>
-        ) : (
-          sessions.map((s) => (
-            <div key={s.id} className="px-3 py-2 bg-background border border-border rounded-lg flex items-center justify-between gap-2">
-              <span className="text-xs truncate" title={s.tag}>{s.tag}</span>
-              <span className="text-[11px] font-mono text-success font-bold flex-shrink-0">{s.duration_minutes}m</span>
-            </div>
-          ))
-        )}
+      <div class="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+        <Show
+          when={props.sessions.length > 0}
+          fallback={
+            <p class="text-xs text-muted-foreground text-center py-6">
+              No sessions yet today — plant your first tree. 🌱
+            </p>
+          }
+        >
+          <For each={props.sessions}>
+            {(s) => (
+              <div class="px-3 py-2 bg-background border border-border rounded-lg flex items-center justify-between gap-2">
+                <span class="text-xs truncate" title={s.tag}>
+                  {s.tag}
+                </span>
+                <span class="text-[0.6875rem] font-mono text-success font-bold flex-shrink-0">
+                  {s.duration_minutes}m
+                </span>
+              </div>
+            )}
+          </For>
+        </Show>
       </div>
     </div>
   );
