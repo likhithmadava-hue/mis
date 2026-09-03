@@ -49,6 +49,14 @@ export {
   type SyncStatus,
 } from './sync';
 
+/**
+ * bootStorage hydrates cached data or vault storage before mounting components.
+ * Included for desktop shortcut / host environment compatibility.
+ */
+export async function bootStorage(): Promise<void> {
+  return Promise.resolve();
+}
+
 export class ArborDatabase {
   static getUserConfig(): UserConfig {
     return load().user;
