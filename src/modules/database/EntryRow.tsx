@@ -1,6 +1,8 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-solid';
+
+import { shortDate } from '../../core/dates';
 import { marksLost, type MarkLogbookEntry } from '../../core/db';
-import { DIFFICULTY_BADGE, REASON_BADGE } from '../../core/ui/mistakes';
+import { DIFFICULTY_BADGE, REASON_BADGE } from '../../core/ui';
 
 interface EntryRowProps {
   entry: MarkLogbookEntry;
@@ -11,45 +13,65 @@ interface EntryRowProps {
 }
 
 /** one logged paper, as it reads at rest */
-export default function EntryRow({ entry, index, onEdit, onDelete }: EntryRowProps) {
+export default function EntryRow(props: EntryRowProps) {
+  const e = () => props.entry;
+
   return (
     <tr
-      className="group animate-row-in hover:bg-primary/5 transition-colors"
-      style={{ animationDelay: `${Math.min(index * 30, 400)}ms` }}
+      class="group animate-row-in hover:bg-primary/5 transition-colors"
+      // capped, so row 300 does not wait nine seconds to appear
+      style={{ 'animation-delay': `${Math.min(props.index * 30, 400)}ms` }}
     >
-      <td className="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
-        {new Date(entry.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+      <td class="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
+        {shortDate(e().date)}
       </td>
-      <td className="py-2.5 px-3 font-semibold whitespace-nowrap">{entry.subject}</td>
-      <td className="py-2.5 px-3 text-muted-foreground max-w-[160px] truncate" title={entry.chapter}>
-        {entry.chapter || '—'}
+      <td class="py-2.5 px-3 font-semibold whitespace-nowrap">{e().subject}</td>
+      <td class="py-2.5 px-3 text-muted-foreground max-w-[160px] truncate" title={e().chapter}>
+        {e().chapter || '—'}
       </td>
-      <td className="py-2.5 px-3">
-        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border whitespace-nowrap ${REASON_BADGE[entry.mistake_reason]}`}>
-          {entry.mistake_reason}
+      <td class="py-2.5 px-3">
+        <span
+          class={`text-[0.5625rem] font-bold px-2 py-0.5 rounded-md border whitespace-nowrap ${
+            REASON_BADGE[e().mistake_reason]
+          }`}
+        >
+          {e().mistake_reason}
         </span>
       </td>
-      <td className="py-2.5 px-3">
-        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border ${DIFFICULTY_BADGE[entry.difficulty]}`}>
-          {entry.difficulty}
+      <td class="py-2.5 px-3">
+        <span
+          class={`text-[0.5625rem] font-bold px-2 py-0.5 rounded-md border ${
+            DIFFICULTY_BADGE[e().difficulty]
+          }`}
+        >
+          {e().difficulty}
         </span>
       </td>
-      <td className="py-2.5 px-3 font-mono whitespace-nowrap">
-        <span className="text-destructive font-bold">−{marksLost(entry)}</span>
-        <span className="text-muted-foreground"> / {entry.max_score}</span>
+      {/* marks *lost*, not marks scored — the table exists to show where they go */}
+      <td class="py-2.5 px-3 font-mono whitespace-nowrap">
+        <span class="text-destructive font-bold">−{marksLost(e())}</span>
+        <span class="text-muted-foreground"> / {e().max_score}</span>
       </td>
-      <td className="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
-        {entry.time_spent ? `${entry.time_spent}m` : '—'}
+      <td class="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
+        {e().time_spent ? `${e().time_spent}m` : '—'}
       </td>
-      <td className="py-2.5 px-3 text-muted-foreground max-w-[240px] truncate" title={entry.notes}>
-        {entry.notes || '—'}
+      <td class="py-2.5 px-3 text-muted-foreground max-w-[240px] truncate" title={e().notes}>
+        {e().notes || '—'}
       </td>
-      <td className="py-2.5 px-3">
-        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-          <button onClick={onEdit} title="Edit" aria-label="Edit entry" className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted">
+      <td class="py-2.5 px-3">
+        <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <button
+            onClick={props.onEdit}
+            title="Edit"
+            class="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted"
+          >
             <Pencil size={12} />
           </button>
-          <button onClick={onDelete} title="Delete" aria-label="Delete entry" className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted">
+          <button
+            onClick={props.onDelete}
+            title="Delete"
+            class="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted"
+          >
             <Trash2 size={12} />
           </button>
         </div>

@@ -1,4 +1,8 @@
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import * as XLSX from 'xlsx';
+
+import { todayIso } from '../../core/dates';
 import {
   DIFFICULTIES,
   MISTAKE_REASONS,
@@ -8,9 +12,10 @@ import {
 } from '../../core/db';
 
 /**
- * Reading marks out of a spreadsheet the user already keeps.
+ * Reading marks out of a spreadsheet the user already keeps — and writing them
+ * back out again.
  *
- * The hard part isn't the file format — SheetJS handles .xlsx and .csv through
+ * The hard part isn't the file format: SheetJS handles .xlsx and .csv through
  * the same call. It's that nobody's sheet uses our column names, our date
  * format, or our nine error types. So: guess the mapping, let the user correct
  * it, and coerce every value defensively rather than trusting the cell.
@@ -115,23 +120,33 @@ export interface SheetData {
   rows: Record<string, unknown>[];
 }
 
-const norm = (s: string) => s.trim().toLowerCase().replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ');
+const norm = (s: string) =>
+  s
+    .trim()
+    .toLowerCase()
+    .replace(/[_\-.]+/g, ' ')
+    .replace(/\s+/g, ' ');
 
 // ── reading ───────────────────────────────────────────────────────────────
 
 /**
  * Parse a File into rows.
  *
+ * The file comes from an ordinary `<input type="file">` rather than Tauri's
+ * dialog plugin, which is not laziness: the input hands back a `File` the
+ * webview can read directly, so importing a sheet needs no filesystem
+ * permission at all. MIS can be pointed at a spreadsheet anywhere on the disk
+ * without ever being granted the ability to go looking for one.
+ *
  * The two formats are read deliberately differently:
  *
  * - **.xlsx** — `cellDates` on, so a real date cell arrives as a `Date`.
- *   Without it Excel hands back serial numbers (45123) and we'd be guessing
- *   the epoch. A genuine date cell is unambiguous, so we trust it.
+ *   Without it Excel hands back serial numbers (45123) and we'd be guessing the
+ *   epoch. A genuine date cell is unambiguous, so we trust it.
  * - **.csv** — read raw, as text. Left to itself SheetJS "helpfully" parses
- *   `07/08/2026` into a date **month-first**, turning 7 August into 8 July
- *   with no warning. A CSV has no cell types, so the convention is the
- *   author's, not SheetJS's — we keep the string and let `toIsoDate` apply
- *   day-first below.
+ *   `07/08/2026` into a date **month-first**, turning 7 August into 8 July with
+ *   no warning. A CSV has no cell types, so the convention is the author's, not
+ *   SheetJS's — we keep the string and let `toIsoDate` apply day-first below.
  */
 export async function readSheet(file: File, sheetName?: string): Promise<SheetData> {
   const isCsv = /\.csv$/i.test(file.name);
@@ -148,8 +163,8 @@ export async function readSheet(file: File, sheetName?: string): Promise<SheetDa
   // still shows up in the header list
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
 
-  // sheet_to_json only reports keys that exist on each row; read the header
-  // row directly so the mapping list matches the sheet exactly, in order
+  // sheet_to_json only reports keys that exist on each row; read the header row
+  // directly so the mapping list matches the sheet exactly, in order
   const headerRow = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' })[0] ?? [];
   const headers = headerRow.map((h) => String(h ?? '').trim()).filter((h) => h !== '');
 
@@ -168,7 +183,8 @@ export function autoMap(headers: string[]): Mapping {
     const partial =
       exact ??
       headers.find(
-        (h) => !taken.has(h) && spec.aliases.some((a) => norm(h).includes(a) || a.includes(norm(h)))
+        (h) =>
+          !taken.has(h) && spec.aliases.some((a) => norm(h).includes(a) || a.includes(norm(h))),
       );
 
     mapping[spec.field] = partial ?? UNMAPPED;
@@ -181,9 +197,9 @@ export function autoMap(headers: string[]): Mapping {
 // ── coercion ──────────────────────────────────────────────────────────────
 
 /**
- * Dates arrive as a Date (real Excel cell), a serial number, or free text.
- * For ambiguous numeric text like 07/08/2026 we read day-first — this app is
- * used in India, where that is what people write.
+ * Dates arrive as a Date (a real Excel cell), a serial number, or free text.
+ * For ambiguous numeric text like 07/08/2026 we read **day-first** — this app
+ * is used in India, where that is what people write.
  */
 export function toIsoDate(value: unknown): string | null {
   if (value instanceof Date && !isNaN(value.getTime())) {
@@ -222,7 +238,7 @@ export function toIsoDate(value: unknown): string | null {
   const loose = new Date(text);
   if (!isNaN(loose.getTime())) {
     return `${loose.getFullYear()}-${String(loose.getMonth() + 1).padStart(2, '0')}-${String(
-      loose.getDate()
+      loose.getDate(),
     ).padStart(2, '0')}`;
   }
 
@@ -297,27 +313,25 @@ export interface BuildResult {
 
 /** two records are "the same paper" if these line up */
 const fingerprint = (e: Candidate | MarkLogbookEntry) =>
-  [
-    e.date,
-    norm(e.subject),
-    norm(e.chapter),
-    e.score,
-    e.max_score,
-  ].join('|');
+  [e.date, norm(e.subject), norm(e.chapter), e.score, e.max_score].join('|');
 
 /**
  * Turn mapped rows into entries, dropping the ones that can't be salvaged and
- * the ones already in the database. Nothing is written here — the caller shows
- * this to the user first.
+ * the ones already in the database.
+ *
+ * **Nothing is written here.** The caller shows this to the user first — how
+ * many rows are good, how many are duplicates, and exactly which row numbers
+ * were dropped and why. An importer that silently ate four rows out of two
+ * hundred would be worse than one that refused the file.
  */
 export function buildEntries(
   rows: Record<string, unknown>[],
   mapping: Mapping,
-  existing: MarkLogbookEntry[]
+  existingFingerprints: string[],
 ): BuildResult {
   const entries: Candidate[] = [];
   const problems: RowProblem[] = [];
-  const seen = new Set(existing.map(fingerprint));
+  const seen = new Set(existingFingerprints);
   let duplicates = 0;
 
   const cell = (row: Record<string, unknown>, field: Field) => {
@@ -335,7 +349,10 @@ export function buildEntries(
 
     // a wholly blank row is padding at the bottom of the sheet, not an error
     const blank =
-      !subject && date === null && score === null && max === null &&
+      !subject &&
+      date === null &&
+      score === null &&
+      max === null &&
       !String(cell(row, 'chapter') ?? '').trim();
     if (blank) return;
 
@@ -374,21 +391,6 @@ export function buildEntries(
 
 // ── exporting ─────────────────────────────────────────────────────────────
 
-/**
- * Sanitizes cell values to prevent CSV formula injection / spreadsheet formula injection.
- * If a value starts with sensitive formula trigger characters (=, +, -, @, \t, \r),
- * it is prefixed with a single quote (') so spreadsheet applications treat it as plain text.
- */
-export function sanitizeFormula(val: unknown): unknown {
-  if (typeof val === 'string') {
-    const trimmed = val.trimStart();
-    if (/^[=+@\t\r]/.test(trimmed)) {
-      return `'${val}`;
-    }
-  }
-  return val;
-}
-
 const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | number }[] = [
   { header: 'Date', get: (e) => e.date },
   { header: 'Subject', get: (e) => e.subject },
@@ -405,44 +407,68 @@ const EXPORT_COLUMNS: { header: string; get: (e: MarkLogbookEntry) => string | n
 
 function sheetFrom(entries: MarkLogbookEntry[]) {
   const rows = entries.map((e) =>
-    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, sanitizeFormula(c.get(e))]))
+    Object.fromEntries(EXPORT_COLUMNS.map((c) => [c.header, c.get(e)])),
   );
-  const sheet = XLSX.utils.json_to_sheet(rows, {
-    header: EXPORT_COLUMNS.map((c) => c.header),
-  });
+  const sheet = XLSX.utils.json_to_sheet(rows, { header: EXPORT_COLUMNS.map((c) => c.header) });
   sheet['!cols'] = EXPORT_COLUMNS.map((c) => ({ wch: Math.max(10, c.header.length + 2) }));
   return sheet;
 }
 
-function download(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+/**
+ * Ask where to put a file, then put it there.
+ *
+ * The old version built a Blob and clicked an invisible `<a download>`, which
+ * is how the web saves a file and not how an application does. An installed app
+ * opens the system Save dialog: the user sees where the file is going, names
+ * it, and can put it somewhere they will find it again. Returns the path
+ * written, or null if they cancelled — cancelling is not an error.
+ */
+async function saveAs(
+  defaultName: string,
+  extension: string,
+  description: string,
+  write: (path: string) => Promise<void>,
+): Promise<string | null> {
+  const path = await save({
+    defaultPath: defaultName,
+    filters: [{ name: description, extensions: [extension] }],
+  });
+  if (!path) return null;
+  await write(path);
+  return path;
 }
 
-const stamp = () => new Date().toISOString().split('T')[0];
+export const exportCsv = (entries: MarkLogbookEntry[]) =>
+  saveAs(`mis-mistakes-${todayIso()}.csv`, 'csv', 'CSV spreadsheet', (path) =>
+    // The BOM is what makes Excel open a UTF-8 CSV without mangling accents.
+    // Without it, a chapter name with an é becomes mojibake on the way in.
+    writeTextFile(path, '﻿' + XLSX.utils.sheet_to_csv(sheetFrom(entries))),
+  );
 
-export function exportCsv(entries: MarkLogbookEntry[]) {
-  const csv = XLSX.utils.sheet_to_csv(sheetFrom(entries));
-  // the BOM is what makes Excel open a UTF-8 CSV without mangling accents
-  download(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }), `mis-mistakes-${stamp()}.csv`);
-}
-
-export function exportXlsx(entries: MarkLogbookEntry[]) {
+const workbookBytes = (entries: MarkLogbookEntry[]) => {
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheetFrom(entries), 'Mistakes');
-  XLSX.writeFile(book, `mis-mistakes-${stamp()}.xlsx`);
-}
+  // `array` rather than `file`: SheetJS's own writeFile reaches for the DOM's
+  // download mechanism, which is exactly what we are replacing.
+  return new Uint8Array(XLSX.write(book, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer);
+};
+
+export const exportXlsx = (entries: MarkLogbookEntry[]) =>
+  saveAs(`mis-mistakes-${todayIso()}.xlsx`, 'xlsx', 'Excel workbook', (path) =>
+    writeFile(path, workbookBytes(entries)),
+  );
+
+/** our own backup format — the only export that can be read back in */
+export const exportJson = (entries: MarkLogbookEntry[]) =>
+  saveAs(`mis-mistakes-${todayIso()}.json`, 'json', 'JSON backup', (path) =>
+    writeTextFile(path, JSON.stringify(entries, null, 2)),
+  );
 
 /** an empty sheet with the right headers, for starting from scratch */
-export function exportTemplate() {
-  const book = XLSX.utils.book_new();
+export const exportTemplate = () => {
   const example: MarkLogbookEntry = {
     id: '',
-    date: stamp(),
+    date: todayIso(),
     subject: 'Physics',
     chapter: 'Kinematics',
     grade: 'B',
@@ -453,6 +479,7 @@ export function exportTemplate() {
     mistake_reason: 'Careless',
     notes: 'Re-read the question before solving.',
   };
-  XLSX.utils.book_append_sheet(book, sheetFrom([example]), 'Mistakes');
-  XLSX.writeFile(book, 'mis-import-template.xlsx');
-}
+  return saveAs('mis-import-template.xlsx', 'xlsx', 'Excel workbook', (path) =>
+    writeFile(path, workbookBytes([example])),
+  );
+};

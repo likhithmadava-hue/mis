@@ -7,8 +7,9 @@ export const MODE_LABEL: Record<TimerMode, string> = {
   long: 'Long Break',
 };
 
-/** the tree grows as the focus session progresses (Arbor = tree) */
-export const TREE_STAGES = ['🌱', '🌿', '🪴', '🌳'];
+/** the tree grows as the focus session progresses (Arbor = tree); the last
+ *  stage is a bloom, not another tree — a small payoff for finishing */
+export const TREE_STAGES = ['🌰', '🌱', '🌿', '🍀', '🪴', '🌲', '🌳', '🌻'];
 
 export const RING_RADIUS = 120;
 export const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
@@ -16,6 +17,10 @@ export const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 /**
  * The three questions asked when a focus round ends. Answering "no" at any
  * point resets the timer; only three "yes"es in a row end the session.
+ *
+ * The friction is the feature. One button between "the bell rang" and "the
+ * session is logged" would be pressed reflexively; three deliberate answers
+ * make stopping a decision rather than a habit.
  */
 export const DONE_PROMPTS = [
   {

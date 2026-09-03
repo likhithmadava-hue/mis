@@ -1,64 +1,119 @@
-# Arbor — Study Focus & Growth Dashboard
+# MIS — Mistake Intelligence System
 
-A web dashboard for students: track study hours, log exam mistakes, simulate an
-app blocker, and check in on wellness (mood, water, posture, sleep).
+A Windows study app that turns the mistakes you make into a picture of how you are
+actually improving.
 
-Built with **React + TypeScript + Vite + Tailwind CSS**.
+You log the day once. MIS scores it, keeps every paper you've gotten wrong, times
+your focus sessions, records where your screen time went — and keeps all of it in
+an encrypted vault on your own computer. Nothing is uploaded. There is no account,
+no server, and no internet connection involved after you install it.
 
-## How to open it (two ways)
+---
 
-**1. The easy way — the desktop shortcut.**
-Double-click **Arbor** (green icon) on your Desktop. It opens in its own
-window, like a normal app. This runs the *built* copy of the app from the
-`dist\` folder — no terminal needed.
+## Install it
 
-**2. The developer way — the dev server.**
-Use this while changing the code (it live-reloads as you edit):
+1. Download `MIS_1.0.0_x64-setup.exe` from the [Releases](../../releases) page.
+2. Run it. It installs for your user only, so Windows will not ask for an
+   administrator password.
+3. Open **MIS** from the Start menu.
 
-```
-npm install     # only needed the first time (already done for you)
-npm run dev     # starts the app at http://localhost:5173
-```
+That's the whole thing. Windows SmartScreen may warn you the first time, because
+the installer isn't code-signed yet — click **More info → Run anyway**.
 
-To stop it, press `Ctrl + C` in the terminal.
+If your PC doesn't already have Microsoft's WebView2 runtime, the installer
+downloads it during setup. Most Windows 11 machines already have it.
 
-> ⚠️ The shortcut shows the last *build*. After changing code, run
-> `npm run build` to update what the shortcut opens.
+To uninstall: Settings → Apps → MIS → Uninstall. **Your data is not deleted** —
+it stays in `%LOCALAPPDATA%\MIS` so a reinstall picks up exactly where you left
+off. Delete that folder yourself if you want it gone.
 
-## The screens (tabs)
+---
+
+## What's in it
+
+**Two modes.** MIS runs as **Academic** (the work that moves your marks) or
+**Life** (everything that keeps that work sustainable). The mode changes the whole
+app — which tabs exist, what you can log, what gets charted, even the colour.
+Each mode scores its own day out of 50. There is deliberately no combined number:
+a rough study day shouldn't drag down the rest of your life, and vice versa.
 
 | Tab | What it does |
-|-----|--------------|
-| **Focus Timer** | A Pomodoro timer with a tree that grows as you focus. Finished rounds are logged and their minutes count toward today's study hours. Durations are adjustable. |
-| **Daily Log** | Today's log, one day at a time. Five tracks (Studies, DPPs, Habits, Mood, Well-Spent) each scored out of 10 and colour-coded. Give each track — and each individual habit — a High/Medium/Low priority; that sorts the cards and weights the day's score out of 50. A read-only 7-day grid sits at the bottom. |
-| **Growth Tracker** | 7-day study streak matrix, error-analysis chart (what *kind* of mistakes you make), and a marks logbook where you record test results. |
-| **Wellness** | Mood + leisure sliders, water and posture counters (confetti when you hit your water goal 🎉), and a sleep window planner. |
-| **Database** | A raw table view of everything the app has saved, plus a "Reset Seed" button to restore the original sample data. |
-| **App Guard** *(disabled for now)* | An app-blocker **simulator**. It's commented out in `src/App.tsx` — real blocking will come from the Python backend. The screen's code is still in `src/components/ProtectGuard.tsx`, one uncomment away. |
+|---|---|
+| **Home** | Today's score, the week around it, and your study streak. One screen, no scrolling. |
+| **Daily Log** | The only place you enter anything. Hours, papers, habits, mood, topics. Submit it when the day's done and it locks. |
+| **Report** | Every chart. Trends, error analysis, subject performance, the heat grid. |
+| **Database** | Every paper you've logged, searchable and filterable. Import the Excel sheet you already keep. |
+| **Screen Time** | Where the hours actually went, by app and by category, with a timeline of the day. |
+| **Focus Timer** | Pomodoro with a growing tree. Finished minutes count towards your study hours automatically. |
 
-## Where is my data saved?
+**Priorities decide what counts.** Every track and habit is High, Medium or Low.
+High counts 3×, Medium 2×, Low 1× — so the app scores the day *you* care about,
+not a default someone else picked.
 
-In your **browser's localStorage** under the key `arbor_db`. That means:
+**Submitting locks the day.** Once you submit, the log is read-only and
+fingerprinted. You can reopen it to fix a real mistake, but the unlock is
+recorded, and if the day's data ever changes outside the app, MIS tells you.
 
-- Data survives refreshing the page and restarting the app. ✅
-- Data is **per browser** — Chrome and Edge each have their own copy. ⚠️
-- Clearing browser data deletes it. ⚠️
+---
 
-Later this can be upgraded to a real database (sqlite via the Python backend,
-or Supabase) without changing the screens — only `src/utils/db.ts` would change.
+## Where your data lives
 
-## Folder map
+Everything is in `%LOCALAPPDATA%\MIS`:
 
+| File | What it is |
+|---|---|
+| `vault.mis` | your database, encrypted with AES-256-GCM |
+| `vault.key` | the key to it, sealed to your Windows account |
+| `audit.log` | an append-only record of every change, chained so a deleted line shows |
+| `screentime\` | one encrypted file per recorded day |
+
+**What the encryption does and doesn't do.** It protects your data from *other
+people who use this PC, from other PCs, and from tampering.* It does **not** hide
+anything from you — the key is sealed to your own Windows account, so you are
+always able to read it — and it does not hide anything from an administrator of
+this machine. Any app that says otherwise is lying to you.
+
+Nothing is ever sent anywhere. There's no telemetry, no crash reporting and no
+update check.
+
+---
+
+## Build it yourself
+
+You need [Node.js](https://nodejs.org) 20+, the Rust toolchain, and Microsoft's
+C++ build tools:
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS -e
+winget install --id Rustlang.Rustup -e
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 ```
-arbor/
-├── index.html            The single web page the app lives in (loads fonts + the app)
-├── package.json          Project info + the list of libraries the app uses
-├── vite.config.ts        Config for Vite (the tool that runs/builds the app)
-├── tailwind.config.js    Design tokens: colors, fonts, animations
-├── postcss.config.js     Wires Tailwind into the build (you'll never touch this)
-├── tsconfig.json         TypeScript settings
-├── arbor.ico             The green icon used by the desktop shortcut
-├── dist/                 The built app (what the desktop shortcut opens) — auto-generated by `npm run build`
-├── node_modules/         Installed libraries — auto-generated, never edit
-└── src/                  All the actual app code → see src/README.md
+
+Open a fresh terminal so `cargo` is on your `PATH`, then:
+
+```powershell
+npm install
+npm run app          # run MIS with live reload
+npm run app:build    # build the installers
 ```
+
+The installers land in `src-tauri\target\release\bundle\`.
+
+---
+
+## How it's built
+
+| | |
+|---|---|
+| Shell | [Tauri 2](https://tauri.app) — one process, one window, a real Windows installer |
+| Backend | Rust — the vault, the scoring, the day locks, the audit log, the screen-time tracker |
+| Frontend | [SolidJS](https://solidjs.com) + TypeScript + Tailwind |
+| Charts | hand-rolled SVG, no chart library |
+
+The frontend never stores anything of its own. It asks Rust for the database,
+draws it, and calls a command to change it — and that command has written the
+encrypted vault before it answers. There's no browser storage, no local server,
+no port and no token anywhere in the app.
+
+Fonts, icons and every asset ship inside the binary, so MIS works with the network
+switched off.

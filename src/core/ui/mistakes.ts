@@ -3,9 +3,9 @@ import type { Difficulty, MistakeReason } from '../db';
 /**
  * Colours for the mistake-type and difficulty badges.
  *
- * These live here rather than inside a component because both the Database
- * tab and the Growth Tracker's logbook draw the same badges — keeping one
- * copy means a colour only ever has to be changed in one place.
+ * These live here rather than inside a component because both the Database tab
+ * and the Growth Tracker's logbook draw the same badges — keeping one copy
+ * means a colour only ever has to be changed in one place.
  */
 
 export const REASON_BADGE: Record<MistakeReason, string> = {
@@ -30,6 +30,10 @@ export const DIFFICULTY_BADGE: Record<Difficulty, string> = {
  * Raw colour values for SVG charts. `fill`/`stroke` cannot take a Tailwind
  * class, so the donut and line charts need the literal colour — these mirror
  * the maps above and must be kept in step with them.
+ *
+ * `Conceptual` and `Other` resolve through CSS variables rather than hex, which
+ * is why they retint with the mode along with everything else. The rest are
+ * fixed hues because they mean a specific kind of mistake, not an accent.
  */
 export const DIFFICULTY_COLOR: Record<Difficulty, string> = {
   Easy: '#10b981',

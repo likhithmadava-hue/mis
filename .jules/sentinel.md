@@ -1,0 +1,4 @@
+## 2026-08-05 - Date-Specific Day Lock Guarding for Topics
+**Vulnerability:** Topic mutations (`toggle_topic_done` and `delete_topic`) were validated using `today_is_locked` instead of checking the specific date of the target topic. If a past day was locked but today was unlocked, topics from the locked past day could still be toggled or deleted, resulting in silent tampering with locked day contents and invalidating the day integrity fingerprint (`day_is_intact`).
+**Learning:** Functions accepting item identifiers (such as topic `id`) may reference resources associated with historical dates rather than today. Checking global or today's state instead of the specific resource's date allowed lock bypass.
+**Prevention:** Always inspect the item's own `date` property and call `date_is_locked(db, &item.date)` when guarding mutations against locked records.

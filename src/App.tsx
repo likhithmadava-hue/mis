@@ -1,70 +1,73 @@
-import { useState, useEffect } from 'react';
 import {
-  Sprout,
-  LineChart,
-  Database,
-  Quote,
-  Dices,
-  Timer,
+  BarChart3,
   CalendarCheck,
+  Database,
+  Dices,
+  House,
+  MonitorPlay,
   PanelLeftClose,
   PanelLeftOpen,
-  // Loader2, UploadCloud, X — used only by the accounts block below
-} from 'lucide-react';
-import FocusTimer from './modules/focus';
-import DailyLog from './modules/log';
-import GrowTrack from './modules/growth';
-import DatabaseExplorer from './modules/database';
-import {
-  ArborDatabase,
-  MODES,
-  // countImportableGuestRows, dismissGuestImport, importGuestData — accounts block
-  type AppMode,
-} from './core/db';
+  Quote,
+  Sprout,
+  Timer,
+} from 'lucide-solid';
+import { createEffect, createSignal, For, Match, Show, Switch } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
+
+import { db, MODES, setMode, type AppMode } from './core/db';
 import { MODE_META } from './core/scoring';
+import { createRailTooltip, type Icon } from './core/ui';
+import { DatabaseExplorer } from './modules/database';
+import { FocusTimer } from './modules/focus';
+import { Home, Report } from './modules/growth';
+import { DailyLog } from './modules/log';
+import { ScreenTime } from './modules/screentime';
 
-// ── Accounts / login are commented out for now ───────────────────────────
-// MIS is device-only: no sign-in screen, no account panel, nothing leaves
-// this computer. Everything under src/core/auth is still there and still
-// works — it is simply not wired in.
-//
-// To bring accounts back:
-//   1. uncomment the import below, and the icon + db imports above
-//   2. uncomment the auth gate in App() and the ImportOfflineData function
-//   3. restore the `signedIn` prop on Workspace and its two uses
-//   4. uncomment AuthProvider in main.tsx
-//   5. set LOGIN_ENABLED = true in core/auth/client.ts
-// import { AccountPanel, LoginScreen, useAuth } from './core/auth';
-
-// ── App Guard (blocking) is disabled for now ─────────────────────────────
-// Real blocking will be handled by the Python backend engine later.
-// To re-enable the simulator tab: uncomment the two lines below, the tab
-// entry in TABS, and the <ProtectGuard> line further down.
-// import { Shield } from 'lucide-react';
-// import ProtectGuard from './modules/guard';
-
-// Growth Tracker leads — the Focus Timer is deliberately not the landing tab.
-// Wellness is gone: its check-ins moved into the Daily Log and its Free Time
-// gate into the Growth Tracker, so input and charts stay separated.
-//
-// `modes` decides which tabs exist in which mode. The Database is an exam-paper
-// archive and the Focus Timer credits its minutes to study_hours, so both are
-// Academic-only.
+/**
+ * Home leads — the Focus Timer is deliberately not the landing tab.
+ *
+ * Home and Report were one tab until the tracker outgrew a single screen. Home
+ * is today's numbers and the streak, nothing you have to scroll for; Report is
+ * where every chart lives. Splitting them is what lets each page be short.
+ *
+ * `modes` decides which tabs exist in which mode. The Database is an exam-paper
+ * archive and the Focus Timer credits its minutes to `study_hours`, so both are
+ * Academic-only. Screen Time lives in Life instead: it watches everything in
+ * front of you, not just study apps, so it answers "where did the time
+ * actually go" rather than "where did the study time go".
+ *
+ * Screen Time is new to the shell. The tab was fully built in the old app and
+ * never wired in, because it needed the Python host to be running and the shell
+ * had no way to know whether it was. The tracker now starts with the window, so
+ * there is nothing left to be unsure about.
+ */
 const TABS = [
-  { id: 'grow', label: 'Growth Tracker', icon: LineChart, modes: ['academic', 'life'] },
+  { id: 'home', label: 'Home', icon: House, modes: ['academic', 'life'] },
   { id: 'log', label: 'Daily Log', icon: CalendarCheck, modes: ['academic', 'life'] },
+  { id: 'report', label: 'Report', icon: BarChart3, modes: ['academic', 'life'] },
   { id: 'db', label: 'Database', icon: Database, modes: ['academic'] },
-  // { id: 'guard', label: 'App Guard', icon: Shield, modes: ['academic'] },
+  { id: 'screen', label: 'Screen Time', icon: MonitorPlay, modes: ['life'] },
   { id: 'focus', label: 'Focus Timer', icon: Timer, modes: ['academic'] },
-] as const satisfies readonly { id: string; label: string; icon: unknown; modes: readonly AppMode[] }[];
+] as const satisfies readonly {
+  id: string;
+  label: string;
+  icon: Icon;
+  modes: readonly AppMode[];
+}[];
 
 type TabId = (typeof TABS)[number]['id'];
 
 const QUOTES = [
-  { text: 'A quiet lab for your mind. Capture every slip, watch the patterns surface, sharpen the next attempt.', author: 'MIS' },
+  {
+    text: 'A quiet lab for your mind. Capture every slip, watch the patterns surface, sharpen the next attempt.',
+    author: 'MIS',
+  },
   { text: 'The secret of getting ahead is getting started.', author: 'Mark Twain' },
   { text: 'It always seems impossible until it is done.', author: 'Nelson Mandela' },
-  { text: 'Success is the sum of small efforts, repeated day in and day out.', author: 'Robert Collier' },
+  {
+    text: 'Success is the sum of small efforts, repeated day in and day out.',
+    author: 'Robert Collier',
+  },
   { text: 'Don’t watch the clock; do what it does. Keep going.', author: 'Sam Levenson' },
   { text: 'A little progress each day adds up to big results.', author: 'Satya Nani' },
   { text: 'The expert in anything was once a beginner.', author: 'Helen Hayes' },
@@ -76,7 +79,7 @@ const QUOTES = [
 
 // same quote all day, a new one tomorrow (day-of-year picks the index)
 const dayOfYear = Math.floor(
-  (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+  (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000,
 );
 
 const greeting = () => {
@@ -87,273 +90,287 @@ const greeting = () => {
 };
 
 /**
- * The way in.
+ * The shell: the rail, the heading, and whichever tab is open.
  *
- * With accounts commented out there is nothing to wait for and nobody to
- * identify, so this hands straight to the workspace. The gate that used to
- * live here — a loading state while the session was worked out, then either
- * the login screen or the workspace — is kept below.
+ * There is no auth gate and no loading state. The old `App` had both — a spinner
+ * while a session was worked out, then either a login screen or the workspace,
+ * with a large commented-out block explaining how to switch accounts back on.
+ * MIS is device-only: the vault is sealed to this Windows account and nothing
+ * leaves the machine. If accounts ever come back they will be a new decision
+ * with a new design, not a block waiting to be uncommented — so the dead code is
+ * gone rather than carried.
+ *
+ * There is also no `triggerUpdate` counter. Every tab used to take one and
+ * re-read the database when it changed; now they all read the same reactive
+ * store, and a habit ticked in the Daily Log is in the Growth Tracker's numbers
+ * before the click finishes. See `core/db/store.ts`.
  */
 export default function App() {
-  return <Workspace />;
-}
+  const [activeTab, setActiveTab] = createSignal<TabId>('home');
+  const [navCollapsed, setNavCollapsed] = createSignal(false);
+  const [quoteIndex, setQuoteIndex] = createSignal(dayOfYear % QUOTES.length);
 
-/*
-// ── The auth gate, for when accounts come back ───────────────────────────
-// `Workspace` reads the database as it renders, so it must not mount until
-// the right account's data is in place — hence the wait on `preparing` as
-// well as `loading`.
-export default function App() {
-  const { phase } = useAuth();
+  // Collapsed, every rail button is a bare icon — this is what says which is
+  // which. It stays silent while the labels are on screen.
+  const railTip = createRailTooltip(navCollapsed);
 
-  if (phase === 'loading' || phase === 'preparing') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-muted-foreground">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center glow-primary">
-          <Sprout className="text-primary" size={24} />
-        </div>
-        <p className="text-sm flex items-center gap-2">
-          <Loader2 size={14} className="animate-spin" />
-          {phase === 'preparing' ? 'Loading your data…' : 'Starting MIS…'}
-        </p>
-      </div>
-    );
-  }
+  const mode = () => db.app_mode;
 
-  if (phase === 'signed-out') return <LoginScreen />;
+  // Drives the `:root[data-mode='life']` token overrides in index.css. This one
+  // line is the whole of how the app retints: every accent resolves through
+  // --primary, so nothing else has to know the mode changed.
+  createEffect(() => {
+    document.documentElement.dataset.mode = mode();
+  });
 
-  return <Workspace signedIn={phase === 'ready'} />;
-}
+  const visibleTabs = () => TABS.filter((t) => (t.modes as readonly AppMode[]).includes(mode()));
 
-// Offered once, after signing in on a machine that already had MIS data saved
-// without an account. Never automatic: the desktop build seeds two weeks of
-// sample rows on first run, and quietly uploading those into a real account
-// would be indistinguishable from real study history.
-function ImportOfflineData() {
-  const [rows, setRows] = useState(() => countImportableGuestRows());
-  if (rows === 0) return null;
-
-  return (
-    <div className="bg-card rounded-2xl border border-primary/30 card-shadow p-5 flex items-start gap-4">
-      <div className="w-10 h-10 rounded-full bg-accent border border-primary/20 flex items-center justify-center flex-shrink-0">
-        <UploadCloud size={16} className="text-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold font-space">
-          {rows} row{rows === 1 ? '' : 's'} saved on this computer are not in your account
-        </p>
-        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-          These were logged before you signed in. Bring them in and they will sync to every
-          device — but check first that they are yours and not the sample data MIS ships with.
-        </p>
-        <div className="flex gap-2 mt-3">
-          <button
-            onClick={() => {
-              importGuestData();
-              setRows(0);
-              // the tabs each hold their own copy of the data they read, and a
-              // wholesale merge is not something the triggerUpdate counter was
-              // built to describe — reloading is the honest way to show it
-              location.reload();
-            }}
-            className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold font-space"
-          >
-            Bring them in
-          </button>
-          <button
-            onClick={() => {
-              dismissGuestImport();
-              setRows(0);
-            }}
-            className="h-8 px-3 rounded-lg bg-muted border border-border text-xs font-medium text-muted-foreground"
-          >
-            No thanks
-          </button>
-        </div>
-      </div>
-      <button
-        onClick={() => {
-          dismissGuestImport();
-          setRows(0);
-        }}
-        title="Dismiss"
-        aria-label="Dismiss"
-        className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <X size={15} />
-      </button>
-    </div>
-  );
-}
-*/
-
-// takes `{ signedIn }: { signedIn: boolean }` when accounts are wired back in
-function Workspace() {
-  const [mode, setMode] = useState<AppMode>(() => ArborDatabase.getAppMode());
-  const [activeTab, setActiveTab] = useState<TabId>('grow');
-  const [navCollapsed, setNavCollapsed] = useState(false);
-  const [triggerUpdate, setTriggerUpdate] = useState(0);
-  const [quoteIndex, setQuoteIndex] = useState(dayOfYear % QUOTES.length);
-
-  // drives the :root[data-mode='life'] token overrides in index.css
-  useEffect(() => {
-    document.documentElement.dataset.mode = mode;
-  }, [mode]);
-
-  const visibleTabs = TABS.filter((t) => (t.modes as readonly AppMode[]).includes(mode));
-
-  const switchMode = (next: AppMode) => {
-    setMode(next);
-    ArborDatabase.setAppMode(next);
-    // the current tab may not exist in the new mode — fall back to the landing
-    // tab rather than rendering nothing
+  const switchMode = async (next: AppMode) => {
+    await setMode(next);
+    // The current tab may not exist in the new mode — fall back to the landing
+    // tab rather than rendering nothing.
     const stillThere = TABS.some(
-      (t) => t.id === activeTab && (t.modes as readonly AppMode[]).includes(next)
+      (t) => t.id === activeTab() && (t.modes as readonly AppMode[]).includes(next),
     );
-    if (!stillThere) setActiveTab('grow');
+    if (!stillThere) setActiveTab('home');
   };
 
-  const refresh = () => setTriggerUpdate((n) => n + 1);
   const shuffleQuote = () =>
-    setQuoteIndex((i) => (i + 1 + Math.floor(Math.random() * (QUOTES.length - 1))) % QUOTES.length);
+    setQuoteIndex(
+      (i) => (i + 1 + Math.floor(Math.random() * (QUOTES.length - 1))) % QUOTES.length,
+    );
 
-  const quote = QUOTES[quoteIndex];
-  const activeLabel = TABS.find((t) => t.id === activeTab)?.label;
+  const quote = () => QUOTES[quoteIndex()];
+  const activeLabel = () => TABS.find((t) => t.id === activeTab())?.label;
 
   return (
-    <div className="min-h-screen flex flex-col sm:flex-row">
-      {/* collapse only applies from sm up — on mobile the bar is already a
-          horizontal strip, where an icon rail would gain nothing */}
+    /* From sm up the window itself never scrolls: the shell is exactly one
+       viewport tall and the content pane scrolls inside it, so the rail and the
+       page heading stay put at every window size. Below that the document
+       scrolls normally. `dvh` rather than `vh` so a resized window never cuts
+       the last card off. */
+    <div class="min-h-[100dvh] sm:h-[100dvh] sm:overflow-hidden flex flex-col sm:flex-row">
+      {/* Collapse only applies from sm up. In a narrow window this is a stacked
+          header — brand and mode switch on one row, the tab strip beneath —
+          because six tab labels plus the mode toggle cannot share one row. */}
       <aside
-        className={`flex-shrink-0 bg-sidebar border-b sm:border-b-0 sm:border-r border-border flex sm:flex-col justify-between px-4 py-4 sm:py-6 transition-[width] duration-200 ${
-          navCollapsed ? 'sm:w-[4.75rem] sm:px-3' : 'sm:w-60'
+        class={`flex-shrink-0 bg-sidebar border-b sm:border-b-0 sm:border-r border-border flex flex-col sm:justify-between sm:overflow-y-auto px-4 py-3 sm:py-6 gap-3 sm:gap-0 transition-[width] duration-200 ${
+          navCollapsed() ? 'sm:w-[4.75rem] sm:px-3' : 'sm:w-60'
         }`}
       >
-        <div className="flex sm:block items-center gap-4 min-w-0">
-          <div className={`flex items-center gap-3 sm:mb-8 ${navCollapsed ? 'sm:justify-center' : ''}`}>
-            <div className="w-10 h-10 flex-shrink-0 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center glow-primary">
-              <Sprout className="text-primary" size={20} />
-            </div>
-            <div className={navCollapsed ? 'sm:hidden' : ''}>
-              <h1 className="text-lg font-bold font-space tracking-tight leading-tight">MIS</h1>
-              <p className="text-[10px] text-muted-foreground font-medium">
-                {MODE_META[mode].tagline}
-              </p>
-            </div>
-          </div>
-
-          <div
-            className={`flex bg-background p-1 rounded-lg border border-border gap-1 sm:mb-6 ${
-              navCollapsed ? 'sm:flex-col' : ''
-            }`}
-          >
-            {MODES.map((m) => {
-              const { label, icon: ModeIcon } = MODE_META[m];
-              return (
-                <button
-                  key={m}
-                  onClick={() => switchMode(m)}
-                  title={`${label} — ${MODE_META[m].blurb}`}
-                  className={`flex-1 px-2 py-1.5 rounded-md text-[11px] font-semibold font-space uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 ${
-                    mode === m
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <ModeIcon size={13} />
-                  <span className={navCollapsed ? 'sm:hidden' : ''}>{label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <nav className="flex sm:flex-col gap-1">
-            {visibleTabs.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                title={label}
-                className={`py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 whitespace-nowrap transition-colors text-left ${
-                  navCollapsed ? 'px-3 sm:px-0 sm:justify-center' : 'px-3'
-                } ${
-                  activeTab === id
-                    ? 'bg-accent text-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent'
-                }`}
-              >
-                <Icon size={16} className="flex-shrink-0" />
-                <span className={navCollapsed ? 'sm:hidden' : ''}>{label}</span>
-              </button>
-            ))}
-
-            {/* sits directly under the last tab so it reads as part of the rail
-                — hidden on mobile, where the bar is horizontal and never collapses */}
-            <button
-              onClick={() => setNavCollapsed((c) => !c)}
-              title={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-label={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-expanded={!navCollapsed}
-              className={`hidden sm:flex py-2.5 rounded-xl text-sm font-medium items-center gap-2.5 whitespace-nowrap transition-colors text-left text-muted-foreground hover:text-foreground hover:bg-sidebar-accent ${
-                navCollapsed ? 'px-3 sm:px-0 sm:justify-center' : 'px-3'
+        <div class="min-w-0">
+          <div class="flex items-center justify-between gap-3 sm:block">
+            <div
+              class={`flex items-center gap-3 sm:mb-8 ${
+                navCollapsed() ? 'sm:justify-center' : ''
               }`}
             >
-              {navCollapsed ? (
-                <PanelLeftOpen size={16} className="flex-shrink-0" />
-              ) : (
-                <PanelLeftClose size={16} className="flex-shrink-0" />
+              <div class="w-10 h-10 flex-shrink-0 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center glow-primary">
+                <Sprout class="text-primary" size={20} />
+              </div>
+              <div class={navCollapsed() ? 'sm:hidden' : ''}>
+                <h1 class="text-xl font-bold font-space tracking-tight leading-none">MIS</h1>
+                <p class="text-[0.6875rem] text-subtle-foreground font-medium mt-1">
+                  {MODE_META[mode()].tagline}
+                </p>
+              </div>
+            </div>
+
+            <div
+              class={`flex flex-shrink-0 bg-background p-1 rounded-lg border border-border gap-1 sm:mb-6 ${
+                navCollapsed() ? 'sm:flex-col' : ''
+              }`}
+            >
+              <For each={MODES}>
+                {(m) => {
+                  const hint = `${MODE_META[m].label} — ${MODE_META[m].blurb}`;
+                  return (
+                    <button
+                      onClick={() => void switchMode(m)}
+                      // expanded, the label is on the button and the blurb is at
+                      // the foot of the rail; collapsed, the rail tooltip carries
+                      // it instead — so only one of the two is ever armed
+                      title={navCollapsed() ? undefined : hint}
+                      aria-label={MODE_META[m].label}
+                      {...railTip.trigger(hint)}
+                      class={`flex-1 px-2 py-1.5 rounded-md text-[0.6875rem] font-semibold font-space uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 ${
+                        mode() === m
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Dynamic component={MODE_META[m].icon} size={13} />
+                      <span class={navCollapsed() ? 'sm:hidden' : ''}>{MODE_META[m].label}</span>
+                    </button>
+                  );
+                }}
+              </For>
+            </div>
+          </div>
+
+          {/* the tab strip scrolls sideways in a narrow window instead of
+              squeezing every label into one row; from sm up it is the rail */}
+          <nav class="flex sm:flex-col gap-1 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0">
+            {/* The active item is a translucent wash of the mode accent, not a
+                solid block — and the border is on both states, transparent
+                when inactive, so activating a tab cannot shift its label by a
+                pixel. */}
+            <For each={visibleTabs()}>
+              {(tab) => (
+                <button
+                  onClick={() => setActiveTab(tab.id)}
+                  aria-label={tab.label}
+                  aria-current={activeTab() === tab.id ? 'page' : undefined}
+                  {...railTip.trigger(tab.label)}
+                  class={`py-2.5 rounded-xl text-[0.9375rem] font-medium flex flex-shrink-0 items-center gap-3 whitespace-nowrap border transition-colors text-left ${
+                    navCollapsed() ? 'px-3 sm:px-0 sm:justify-center' : 'px-3'
+                  } ${
+                    activeTab() === tab.id
+                      ? 'bg-primary/[0.12] border-primary/20 text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent'
+                  }`}
+                >
+                  <Dynamic component={tab.icon} size={17} class="flex-shrink-0" />
+                  <span class={navCollapsed() ? 'sm:hidden' : ''}>{tab.label}</span>
+                </button>
               )}
-              <span className={navCollapsed ? 'sm:hidden' : ''}>Collapse</span>
-            </button>
+            </For>
+
           </nav>
         </div>
 
-        {/* on mobile the sidebar is a horizontal strip, so this sits at its
-            right-hand end rather than at the bottom of a column */}
-        <div className="flex-shrink-0 flex sm:block items-center">
-          {!navCollapsed && (
-            <p className="hidden sm:block text-[10px] text-muted-foreground/70 italic leading-relaxed sm:mb-3">
-              {MODE_META[mode].blurb}
+        {/* The foot of the rail: what the mode means, and the one control that
+            is not a destination. Wide-window only — in the stacked header there
+            is no column to sit at the bottom of, the tagline under the logo
+            already says the same thing, and the bar never collapses there. */}
+        <div class="flex-shrink-0 hidden sm:block">
+          <Show when={!navCollapsed()}>
+            <p class="text-[0.6875rem] text-subtle-foreground italic leading-relaxed mb-3">
+              {MODE_META[mode()].blurb}
             </p>
-          )}
-          {/* accounts commented out — see the block at the top of this file */}
-          {/* {signedIn && <AccountPanel collapsed={navCollapsed} />} */}
+          </Show>
+
+          {/* Collapse used to sit directly under the last tab, which made it
+              read as a sixth place to go. It is a utility, so it lives down
+              here behind a rule, quieter than a nav item. */}
+          <div class="border-t border-border pt-3">
+            <button
+              onClick={() => setNavCollapsed((c) => !c)}
+              title={navCollapsed() ? undefined : 'Collapse sidebar'}
+              aria-label={navCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-expanded={!navCollapsed()}
+              {...railTip.trigger('Expand sidebar')}
+              class={`w-full py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent ${
+                navCollapsed() ? 'px-0 justify-center' : 'px-3'
+              }`}
+            >
+              <Show
+                when={navCollapsed()}
+                fallback={<PanelLeftClose size={16} class="flex-shrink-0" />}
+              >
+                <PanelLeftOpen size={16} class="flex-shrink-0" />
+              </Show>
+              <span class={navCollapsed() ? 'hidden' : ''}>Collapse</span>
+            </button>
+          </div>
         </div>
+
+        {/* one tooltip for the whole rail — it portals to <body>, so the rail's
+            own `overflow-y-auto` cannot clip it */}
+        <railTip.Tooltip />
       </aside>
 
-      <main className="flex-1 min-w-0 px-5 sm:px-8 py-8 space-y-6 max-w-6xl">
-        <header className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold font-space tracking-tight">{activeLabel}</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {greeting()} — {new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
-            </p>
-          </div>
-        </header>
+      {/* `main` is the scroll container so the scrollbar sits against the window
+          edge rather than halfway across a wide monitor; the column inside it is
+          what carries the reading width, and mx-auto centres that column instead
+          of pinning it to the left of a 4K window. */}
+      <main class="flex-1 min-w-0 w-full sm:overflow-y-auto px-4 sm:px-8 lg:px-10 py-6 sm:py-9">
+        {/* A flex column at least one pane tall, so a tab that wants the whole
+            screen can ask for it. Home does: without `min-h-full` here and
+            `flex-1` on the tab slot, a short page pinned itself to the top of a
+            large monitor and left a third of the window empty. Tabs that are
+            taller than the pane simply overflow and `main` scrolls, exactly as
+            before. */}
+        <div class="mx-auto w-full max-w-6xl 2xl:max-w-[84rem] min-h-full flex flex-col gap-5 sm:gap-7">
+          <header class="flex-shrink-0 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 class="text-[1.875rem] font-bold font-space tracking-tight leading-none">
+                {activeLabel()}
+              </h2>
+              <p class="text-[0.9375rem] text-muted-foreground mt-1.5">
+                {greeting()} —{' '}
+                {new Date().toLocaleDateString([], {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </p>
+            </div>
+          </header>
 
-        <div className="bg-card rounded-2xl border border-border card-shadow p-5 sm:p-6 flex items-start gap-4">
-          <div className="w-10 h-10 rounded-full bg-accent border border-primary/20 flex items-center justify-center flex-shrink-0">
-            <Quote size={16} className="text-primary" />
+          {/* The quote is the home page's own — on a working tab it is one more
+              card between you and the thing you opened the tab to do.
+
+              It is deliberately the most *typographic* thing in the app: an
+              elevated surface, a gradient hairline down the left edge, and one
+              large quotation mark washed back to a few percent opacity. The
+              mark is decoration behind the text rather than an icon in a
+              bubble, which is what stopped it reading as another widget. */}
+          <Show when={activeTab() === 'home'}>
+            <figure class="relative flex-shrink-0 overflow-hidden animate-rise-in bg-elevated rounded-2xl border border-border raised-shadow pl-6 pr-4 py-5 sm:pl-8 sm:pr-5 sm:py-6 flex items-center gap-4 transition-colors hover:border-primary/25">
+              <span
+                aria-hidden="true"
+                class="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-primary to-primary-deep"
+              />
+              <Quote
+                aria-hidden="true"
+                size={72}
+                class="pointer-events-none absolute -top-4 left-2 text-primary opacity-[0.06]"
+              />
+
+              <div class="relative flex-1 min-w-0">
+                <blockquote class="text-[1.0625rem] sm:text-lg font-medium font-space leading-relaxed select-text text-balance">
+                  “{quote().text}”
+                </blockquote>
+                <figcaption class="mt-2.5 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  {quote().author}
+                </figcaption>
+              </div>
+
+              <button
+                onClick={shuffleQuote}
+                title="Another quote"
+                aria-label="Another quote"
+                class="relative flex-shrink-0 grid place-items-center w-11 h-11 rounded-xl bg-muted border border-border text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-accent transition-colors"
+              >
+                <Dices size={18} />
+              </button>
+            </figure>
+          </Show>
+
+          <div class="flex-1 flex flex-col min-h-0">
+            <Switch>
+              <Match when={activeTab() === 'home'}>
+                <Home mode={mode} onOpen={(tab) => setActiveTab(tab)} />
+              </Match>
+              <Match when={activeTab() === 'log'}>
+                <DailyLog mode={mode} />
+              </Match>
+              <Match when={activeTab() === 'report'}>
+                <Report mode={mode} />
+              </Match>
+              <Match when={activeTab() === 'db'}>
+                <DatabaseExplorer />
+              </Match>
+              <Match when={activeTab() === 'screen'}>
+                <ScreenTime />
+              </Match>
+              <Match when={activeTab() === 'focus'}>
+                <FocusTimer />
+              </Match>
+            </Switch>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-base sm:text-lg font-medium font-space leading-snug">“{quote.text}”</p>
-            <p className="text-sm text-muted-foreground mt-1.5">— {quote.author}</p>
-          </div>
-          <button
-            onClick={shuffleQuote}
-            title="Another quote"
-            className="flex-shrink-0 p-2.5 rounded-xl bg-muted border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
-          >
-            <Dices size={18} />
-          </button>
         </div>
-
-        {/* {signedIn && <ImportOfflineData />} */}
-
-        {activeTab === 'focus' && <FocusTimer triggerUpdate={triggerUpdate} onSessionComplete={refresh} />}
-        {activeTab === 'grow' && <GrowTrack mode={mode} triggerUpdate={triggerUpdate} onLogbookChange={refresh} />}
-        {activeTab === 'log' && <DailyLog mode={mode} triggerUpdate={triggerUpdate} onLogChange={refresh} />}
-        {/* {activeTab === 'guard' && <ProtectGuard triggerUpdate={triggerUpdate} onBlocklistChange={refresh} />} */}
-        {activeTab === 'db' && <DatabaseExplorer triggerUpdate={triggerUpdate} onChange={refresh} />}
       </main>
     </div>
   );

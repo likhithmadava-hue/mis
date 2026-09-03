@@ -1,25 +1,42 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { viteSingleFile } from 'vite-plugin-singlefile';
+import solid from 'vite-plugin-solid';
 
-// Two shapes of build, decided by mode:
-//
-//   default        the desktop build. dist/index.html is opened straight from
-//                  disk by the shortcut, where browsers block separate JS module
-//                  files — so viteSingleFile() inlines the JS and CSS into that
-//                  one HTML file, and base is './' so it resolves next to itself.
-//
-//   mode 'fresh'   the hosted build (`npm run build:netlify`). Served by a real
-//                  web server, so it ships normal split JS/CSS assets under
-//                  /assets — smaller HTML, cached separately, updated one chunk
-//                  at a time. base is '/' because Netlify serves it at the root.
-//
-// 'fresh' is the hosted build's mode (it also seeds empty — see .env.fresh), and
-// nothing else uses it, so it doubles as the "this is the web build" switch.
-export default defineConfig(({ mode }) => {
-  const hosted = mode === 'fresh';
-  return {
-    base: hosted ? '/' : './',
-    plugins: [react(), ...(hosted ? [] : [viteSingleFile()])],
-  };
+/**
+ * Vite's only job here is to build the frontend that Tauri embeds.
+ *
+ * The old React app built three different shapes — a single inlined HTML file
+ * for `file://`, another with fonts inlined for sharing, and a split bundle for
+ * Netlify. None of that applies any more. A Tauri app serves its frontend from
+ * a real asset protocol inside the binary, so there is exactly one build: a
+ * normal split bundle written to `dist/`, which `tauri.conf.json` points at as
+ * `frontendDist`. No `viteSingleFile`, no font inlining, no `_redirects`.
+ */
+export default defineConfig({
+  plugins: [solid()],
+
+  // Tauri reads the app over a custom protocol, so assets must be referenced
+  // relatively rather than from an absolute server root.
+  base: './',
+
+  // Vite's dev server is what `tauri dev` points its window at. The port is
+  // pinned because tauri.conf.json's `devUrl` hardcodes it — letting Vite pick
+  // the next free port on a collision would leave the window on a dead URL.
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
+
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    // WebView2 on Windows 10/11 is evergreen Chromium, so there is no reason
+    // to down-compile for old browsers the way a web build must.
+    target: 'chrome110',
+    sourcemap: false,
+  },
+
+  // Rust owns every byte of data now; the frontend has no build-time flags to
+  // inline. `VITE_FRESH_START` is gone — a fresh vault is decided by Rust at
+  // first launch, not baked into the bundle.
+  envPrefix: 'VITE_',
 });

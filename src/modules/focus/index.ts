@@ -1,1 +1,1 @@
-export { default } from './FocusTimer';
+export { default as FocusTimer } from './FocusTimer';
