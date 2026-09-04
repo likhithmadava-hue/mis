@@ -53,9 +53,11 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
     });
 
     return rows.sort((a, b) => {
+      // Performance optimization: ISO date strings ('YYYY-MM-DD') can be compared directly
+      // as strings, avoiding repeated `new Date()` object allocations in O(N log N) sort comparisons.
       const cmp =
         sortKey === 'date'
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
           : marksLost(a) - marksLost(b);
       return sortDesc ? -cmp : cmp;
     });
