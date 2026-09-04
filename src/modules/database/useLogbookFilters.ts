@@ -46,16 +46,26 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
       if (fReason !== ALL && e.mistake_reason !== fReason) return false;
       if (fDifficulty !== ALL && e.difficulty !== fDifficulty) return false;
       if (!q) return true;
-      return [e.subject, e.chapter, e.notes, e.mistake_reason, e.grade]
-        .join(' ')
-        .toLowerCase()
-        .includes(q);
+      // Bolt optimization: short-circuit direct property checks to avoid array/string creation,
+      // falling back to template literal for full cross-field matching compatibility.
+      return (
+        (e.subject && e.subject.toLowerCase().includes(q)) ||
+        (e.chapter && e.chapter.toLowerCase().includes(q)) ||
+        (e.notes && e.notes.toLowerCase().includes(q)) ||
+        (e.mistake_reason && e.mistake_reason.toLowerCase().includes(q)) ||
+        (e.grade && e.grade.toLowerCase().includes(q)) ||
+        `${e.subject || ''} ${e.chapter || ''} ${e.notes || ''} ${e.mistake_reason || ''} ${e.grade || ''}`
+          .toLowerCase()
+          .includes(q)
+      );
     });
 
     return rows.sort((a, b) => {
+      // Bolt optimization: ISO YYYY-MM-DD date strings compare lexicographically in O(1) time
+      // without instantiating Date objects on every comparator call.
       const cmp =
         sortKey === 'date'
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
           : marksLost(a) - marksLost(b);
       return sortDesc ? -cmp : cmp;
     });
