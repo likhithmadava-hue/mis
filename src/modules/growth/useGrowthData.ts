@@ -94,8 +94,9 @@ function usePaperAnalytics(logbook: MarkLogbookEntry[]) {
       label, value, pct: (value / worst) * 100, right: `${value} lost`, className: 'bg-destructive',
     }));
 
+    // Compare ISO date strings directly to avoid Date allocations during sort
     const markTrend: TrendPoint[] = [...logbook]
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
       .map((e) => ({
         label: new Date(e.date).toLocaleDateString([], { day: 'numeric', month: 'short' }),
         sub: `${e.subject}${e.chapter ? ` — ${e.chapter}` : ''}`,

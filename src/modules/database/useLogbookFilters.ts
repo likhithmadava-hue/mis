@@ -46,16 +46,21 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
       if (fReason !== ALL && e.mistake_reason !== fReason) return false;
       if (fDifficulty !== ALL && e.difficulty !== fDifficulty) return false;
       if (!q) return true;
-      return [e.subject, e.chapter, e.notes, e.mistake_reason, e.grade]
-        .join(' ')
-        .toLowerCase()
-        .includes(q);
+      return (
+        e.subject?.toLowerCase().includes(q) ||
+        e.chapter?.toLowerCase().includes(q) ||
+        e.notes?.toLowerCase().includes(q) ||
+        e.mistake_reason?.toLowerCase().includes(q) ||
+        e.grade?.toLowerCase().includes(q)
+      );
     });
 
+    // Compare ISO date strings ("YYYY-MM-DD") directly to avoid allocating
+    // thousands of Date objects inside the sort comparison callback.
     return rows.sort((a, b) => {
       const cmp =
         sortKey === 'date'
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
           : marksLost(a) - marksLost(b);
       return sortDesc ? -cmp : cmp;
     });
