@@ -341,6 +341,7 @@ function Workspace() {
           <button
             onClick={shuffleQuote}
             title="Another quote"
+            aria-label="Another quote"
             className="flex-shrink-0 p-2.5 rounded-xl bg-muted border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
           >
             <Dices size={18} />
