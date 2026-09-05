@@ -40,8 +40,8 @@ import { MODE_META } from './core/scoring';
 // Real blocking will be handled by the Python backend engine later.
 // To re-enable the simulator tab: uncomment the two lines below, the tab
 // entry in TABS, and the <ProtectGuard> line further down.
-// import { Shield } from 'lucide-react';
-// import ProtectGuard from './modules/guard';
+import { Shield } from 'lucide-react';
+import ProtectGuard from './modules/guard';
 
 // Growth Tracker leads — the Focus Timer is deliberately not the landing tab.
 // Wellness is gone: its check-ins moved into the Daily Log and its Free Time
@@ -54,7 +54,7 @@ const TABS = [
   { id: 'grow', label: 'Growth Tracker', icon: LineChart, modes: ['academic', 'life'] },
   { id: 'log', label: 'Daily Log', icon: CalendarCheck, modes: ['academic', 'life'] },
   { id: 'db', label: 'Database', icon: Database, modes: ['academic'] },
-  // { id: 'guard', label: 'App Guard', icon: Shield, modes: ['academic'] },
+  { id: 'guard', label: 'App Guard', icon: Shield, modes: ['academic'] },
   { id: 'focus', label: 'Focus Timer', icon: Timer, modes: ['academic'] },
 ] as const satisfies readonly { id: string; label: string; icon: unknown; modes: readonly AppMode[] }[];
 
@@ -352,7 +352,7 @@ function Workspace() {
         {activeTab === 'focus' && <FocusTimer triggerUpdate={triggerUpdate} onSessionComplete={refresh} />}
         {activeTab === 'grow' && <GrowTrack mode={mode} triggerUpdate={triggerUpdate} onLogbookChange={refresh} />}
         {activeTab === 'log' && <DailyLog mode={mode} triggerUpdate={triggerUpdate} onLogChange={refresh} />}
-        {/* {activeTab === 'guard' && <ProtectGuard triggerUpdate={triggerUpdate} onBlocklistChange={refresh} />} */}
+        {activeTab === 'guard' && <ProtectGuard triggerUpdate={triggerUpdate} onBlocklistChange={refresh} />}
         {activeTab === 'db' && <DatabaseExplorer triggerUpdate={triggerUpdate} onChange={refresh} />}
       </main>
     </div>

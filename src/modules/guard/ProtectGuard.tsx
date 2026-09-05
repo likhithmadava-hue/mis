@@ -87,14 +87,33 @@ export default function ProtectGuard({ triggerUpdate, onBlocklistChange }: Prote
             <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${user.is_focus_active ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{user.is_focus_active ? 'Focus Locked' : 'Guard Active'}</span>
           </div>
           <form onSubmit={handleAddApp} className="flex gap-2">
-            <input type="text" placeholder="e.g. TikTok, Netflix" value={newAppText} onChange={(e) => setNewAppText(e.target.value)} className="flex-1 px-3 py-2 bg-background border border-border rounded-xl text-xs" />
-            <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-xl text-xs flex items-center gap-1"><Plus size={14} /> Shield Domain</button>
+            <input
+              type="text"
+              aria-label="Domain or application to shield"
+              placeholder="e.g. TikTok, Netflix"
+              value={newAppText}
+              onChange={(e) => setNewAppText(e.target.value)}
+              className="flex-1 px-3 py-2 bg-background border border-border rounded-xl text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-xl text-xs flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition-colors hover:bg-primary/90"
+            >
+              <Plus size={14} /> Shield Domain
+            </button>
           </form>
           <div className="grid grid-cols-2 gap-2">
             {user.blocked_apps.map(app => (
               <div key={app} className="p-3 bg-background border border-border rounded-xl flex items-center justify-between">
                 <span className="text-xs font-semibold flex items-center gap-2"><EyeOff size={13} className="text-primary" /> {app}</span>
-                <button onClick={() => handleDeleteApp(app)} className="text-muted-foreground hover:text-destructive"><Trash2 size={13} /></button>
+                <button
+                  onClick={() => handleDeleteApp(app)}
+                  aria-label={`Remove ${app} from blocklist`}
+                  title={`Remove ${app}`}
+                  className="p-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition-colors"
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
             ))}
           </div>
@@ -111,8 +130,21 @@ export default function ProtectGuard({ triggerUpdate, onBlocklistChange }: Prote
         <div className="space-y-4">
           <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground font-space flex items-center gap-2"><ShieldAlert size={16} /> Perimeter Blocker Simulator</h3>
           <form onSubmit={handleTestBlocker} className="space-y-3">
-            <input type="text" placeholder="Type application/domain..." required value={blockedTestDomain} onChange={(e) => setBlockedTestDomain(e.target.value)} className="w-full px-3 py-2 bg-card border border-border rounded-xl text-xs" />
-            <button type="submit" className="w-full py-2 bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold rounded-xl border border-border">Inject Request</button>
+            <input
+              type="text"
+              aria-label="Test application or domain"
+              placeholder="Type application/domain..."
+              required
+              value={blockedTestDomain}
+              onChange={(e) => setBlockedTestDomain(e.target.value)}
+              className="w-full px-3 py-2 bg-card border border-border rounded-xl text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            />
+            <button
+              type="submit"
+              className="w-full py-2 bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold rounded-xl border border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition-colors"
+            >
+              Inject Request
+            </button>
           </form>
           {testResult.status && (
             <div className={`p-4 rounded-xl border ${testResult.status === 'blocked' ? 'bg-red-500/10 border-red-500/20 text-red-400 border-glow' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
