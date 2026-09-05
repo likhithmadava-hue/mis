@@ -30,6 +30,7 @@ export default function TrackControl({ id, log }: { id: TrackId; log: DailyLogSt
           </div>
           <input
             type="range" min="0" max="12" step="0.5" value={today.study_hours}
+            aria-label="Hours studied"
             onChange={(e) => patchToday({ study_hours: Number(e.target.value) })}
             className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
           />
@@ -67,6 +68,7 @@ export default function TrackControl({ id, log }: { id: TrackId; log: DailyLogSt
           </div>
           <input
             type="range" min="0" max="180" step="5" value={today.well_spent_time}
+            aria-label="Leisure minutes"
             onChange={(e) => patchToday({ well_spent_time: Number(e.target.value) })}
             className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-yellow-500"
           />
@@ -82,6 +84,7 @@ export default function TrackControl({ id, log }: { id: TrackId; log: DailyLogSt
           </div>
           <input
             type="range" min="1" max="10" value={today.mood_score}
+            aria-label="Mood score"
             onChange={(e) => patchToday({ mood_score: Number(e.target.value) })}
             className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
           />
@@ -166,6 +169,7 @@ export default function TrackControl({ id, log }: { id: TrackId; log: DailyLogSt
                 <button
                   onClick={() => log.deleteHabit(h.id)}
                   title="Remove habit"
+                  aria-label={`Remove habit ${h.name}`}
                   className="text-muted-foreground/50 hover:text-destructive transition-colors"
                 >
                   <Trash2 size={13} />

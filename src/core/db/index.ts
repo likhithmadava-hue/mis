@@ -33,12 +33,6 @@ import type {
 // from `core/db`, without needing to know which file each one lives in
 export * from './types';
 
-// the Supabase side of the same data layer — attaching an account, the sync
-// status the sidebar shows, and bringing offline data into an account
-export async function bootStorage(): Promise<void> {
-  return Promise.resolve();
-}
-
 export {
   attachUser,
   countImportableGuestRows,
