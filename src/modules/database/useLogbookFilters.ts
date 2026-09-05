@@ -38,7 +38,7 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
     if (fChapter !== ALL && !chapters.includes(fChapter)) setFChapter(ALL);
   }, [chapters, fChapter]);
 
-  const filtered = useMemo(() => {
+  const { filtered, totalLost } = useMemo(() => {
     const q = search.trim().toLowerCase();
     const rows = entries.filter((e) => {
       if (fSubject !== ALL && e.subject !== fSubject) return false;
@@ -46,19 +46,29 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
       if (fReason !== ALL && e.mistake_reason !== fReason) return false;
       if (fDifficulty !== ALL && e.difficulty !== fDifficulty) return false;
       if (!q) return true;
-      return [e.subject, e.chapter, e.notes, e.mistake_reason, e.grade]
-        .join(' ')
-        .toLowerCase()
-        .includes(q);
+      // Direct field check avoids allocating array and joining string per logbook entry
+      return (
+        (e.subject && e.subject.toLowerCase().includes(q)) ||
+        (e.chapter && e.chapter.toLowerCase().includes(q)) ||
+        (e.notes && e.notes.toLowerCase().includes(q)) ||
+        (e.mistake_reason && e.mistake_reason.toLowerCase().includes(q)) ||
+        (e.grade && String(e.grade).toLowerCase().includes(q))
+      );
     });
 
-    return rows.sort((a, b) => {
+    rows.sort((a, b) => {
+      // Direct string comparison for ISO dates (YYYY-MM-DD) avoids allocating Date objects during sorting
       const cmp =
         sortKey === 'date'
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
           : marksLost(a) - marksLost(b);
       return sortDesc ? -cmp : cmp;
     });
+
+    // Memoize total marks lost calculation along with filtered entries to avoid reduce on every component render
+    const totalLost = rows.reduce((sum, e) => sum + marksLost(e), 0);
+
+    return { filtered: rows, totalLost };
   }, [entries, search, fSubject, fChapter, fReason, fDifficulty, sortKey, sortDesc]);
 
   const toggleSort = (key: SortKey) => {
@@ -89,7 +99,7 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
     filtersActive:
       search.trim() !== '' || [fSubject, fChapter, fReason, fDifficulty].some((f) => f !== ALL),
     filtered,
-    totalLost: filtered.reduce((sum, e) => sum + marksLost(e), 0),
+    totalLost,
   };
 }
 
