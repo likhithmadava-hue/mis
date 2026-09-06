@@ -55,7 +55,8 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
     return rows.sort((a, b) => {
       const cmp =
         sortKey === 'date'
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          // Direct string comparison for YYYY-MM-DD ISO dates avoids overhead of Date parsing in sort callbacks
+          ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
           : marksLost(a) - marksLost(b);
       return sortDesc ? -cmp : cmp;
     });
