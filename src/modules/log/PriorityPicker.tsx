@@ -24,6 +24,7 @@ export default function PriorityPicker({
           key={p}
           onClick={() => onChange(p)}
           title={`${p} priority`}
+          aria-label={`${p} priority`}
           className={`px-2 py-0.5 rounded-md text-[9px] uppercase font-bold tracking-wider border transition-colors ${
             value === p
               ? PRIORITY_STYLE[p]
