@@ -36,10 +36,12 @@ export default function TopicsPanel({ topics, onAdd, onToggle, onDelete }: Topic
       <form onSubmit={submit} className="flex flex-col sm:flex-row gap-2">
         <input
           type="text"
+          id="new-topic-name"
+          aria-label="New topic name"
           placeholder="e.g. Physics — Work & Energy"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="flex-1 h-9 px-3 bg-background border border-border rounded-xl text-xs"
+          className="flex-1 h-9 px-3 bg-background border border-border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
         />
         <Select
           ariaLabel="Topic list"
@@ -112,9 +114,9 @@ export default function TopicsPanel({ topics, onAdd, onToggle, onDelete }: Topic
                         )}
                         <button
                           onClick={() => onDelete(t.id)}
-                          title="Delete topic"
-                          aria-label="Delete topic"
-                          className="text-muted-foreground hover:text-destructive p-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          title={`Delete ${t.name}`}
+                          aria-label={`Delete topic ${t.name}`}
+                          className="text-muted-foreground hover:text-destructive p-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:ring-1 focus-visible:ring-primary rounded transition-opacity"
                         >
                           <Trash2 size={12} />
                         </button>
