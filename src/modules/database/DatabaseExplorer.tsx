@@ -59,6 +59,20 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
     }
   };
 
+  /** Validate that an imported object matches MarkLogbookEntry structure defensively */
+  const isValidLogbookEntry = (item: unknown): item is MarkLogbookEntry => {
+    if (!item || typeof item !== 'object') return false;
+    const entry = item as Record<string, unknown>;
+    return (
+      typeof entry.date === 'string' &&
+      typeof entry.subject === 'string' &&
+      typeof entry.score === 'number' &&
+      !isNaN(entry.score) &&
+      typeof entry.max_score === 'number' &&
+      !isNaN(entry.max_score)
+    );
+  };
+
   /**
    * JSON is our own backup format, so it still replaces the logbook wholesale.
    * Spreadsheets come from elsewhere and get the mapping dialog, which appends.
@@ -74,13 +88,15 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
       try {
         const parsed = JSON.parse(String(reader.result));
         if (!Array.isArray(parsed)) throw new Error('not a list');
-        if (!confirm(`Replace all ${entries.length} records with ${parsed.length} from the backup?`))
+        const validated = parsed.filter(isValidLogbookEntry);
+        if (validated.length === 0) throw new Error('no valid records found');
+        if (!confirm(`Replace all ${entries.length} records with ${validated.length} records from the backup?`))
           return;
-        ArborDatabase.replaceMarkLogbook(parsed as MarkLogbookEntry[]);
+        ArborDatabase.replaceMarkLogbook(validated);
         reload();
-        notify(`Restored ${parsed.length} records from the backup.`);
+        notify(`Restored ${validated.length} records from the backup.`);
       } catch {
-        alert("Couldn't read that file — a .json import has to be a backup MIS exported.");
+        alert("Couldn't read that file — a .json import has to be a valid backup MIS exported.");
       }
     };
     reader.readAsText(file);
