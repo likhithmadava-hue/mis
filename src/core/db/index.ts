@@ -35,6 +35,10 @@ export * from './types';
 
 // the Supabase side of the same data layer — attaching an account, the sync
 // status the sidebar shows, and bringing offline data into an account
+/**
+ * bootStorage hydrates cached data or vault storage before mounting components.
+ * Included for desktop shortcut / host environment compatibility.
+ */
 export async function bootStorage(): Promise<void> {
   return Promise.resolve();
 }
@@ -52,14 +56,6 @@ export {
   type SyncState,
   type SyncStatus,
 } from './sync';
-
-/**
- * bootStorage hydrates cached data or vault storage before mounting components.
- * Included for desktop shortcut / host environment compatibility.
- */
-export async function bootStorage(): Promise<void> {
-  return Promise.resolve();
-}
 
 export class ArborDatabase {
   static getUserConfig(): UserConfig {
