@@ -438,6 +438,59 @@ export function exportXlsx(entries: MarkLogbookEntry[]) {
 }
 
 /** an empty sheet with the right headers, for starting from scratch */
+/**
+ * Validates and sanitizes imported JSON records to ensure they match MarkLogbookEntry schema.
+ * Throws an Error if the JSON payload is not an array or if entries lack required fields.
+ */
+export function validateJsonImport(data: unknown): MarkLogbookEntry[] {
+  if (!Array.isArray(data)) {
+    throw new Error('Imported JSON must be an array of records.');
+  }
+
+  return data.map((item, idx) => {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error(`Record #${idx + 1} is not a valid object.`);
+    }
+
+    const rec = item as Record<string, unknown>;
+    const subject = String(rec.subject ?? '').trim();
+    if (!subject) {
+      throw new Error(`Record #${idx + 1} is missing a subject.`);
+    }
+
+    const date = toIsoDate(rec.date);
+    if (!date) {
+      throw new Error(`Record #${idx + 1} has an invalid or missing date.`);
+    }
+
+    const score = toNumber(rec.score);
+    if (score === null) {
+      throw new Error(`Record #${idx + 1} is missing a valid score.`);
+    }
+
+    const maxScore = toNumber(rec.max_score);
+    if (maxScore === null || maxScore <= 0) {
+      throw new Error(`Record #${idx + 1} is missing a valid max_score.`);
+    }
+
+    const id = typeof rec.id === 'string' && rec.id.trim() ? rec.id.trim() : Math.random().toString(36).slice(2);
+
+    return {
+      id,
+      date,
+      subject,
+      chapter: String(rec.chapter ?? '').trim(),
+      grade: String(rec.grade ?? '').trim() || gradeFor(score, maxScore),
+      score,
+      max_score: maxScore,
+      difficulty: toDifficulty(rec.difficulty),
+      time_spent: toNumber(rec.time_spent) ?? 0,
+      mistake_reason: toReason(rec.mistake_reason),
+      notes: String(rec.notes ?? '').trim(),
+    };
+  });
+}
+
 export function exportTemplate() {
   const book = XLSX.utils.book_new();
   const example: MarkLogbookEntry = {

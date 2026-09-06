@@ -6,6 +6,7 @@ import EntryRow from './EntryRow';
 import ExportMenu from './ExportMenu';
 import FilterBar from './FilterBar';
 import ImportSheet from './ImportSheet';
+import { validateJsonImport } from './sheetImport';
 import { useLogbookFilters } from './useLogbookFilters';
 
 interface DatabaseExplorerProps {
@@ -72,15 +73,16 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result));
-        if (!Array.isArray(parsed)) throw new Error('not a list');
-        if (!confirm(`Replace all ${entries.length} records with ${parsed.length} from the backup?`))
+        const rawParsed = JSON.parse(String(reader.result));
+        const validated = validateJsonImport(rawParsed);
+        if (!confirm(`Replace all ${entries.length} records with ${validated.length} from the backup?`))
           return;
-        ArborDatabase.replaceMarkLogbook(parsed as MarkLogbookEntry[]);
+        ArborDatabase.replaceMarkLogbook(validated);
         reload();
-        notify(`Restored ${parsed.length} records from the backup.`);
-      } catch {
-        alert("Couldn't read that file — a .json import has to be a backup MIS exported.");
+        notify(`Restored ${validated.length} records from the backup.`);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'Invalid format';
+        alert(`Couldn't read that file — ${reason}`);
       }
     };
     reader.readAsText(file);
