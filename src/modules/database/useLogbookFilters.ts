@@ -53,9 +53,10 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
     });
 
     return rows.sort((a, b) => {
+      // Optimize: compare YYYY-MM-DD ISO date strings directly to avoid Date object instantiation overhead during sorting
       const cmp =
         sortKey === 'date'
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
           : marksLost(a) - marksLost(b);
       return sortDesc ? -cmp : cmp;
     });
