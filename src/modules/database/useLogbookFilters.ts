@@ -53,10 +53,13 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
     });
 
     return rows.sort((a, b) => {
-      const cmp =
-        sortKey === 'date'
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
-          : marksLost(a) - marksLost(b);
+      let cmp = 0;
+      if (sortKey === 'date') {
+        // Direct string comparison for ISO YYYY-MM-DD dates avoids allocating new Date objects on every comparison
+        cmp = a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+      } else {
+        cmp = marksLost(a) - marksLost(b);
+      }
       return sortDesc ? -cmp : cmp;
     });
   }, [entries, search, fSubject, fChapter, fReason, fDifficulty, sortKey, sortDesc]);
