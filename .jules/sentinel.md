@@ -1,0 +1,4 @@
+## 2025-05-18 - CSV Formula Injection Regex & Whitespace Stripping
+**Vulnerability:** Unescaped minus `-` in CSV formula sanitization regex allowed formula injection for negative formula expressions in spreadsheet exports. Additionally, `trimStart()` stripped leading `\t` and `\r` characters before regex matching, allowing raw `\t` and `\r` formula triggers to bypass sanitization.
+**Learning:** `trimStart()` removes whitespace characters like `\t` and `\r` in JS. Sanitization regexes must check both raw input (to catch leading control characters) and trimmed input (to catch formula triggers after leading spaces). Inside character classes `[...]`, `-` must be escaped as `\-` to avoid forming unintended character ranges.
+**Prevention:** Test formula sanitizers against raw string values and trimmed string values, covering all OWASP formula triggers (`=`, `+`, `-`, `@`, `\t`, `\r`).

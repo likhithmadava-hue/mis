@@ -381,8 +381,9 @@ export function buildEntries(
  */
 export function sanitizeFormula(val: unknown): unknown {
   if (typeof val === 'string') {
-    const trimmed = val.trimStart();
-    if (/^[=+@\t\r]/.test(trimmed)) {
+    // Escape formula trigger characters (=, +, -, @, \t, \r) to prevent OWASP CSV formula injection,
+    // checking both raw value (for leading tabs/carriage returns) and trimmed value (for leading spaces before triggers).
+    if (/^[=\-+@\t\r]/.test(val) || /^[=\-+@\t\r]/.test(val.trimStart())) {
       return `'${val}`;
     }
   }
