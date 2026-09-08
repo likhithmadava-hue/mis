@@ -1,0 +1,4 @@
+## 2026-03-31 - CSV/Formula Injection Character Class Escaping
+**Vulnerability:** The spreadsheet formula sanitization function `sanitizeFormula` checked string prefixes against `/^[=+@\t\r]/`. Due to a missing hyphen `-` in the character class, string values starting with `-` (e.g. `-1+1`, `-cmd|' /C calc'!A0`) were not prepended with `'` and could trigger automatic formula execution in Excel/Calc when exported to CSV.
+**Learning:** Hyphens `-` are critical formula trigger characters in spreadsheets alongside `=`, `+`, `@`, `\t`, and `\r`. When defining regex character classes for CSV formula injection mitigation, always escape or include `-` (e.g., `/^[=+\-@\t\r]/`).
+**Prevention:** Always verify formula sanitization regex against all standard DDE/formula trigger characters (`=`, `+`, `-`, `@`, `\t`, `\r`).
