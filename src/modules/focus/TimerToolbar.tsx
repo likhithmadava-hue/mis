@@ -72,7 +72,8 @@ export default function TimerToolbar({
                 key={id}
                 onClick={() => onSetDesign(id)}
                 title={`${label} clock`}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold font-space flex items-center gap-1.5 transition-colors ${
+                aria-label={`Switch to ${label} clock face`}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold font-space flex items-center gap-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none ${
                   settings.timer_design === id
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
@@ -86,7 +87,8 @@ export default function TimerToolbar({
           <button
             onClick={onToggleFullscreen}
             title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            className="p-2 rounded-xl bg-background border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            className="p-2 rounded-xl bg-background border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           >
             {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
           </button>
@@ -94,8 +96,9 @@ export default function TimerToolbar({
           <button
             onClick={() => setShowSettings((s) => !s)}
             title={`Timer settings — ${settings.focus_minutes}/${settings.short_break}/${settings.long_break} min`}
+            aria-label="Timer settings"
             aria-expanded={showSettings}
-            className={`p-2 rounded-xl border transition-colors ${
+            className={`p-2 rounded-xl border transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none ${
               showSettings
                 ? 'bg-primary/10 border-primary/40 text-primary'
                 : 'bg-background border-border text-muted-foreground hover:text-primary hover:border-primary/40'
