@@ -86,6 +86,7 @@ export default function TimerToolbar({
           <button
             onClick={onToggleFullscreen}
             title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
             className="p-2 rounded-xl bg-background border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
           >
             {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
@@ -94,6 +95,7 @@ export default function TimerToolbar({
           <button
             onClick={() => setShowSettings((s) => !s)}
             title={`Timer settings — ${settings.focus_minutes}/${settings.short_break}/${settings.long_break} min`}
+            aria-label="Timer settings"
             aria-expanded={showSettings}
             className={`p-2 rounded-xl border transition-colors ${
               showSettings
@@ -111,8 +113,9 @@ export default function TimerToolbar({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {SETTING_FIELDS.map(([key, label]) => (
               <div key={key}>
-                <label className="text-[10px] text-muted-foreground block mb-1">{label}</label>
+                <label htmlFor={`timer-setting-${key}`} className="text-[10px] text-muted-foreground block mb-1">{label}</label>
                 <input
+                  id={`timer-setting-${key}`}
                   type="number"
                   min={1}
                   max={180}

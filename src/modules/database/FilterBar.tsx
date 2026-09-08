@@ -13,10 +13,20 @@ export default function FilterBar({ filters }: { filters: LogbookFilters }) {
         <input
           type="text"
           placeholder="Search subject, chapter, or notes…"
+          aria-label="Search subject, chapter, or notes"
           value={filters.search}
           onChange={(e) => filters.setSearch(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-xl text-xs focus:border-primary/50 focus:outline-none"
+          className={`w-full pl-9 ${filters.search ? 'pr-8' : 'pr-3'} py-2 bg-background border border-border rounded-xl text-xs focus:border-primary/50 focus:outline-none`}
         />
+        {filters.search && (
+          <button
+            onClick={() => filters.setSearch('')}
+            aria-label="Clear search query"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground rounded transition-colors"
+          >
+            <X size={13} />
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
