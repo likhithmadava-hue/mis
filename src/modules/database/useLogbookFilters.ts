@@ -46,16 +46,22 @@ export function useLogbookFilters(entries: MarkLogbookEntry[]) {
       if (fReason !== ALL && e.mistake_reason !== fReason) return false;
       if (fDifficulty !== ALL && e.difficulty !== fDifficulty) return false;
       if (!q) return true;
-      return [e.subject, e.chapter, e.notes, e.mistake_reason, e.grade]
-        .join(' ')
-        .toLowerCase()
-        .includes(q);
+      // Direct string property checks avoid temporary array allocation and string joining on every row
+      return (
+        (e.subject && e.subject.toLowerCase().includes(q)) ||
+        (e.chapter && e.chapter.toLowerCase().includes(q)) ||
+        (e.notes && e.notes.toLowerCase().includes(q)) ||
+        (e.mistake_reason && e.mistake_reason.toLowerCase().includes(q)) ||
+        (e.grade != null && String(e.grade).toLowerCase().includes(q))
+      );
     });
 
+    // ISO dates YYYY-MM-DD sort lexicographically identical to chronological order.
+    // Direct string comparison avoids parsing Date objects during O(N log N) sort comparisons.
     return rows.sort((a, b) => {
       const cmp =
         sortKey === 'date'
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
           : marksLost(a) - marksLost(b);
       return sortDesc ? -cmp : cmp;
     });
