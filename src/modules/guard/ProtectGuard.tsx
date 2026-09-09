@@ -94,7 +94,14 @@ export default function ProtectGuard({ triggerUpdate, onBlocklistChange }: Prote
             {user.blocked_apps.map(app => (
               <div key={app} className="p-3 bg-background border border-border rounded-xl flex items-center justify-between">
                 <span className="text-xs font-semibold flex items-center gap-2"><EyeOff size={13} className="text-primary" /> {app}</span>
-                <button onClick={() => handleDeleteApp(app)} className="text-muted-foreground hover:text-destructive"><Trash2 size={13} /></button>
+                <button
+                  onClick={() => handleDeleteApp(app)}
+                  title={`Remove ${app}`}
+                  aria-label={`Remove ${app} from blocklist`}
+                  className="p-1 rounded-lg text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
             ))}
           </div>
