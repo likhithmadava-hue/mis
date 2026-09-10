@@ -111,14 +111,22 @@ export const scoreRange = (days: number): ScoredDay[] => {
     else doneByDate.set(entry.date, [entry.habit_id]);
   }
 
+  // Performance optimization: index metrics by date for O(1) lookup instead of O(N) array searching per day
+  const metricsByDate = new Map<string, DailyMetric>();
+  for (const m of metrics) {
+    metricsByDate.set(m.date, m);
+  }
+
   return Array.from({ length: days }, (_, i) => {
     const date = isoDaysAgo(days - 1 - i);
-    const metric = metrics.find((m) => m.date === date) ?? null;
+    const metric = metricsByDate.get(date) ?? null;
     const scores = metric ? scoreDay(metric, habits, doneByDate.get(date) ?? [], user) : null;
+    // Performance optimization: reuse single Date instance per day iteration for label formatting
+    const d = new Date(date);
     return {
       date,
-      label: new Date(date).toLocaleDateString([], { weekday: 'short' }).slice(0, 2),
-      dateLabel: new Date(date).toLocaleDateString([], { day: 'numeric', month: 'short' }),
+      label: d.toLocaleDateString([], { weekday: 'short' }).slice(0, 2),
+      dateLabel: d.toLocaleDateString([], { day: 'numeric', month: 'short' }),
       metric,
       scores,
       byMode: scores
