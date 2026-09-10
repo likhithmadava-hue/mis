@@ -376,13 +376,14 @@ export function buildEntries(
 
 /**
  * Sanitizes cell values to prevent CSV formula injection / spreadsheet formula injection.
- * If a value starts with sensitive formula trigger characters (=, +, -, @, \t, \r),
+ * If a value starts with sensitive formula trigger characters (=, +, -, @, \t, \r, \n),
  * it is prefixed with a single quote (') so spreadsheet applications treat it as plain text.
  */
 export function sanitizeFormula(val: unknown): unknown {
   if (typeof val === 'string') {
     const trimmed = val.trimStart();
-    if (/^[=+@\t\r]/.test(trimmed)) {
+    // Prevent formula execution for characters that start formulas in Excel/Calc/Sheets: =, +, -, @, \t, \r, \n
+    if (/^[=\-+@\t\r\n]/.test(trimmed)) {
       return `'${val}`;
     }
   }
