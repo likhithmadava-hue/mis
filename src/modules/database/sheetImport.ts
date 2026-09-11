@@ -382,7 +382,7 @@ export function buildEntries(
 export function sanitizeFormula(val: unknown): unknown {
   if (typeof val === 'string') {
     const trimmed = val.trimStart();
-    if (/^[=+@\t\r]/.test(trimmed)) {
+    if (/^[=+\-@\t\r\n]/.test(trimmed)) {
       return `'${val}`;
     }
   }
