@@ -13,6 +13,7 @@ export default function FilterBar({ filters }: { filters: LogbookFilters }) {
         <input
           type="text"
           placeholder="Search subject, chapter, or notes…"
+          aria-label="Search subject, chapter, or notes"
           value={filters.search}
           onChange={(e) => filters.setSearch(e.target.value)}
           className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-xl text-xs focus:border-primary/50 focus:outline-none"
@@ -67,6 +68,7 @@ export default function FilterBar({ filters }: { filters: LogbookFilters }) {
         {filters.filtersActive && (
           <button
             onClick={filters.clearFilters}
+            aria-label="Clear filters"
             className="h-9 px-3 rounded-xl text-xs font-semibold text-muted-foreground hover:text-destructive flex items-center gap-1 animate-fade-in"
           >
             <X size={13} /> Clear
