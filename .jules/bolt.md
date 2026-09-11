@@ -1,0 +1,3 @@
+## 2025-05-18 - Map-based Indexing for Date-ranged Analytics
+**Learning:** In date-ranged scoring functions (`scoreRange`), looking up daily metrics with `metrics.find()` inside a `for`/`Array.from` loop across days results in O(N * M) time complexity where N is range length and M is total metrics history. Pre-indexing daily metrics into a `Map<string, DailyMetric>` by date key reduces lookup time to O(1) and overall complexity to O(N + M). Similarly, storing habit completion entries as `Set<string>` per date replaces O(H) `Array.prototype.includes` with O(1) `Set.prototype.has`.
+**Action:** When calculating statistics or scores across date ranges, index array storage collections into Maps/Sets keyed by ISO date strings before iteration.
