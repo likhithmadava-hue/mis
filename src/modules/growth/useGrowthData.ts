@@ -32,6 +32,9 @@ import type { TrendPoint } from '../../core/ui/charts';
 export const RANGES = [7, 14, 30] as const;
 export type Range = (typeof RANGES)[number];
 
+// Performance optimization: Reusable Intl formatter to avoid re-instantiating Intl objects per entry
+const shortDateFormatter = new Intl.DateTimeFormat([], { day: 'numeric', month: 'short' });
+
 /**
  * Paper analytics run over the whole logbook rather than the selected range —
  * papers are far too sparse for a 7-day window to say anything useful.
@@ -99,7 +102,7 @@ function usePaperAnalytics(logbook: MarkLogbookEntry[]) {
     const markTrend: TrendPoint[] = [...logbook]
       .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
       .map((e) => ({
-        label: new Date(e.date).toLocaleDateString([], { day: 'numeric', month: 'short' }),
+        label: shortDateFormatter.format(new Date(`${e.date}T00:00:00`)),
         sub: `${e.subject}${e.chapter ? ` — ${e.chapter}` : ''}`,
         value: Math.round((e.score / e.max_score) * 100),
       }));
