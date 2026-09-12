@@ -20,14 +20,21 @@ export default function ExportMenu({ entries }: { entries: MarkLogbookEntry[] })
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // close on an outside click, the way Select does
+  // close on an outside click or Escape keypress, the way Select does
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [open]);
 
   const actions = [
@@ -43,7 +50,8 @@ export default function ExportMenu({ entries }: { entries: MarkLogbookEntry[] })
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="px-3 py-1.5 bg-background border border-border rounded-xl text-xs font-semibold text-muted-foreground hover:text-primary hover:border-primary/40 flex items-center gap-1.5 active:scale-95 transition-all"
+        aria-label="Export options menu"
+        className="px-3 py-1.5 bg-background border border-border rounded-xl text-xs font-semibold text-muted-foreground hover:text-primary hover:border-primary/40 flex items-center gap-1.5 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <Download size={13} /> Export
         <ChevronDown size={12} className={open ? 'rotate-180 transition-transform' : 'transition-transform'} />

@@ -74,13 +74,15 @@ export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTi
           <button
             onClick={timer.reset}
             title="Reset"
-            className="p-3 rounded-xl bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Reset timer"
+            className="p-3 rounded-xl bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <RotateCcw size={18} />
           </button>
           <button
             onClick={timer.toggleRunning}
-            className={`px-10 py-3.5 rounded-xl font-bold font-space text-sm flex items-center gap-2 transition-all glow-primary ${
+            aria-label={timer.isRunning ? 'Pause timer' : 'Start timer'}
+            className={`px-10 py-3.5 rounded-xl font-bold font-space text-sm flex items-center gap-2 transition-all glow-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
               timer.isFocus ? 'bg-primary text-primary-foreground' : 'bg-success text-primary-foreground'
             }`}
           >
@@ -89,7 +91,8 @@ export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTi
           <button
             onClick={timer.skip}
             title="Skip to next"
-            className="p-3 rounded-xl bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Skip to next session"
+            className="p-3 rounded-xl bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <SkipForward size={18} />
           </button>
