@@ -4,8 +4,10 @@ import { ArborDatabase, type MarkLogbookEntry } from '../../core/db';
 import EntryEditor from './EntryEditor';
 import EntryRow from './EntryRow';
 import ExportMenu from './ExportMenu';
+import { uid } from '../../core/db/uid';
 import FilterBar from './FilterBar';
 import ImportSheet from './ImportSheet';
+import { sanitizeFormula, toDifficulty, toReason } from './sheetImport';
 import { useLogbookFilters } from './useLogbookFilters';
 
 interface DatabaseExplorerProps {
@@ -76,7 +78,20 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
         if (!Array.isArray(parsed)) throw new Error('not a list');
         if (!confirm(`Replace all ${entries.length} records with ${parsed.length} from the backup?`))
           return;
-        ArborDatabase.replaceMarkLogbook(parsed as MarkLogbookEntry[]);
+        const sanitized: MarkLogbookEntry[] = parsed.map((item: any) => ({
+          id: typeof item?.id === 'string' && item.id ? item.id : uid(),
+          date: String(item?.date ?? ''),
+          subject: String(sanitizeFormula(String(item?.subject ?? ''))),
+          chapter: String(sanitizeFormula(String(item?.chapter ?? ''))),
+          grade: String(sanitizeFormula(String(item?.grade ?? ''))),
+          score: typeof item?.score === 'number' && !isNaN(item.score) ? item.score : 0,
+          max_score: typeof item?.max_score === 'number' && !isNaN(item.max_score) ? item.max_score : 100,
+          difficulty: toDifficulty(item?.difficulty),
+          time_spent: typeof item?.time_spent === 'number' && !isNaN(item.time_spent) ? item.time_spent : 0,
+          mistake_reason: toReason(item?.mistake_reason),
+          notes: String(sanitizeFormula(String(item?.notes ?? ''))),
+        }));
+        ArborDatabase.replaceMarkLogbook(sanitized);
         reload();
         notify(`Restored ${parsed.length} records from the backup.`);
       } catch {
