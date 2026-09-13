@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowDown, ArrowUp, Check, Database, Upload } from 'lucide-react';
 import { ArborDatabase, type MarkLogbookEntry } from '../../core/db';
+import { uid } from '../../core/db/uid';
 import EntryEditor from './EntryEditor';
 import EntryRow from './EntryRow';
 import ExportMenu from './ExportMenu';
 import FilterBar from './FilterBar';
 import ImportSheet from './ImportSheet';
+import { sanitizeFormula, toDifficulty, toReason } from './sheetImport';
 import { useLogbookFilters } from './useLogbookFilters';
 
 interface DatabaseExplorerProps {
@@ -74,11 +76,36 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
       try {
         const parsed = JSON.parse(String(reader.result));
         if (!Array.isArray(parsed)) throw new Error('not a list');
-        if (!confirm(`Replace all ${entries.length} records with ${parsed.length} from the backup?`))
+
+        const sanitizedEntries: MarkLogbookEntry[] = parsed.map((item: unknown) => {
+          if (!item || typeof item !== 'object') throw new Error('invalid entry');
+          const entry = item as Record<string, unknown>;
+          if (typeof entry.subject !== 'string' || !entry.subject.trim()) throw new Error('invalid subject');
+          if (typeof entry.date !== 'string' || !entry.date.trim()) throw new Error('invalid date');
+          if (typeof entry.score !== 'number' || isNaN(entry.score)) throw new Error('invalid score');
+          if (typeof entry.max_score !== 'number' || isNaN(entry.max_score) || entry.max_score <= 0)
+            throw new Error('invalid max_score');
+
+          return {
+            id: typeof entry.id === 'string' && entry.id ? entry.id : uid(),
+            date: String(entry.date).trim(),
+            subject: String(sanitizeFormula(entry.subject)).trim(),
+            chapter: String(sanitizeFormula(entry.chapter ?? '')).trim(),
+            grade: String(sanitizeFormula(entry.grade ?? '')).trim(),
+            score: Number(entry.score),
+            max_score: Number(entry.max_score),
+            difficulty: toDifficulty(entry.difficulty),
+            time_spent: typeof entry.time_spent === 'number' && isFinite(entry.time_spent) ? entry.time_spent : 0,
+            mistake_reason: toReason(entry.mistake_reason),
+            notes: String(sanitizeFormula(entry.notes ?? '')).trim(),
+          };
+        });
+
+        if (!confirm(`Replace all ${entries.length} records with ${sanitizedEntries.length} from the backup?`))
           return;
-        ArborDatabase.replaceMarkLogbook(parsed as MarkLogbookEntry[]);
+        ArborDatabase.replaceMarkLogbook(sanitizedEntries);
         reload();
-        notify(`Restored ${parsed.length} records from the backup.`);
+        notify(`Restored ${sanitizedEntries.length} records from the backup.`);
       } catch {
         alert("Couldn't read that file — a .json import has to be a backup MIS exported.");
       }
