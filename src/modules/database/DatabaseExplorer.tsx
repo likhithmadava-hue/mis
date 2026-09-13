@@ -6,6 +6,7 @@ import EntryRow from './EntryRow';
 import ExportMenu from './ExportMenu';
 import FilterBar from './FilterBar';
 import ImportSheet from './ImportSheet';
+import { sanitizeFormula, toDifficulty, toReason } from './sheetImport';
 import { useLogbookFilters } from './useLogbookFilters';
 
 interface DatabaseExplorerProps {
@@ -74,13 +75,34 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
       try {
         const parsed = JSON.parse(String(reader.result));
         if (!Array.isArray(parsed)) throw new Error('not a list');
-        if (!confirm(`Replace all ${entries.length} records with ${parsed.length} from the backup?`))
+
+        const sanitized: MarkLogbookEntry[] = parsed.map((item: unknown, idx: number) => {
+          if (!item || typeof item !== 'object') {
+            throw new Error(`Invalid entry at index ${idx}`);
+          }
+          const rec = item as Record<string, unknown>;
+          return {
+            id: String(rec.id ?? `imp-${idx}-${Date.now()}`),
+            date: String(rec.date ?? '').trim(),
+            subject: String(sanitizeFormula(rec.subject ?? '')).trim(),
+            chapter: String(sanitizeFormula(rec.chapter ?? '')).trim(),
+            grade: String(sanitizeFormula(rec.grade ?? '')).trim(),
+            score: Number(rec.score ?? 0) || 0,
+            max_score: Number(rec.max_score ?? 0) || 0,
+            difficulty: toDifficulty(rec.difficulty),
+            time_spent: Number(rec.time_spent ?? 0) || 0,
+            mistake_reason: toReason(rec.mistake_reason),
+            notes: String(sanitizeFormula(rec.notes ?? '')).trim(),
+          };
+        });
+
+        if (!confirm(`Replace all ${entries.length} records with ${sanitized.length} from the backup?`))
           return;
-        ArborDatabase.replaceMarkLogbook(parsed as MarkLogbookEntry[]);
+        ArborDatabase.replaceMarkLogbook(sanitized);
         reload();
-        notify(`Restored ${parsed.length} records from the backup.`);
+        notify(`Restored ${sanitized.length} records from the backup.`);
       } catch {
-        alert("Couldn't read that file — a .json import has to be a backup MIS exported.");
+        alert("Couldn't read that file — a .json import has to be a valid backup MIS exported.");
       }
     };
     reader.readAsText(file);
