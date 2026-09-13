@@ -93,6 +93,11 @@ export interface ScoredDay {
   byMode: Record<AppMode, number> | null;
 }
 
+// Performance optimization: Reusing module-scoped `Intl.DateTimeFormat` instances avoids
+// expensive repeated object instantiations when formatting dates in hot loops.
+const weekdayFormatter = new Intl.DateTimeFormat([], { weekday: 'short' });
+const dateLabelFormatter = new Intl.DateTimeFormat([], { day: 'numeric', month: 'short' });
+
 /**
  * Score the last `days` days, oldest first. Missing days come back with null
  * scores so charts can render a gap rather than a fake zero.
@@ -111,14 +116,22 @@ export const scoreRange = (days: number): ScoredDay[] => {
     else doneByDate.set(entry.date, [entry.habit_id]);
   }
 
+  // Performance optimization: Index daily metrics into a Map by date for O(1) lookups during range loop,
+  // avoiding O(N) array scans with `metrics.find(...)` on every iteration.
+  const metricsByDate = new Map<string, DailyMetric>();
+  for (const m of metrics) {
+    metricsByDate.set(m.date, m);
+  }
+
   return Array.from({ length: days }, (_, i) => {
     const date = isoDaysAgo(days - 1 - i);
-    const metric = metrics.find((m) => m.date === date) ?? null;
+    const metric = metricsByDate.get(date) ?? null;
     const scores = metric ? scoreDay(metric, habits, doneByDate.get(date) ?? [], user) : null;
+    const d = new Date(date);
     return {
       date,
-      label: new Date(date).toLocaleDateString([], { weekday: 'short' }).slice(0, 2),
-      dateLabel: new Date(date).toLocaleDateString([], { day: 'numeric', month: 'short' }),
+      label: weekdayFormatter.format(d).slice(0, 2),
+      dateLabel: dateLabelFormatter.format(d),
       metric,
       scores,
       byMode: scores
