@@ -9,14 +9,25 @@ export default function FilterBar({ filters }: { filters: LogbookFilters }) {
   return (
     <div className="space-y-3">
       <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <input
           type="text"
+          aria-label="Search subject, chapter, or notes"
           placeholder="Search subject, chapter, or notes…"
           value={filters.search}
           onChange={(e) => filters.setSearch(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-xl text-xs focus:border-primary/50 focus:outline-none"
+          className="w-full pl-9 pr-8 py-2 bg-background border border-border rounded-xl text-xs focus:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/50 focus:outline-none transition-colors"
         />
+        {filters.search && (
+          <button
+            type="button"
+            onClick={() => filters.setSearch('')}
+            aria-label="Clear search"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition-colors"
+          >
+            <X size={13} />
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">

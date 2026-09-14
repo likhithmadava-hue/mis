@@ -145,7 +145,7 @@ export default function Select<T extends string>({
         aria-label={ariaLabel}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={handleKeyDown}
-        className="w-full h-9 pl-3 pr-2 bg-background border border-border rounded-xl text-xs text-foreground flex items-center justify-between gap-2 hover:border-primary/40 transition-colors"
+        className="w-full h-9 pl-3 pr-2 bg-background border border-border rounded-xl text-xs text-foreground flex items-center justify-between gap-2 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition-colors"
       >
         {selected ? renderLabel(selected) : <span className="text-muted-foreground">Select…</span>}
         <ChevronDown
