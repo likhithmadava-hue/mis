@@ -157,7 +157,12 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
             <thead>
               <tr className="border-b border-border text-muted-foreground uppercase text-[9px] tracking-wider">
                 <th className="py-2.5 px-3 font-bold">
-                  <button onClick={() => filters.toggleSort('date')} className="flex items-center gap-1 hover:text-primary transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => filters.toggleSort('date')}
+                    aria-label={`Sort by date, ${filters.sortKey === 'date' ? (filters.sortDesc ? 'descending' : 'ascending') : 'unsorted'}`}
+                    className="flex items-center gap-1 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 rounded-sm"
+                  >
                     Date {sortArrow('date')}
                   </button>
                 </th>
@@ -166,7 +171,12 @@ export default function DatabaseExplorer({ triggerUpdate, onChange }: DatabaseEx
                 <th className="py-2.5 px-3 font-bold">Error</th>
                 <th className="py-2.5 px-3 font-bold">Diff</th>
                 <th className="py-2.5 px-3 font-bold">
-                  <button onClick={() => filters.toggleSort('marks')} className="flex items-center gap-1 hover:text-primary transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => filters.toggleSort('marks')}
+                    aria-label={`Sort by marks, ${filters.sortKey === 'marks' ? (filters.sortDesc ? 'descending' : 'ascending') : 'unsorted'}`}
+                    className="flex items-center gap-1 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 rounded-sm"
+                  >
                     Marks {sortArrow('marks')}
                   </button>
                 </th>
