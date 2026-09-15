@@ -65,6 +65,7 @@ export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTi
         <input
           type="text"
           placeholder="What are you working on? (e.g. Physics DPP)"
+          aria-label="Current task description"
           value={timer.tag}
           onChange={(e) => timer.setTag(e.target.value)}
           className="w-full max-w-sm px-4 py-2.5 bg-background border border-border rounded-xl text-xs text-center"
@@ -73,13 +74,15 @@ export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTi
         <div className="flex items-center gap-3">
           <button
             onClick={timer.reset}
-            title="Reset"
+            title="Reset timer"
+            aria-label="Reset timer"
             className="p-3 rounded-xl bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors"
           >
             <RotateCcw size={18} />
           </button>
           <button
             onClick={timer.toggleRunning}
+            aria-label={timer.isRunning ? 'Pause timer' : 'Start timer'}
             className={`px-10 py-3.5 rounded-xl font-bold font-space text-sm flex items-center gap-2 transition-all glow-primary ${
               timer.isFocus ? 'bg-primary text-primary-foreground' : 'bg-success text-primary-foreground'
             }`}
@@ -88,7 +91,8 @@ export default function FocusTimer({ triggerUpdate, onSessionComplete }: FocusTi
           </button>
           <button
             onClick={timer.skip}
-            title="Skip to next"
+            title="Skip to next phase"
+            aria-label="Skip to next phase"
             className="p-3 rounded-xl bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors"
           >
             <SkipForward size={18} />
