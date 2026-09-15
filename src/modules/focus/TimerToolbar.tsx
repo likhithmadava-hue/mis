@@ -51,6 +51,8 @@ export default function TimerToolbar({
             <button
               key={m}
               onClick={() => onSwitchMode(m)}
+              aria-label={`Switch mode to ${MODE_LABEL[m]}`}
+              aria-pressed={mode === m}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold font-space transition-colors ${
                 mode === m
                   ? m === 'focus'
@@ -72,6 +74,8 @@ export default function TimerToolbar({
                 key={id}
                 onClick={() => onSetDesign(id)}
                 title={`${label} clock`}
+                aria-label={`Select ${label} clock design`}
+                aria-pressed={settings.timer_design === id}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold font-space flex items-center gap-1.5 transition-colors ${
                   settings.timer_design === id
                     ? 'bg-muted text-foreground'
@@ -86,6 +90,7 @@ export default function TimerToolbar({
           <button
             onClick={onToggleFullscreen}
             title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
             className="p-2 rounded-xl bg-background border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
           >
             {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
@@ -94,6 +99,7 @@ export default function TimerToolbar({
           <button
             onClick={() => setShowSettings((s) => !s)}
             title={`Timer settings — ${settings.focus_minutes}/${settings.short_break}/${settings.long_break} min`}
+            aria-label="Timer settings"
             aria-expanded={showSettings}
             className={`p-2 rounded-xl border transition-colors ${
               showSettings
