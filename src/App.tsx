@@ -254,6 +254,8 @@ function Workspace() {
                   key={m}
                   onClick={() => switchMode(m)}
                   title={`${label} — ${MODE_META[m].blurb}`}
+                  aria-label={`${label} mode`}
+                  aria-pressed={mode === m}
                   className={`flex-1 px-2 py-1.5 rounded-md text-[11px] font-semibold font-space uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 ${
                     mode === m
                       ? 'bg-primary text-primary-foreground'
@@ -273,6 +275,8 @@ function Workspace() {
                 key={id}
                 onClick={() => setActiveTab(id)}
                 title={label}
+                aria-label={label}
+                aria-current={activeTab === id ? 'page' : undefined}
                 className={`py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 whitespace-nowrap transition-colors text-left ${
                   navCollapsed ? 'px-3 sm:px-0 sm:justify-center' : 'px-3'
                 } ${
@@ -341,6 +345,7 @@ function Workspace() {
           <button
             onClick={shuffleQuote}
             title="Another quote"
+            aria-label="Get another inspirational quote"
             className="flex-shrink-0 p-2.5 rounded-xl bg-muted border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
           >
             <Dices size={18} />
