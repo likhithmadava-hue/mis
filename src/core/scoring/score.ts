@@ -25,12 +25,14 @@ export const clamp10 = (n: number) => Math.max(0, Math.min(10, n));
 export const scoreDay = (
   m: DailyMetric,
   habits: Habit[],
-  doneIds: string[],
+  doneIds: string[] | Set<string>,
   user: UserConfig
 ): Record<TrackId, number> => {
   const habitTotal = habits.reduce((sum, h) => sum + PRIORITY_WEIGHT[h.priority], 0);
+  // Performance optimization: support Set<string> for O(1) membership checks during range evaluation
+  const doneSet = doneIds instanceof Set ? doneIds : new Set(doneIds);
   const habitDone = habits
-    .filter((h) => doneIds.includes(h.id))
+    .filter((h) => doneSet.has(h.id))
     .reduce((sum, h) => sum + PRIORITY_WEIGHT[h.priority], 0);
 
   // hydration carries most of the wellness score; posture tops it up
@@ -93,6 +95,12 @@ export interface ScoredDay {
   byMode: Record<AppMode, number> | null;
 }
 
+// Performance optimization: reuse module-scoped Intl.DateTimeFormat instances and empty set
+// to avoid expensive object/formatter re-instantiations inside hot range-scoring loops.
+const weekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+const dateFormatter = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
+const EMPTY_DONE_SET = new Set<string>();
+
 /**
  * Score the last `days` days, oldest first. Missing days come back with null
  * scores so charts can render a gap rather than a fake zero.
@@ -103,22 +111,32 @@ export const scoreRange = (days: number): ScoredDay[] => {
   const priorities = ArborDatabase.getTrackPriorities();
   const metrics = ArborDatabase.getDailyMetrics();
 
-  // bucket the habit log once instead of re-reading storage per day
-  const doneByDate = new Map<string, string[]>();
+  // Performance optimization: index daily metrics into a Map for O(1) lookups during range loops
+  const metricsByDate = new Map<string, DailyMetric>();
+  for (const m of metrics) {
+    metricsByDate.set(m.date, m);
+  }
+
+  // Performance optimization: bucket habit log into Set<string> by date for O(1) habit lookup
+  const doneByDate = new Map<string, Set<string>>();
   for (const entry of ArborDatabase.getHabitLog() as HabitLogEntry[]) {
-    const list = doneByDate.get(entry.date);
-    if (list) list.push(entry.habit_id);
-    else doneByDate.set(entry.date, [entry.habit_id]);
+    let set = doneByDate.get(entry.date);
+    if (!set) {
+      set = new Set<string>();
+      doneByDate.set(entry.date, set);
+    }
+    set.add(entry.habit_id);
   }
 
   return Array.from({ length: days }, (_, i) => {
     const date = isoDaysAgo(days - 1 - i);
-    const metric = metrics.find((m) => m.date === date) ?? null;
-    const scores = metric ? scoreDay(metric, habits, doneByDate.get(date) ?? [], user) : null;
+    const metric = metricsByDate.get(date) ?? null;
+    const scores = metric ? scoreDay(metric, habits, doneByDate.get(date) ?? EMPTY_DONE_SET, user) : null;
+    const d = new Date(date + 'T00:00:00');
     return {
       date,
-      label: new Date(date).toLocaleDateString([], { weekday: 'short' }).slice(0, 2),
-      dateLabel: new Date(date).toLocaleDateString([], { day: 'numeric', month: 'short' }),
+      label: weekdayFormatter.format(d).slice(0, 2),
+      dateLabel: dateFormatter.format(d),
       metric,
       scores,
       byMode: scores
