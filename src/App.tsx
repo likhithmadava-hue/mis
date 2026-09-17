@@ -334,13 +334,14 @@ function Workspace() {
           <div className="w-10 h-10 rounded-full bg-accent border border-primary/20 flex items-center justify-center flex-shrink-0">
             <Quote size={16} className="text-primary" />
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0" aria-live="polite" aria-atomic="true">
             <p className="text-base sm:text-lg font-medium font-space leading-snug">“{quote.text}”</p>
             <p className="text-sm text-muted-foreground mt-1.5">— {quote.author}</p>
           </div>
           <button
             onClick={shuffleQuote}
             title="Another quote"
+            aria-label="Another quote"
             className="flex-shrink-0 p-2.5 rounded-xl bg-muted border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
           >
             <Dices size={18} />
