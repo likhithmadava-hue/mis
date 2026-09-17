@@ -93,6 +93,10 @@ export interface ScoredDay {
   byMode: Record<AppMode, number> | null;
 }
 
+// Reusing module-scoped Intl.DateTimeFormat instances avoids expensive repeated object instantiations when formatting dates in hot loops.
+const weekdayFormatter = new Intl.DateTimeFormat([], { weekday: 'short' });
+const dateFormatter = new Intl.DateTimeFormat([], { day: 'numeric', month: 'short' });
+
 /**
  * Score the last `days` days, oldest first. Missing days come back with null
  * scores so charts can render a gap rather than a fake zero.
@@ -102,6 +106,10 @@ export const scoreRange = (days: number): ScoredDay[] => {
   const habits = ArborDatabase.getHabits();
   const priorities = ArborDatabase.getTrackPriorities();
   const metrics = ArborDatabase.getDailyMetrics();
+
+  // Performance optimization: index daily metrics into a Map by date (`metricsByDate`)
+  // for O(1) lookups during range loops, reducing lookup complexity from O(days * M) to O(days + M).
+  const metricsByDate = new Map(metrics.map((m) => [m.date, m]));
 
   // bucket the habit log once instead of re-reading storage per day
   const doneByDate = new Map<string, string[]>();
@@ -113,12 +121,14 @@ export const scoreRange = (days: number): ScoredDay[] => {
 
   return Array.from({ length: days }, (_, i) => {
     const date = isoDaysAgo(days - 1 - i);
-    const metric = metrics.find((m) => m.date === date) ?? null;
+    const metric = metricsByDate.get(date) ?? null;
     const scores = metric ? scoreDay(metric, habits, doneByDate.get(date) ?? [], user) : null;
+    const d = new Date(date);
     return {
       date,
-      label: new Date(date).toLocaleDateString([], { weekday: 'short' }).slice(0, 2),
-      dateLabel: new Date(date).toLocaleDateString([], { day: 'numeric', month: 'short' }),
+      // Reuse module-scoped formatters to avoid new Intl.DateTimeFormat allocations per day
+      label: weekdayFormatter.format(d).slice(0, 2),
+      dateLabel: dateFormatter.format(d),
       metric,
       scores,
       byMode: scores
