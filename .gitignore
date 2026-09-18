@@ -6,3 +6,4 @@ dist-netlify/
 # the real values and stays on your machine. (The anon key is public anyway —
 # it is baked into every build — but keys belong in one place, not two.)
 .env.local
+dev_server.log
