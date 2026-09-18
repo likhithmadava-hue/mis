@@ -166,6 +166,7 @@ export default function TrackControl({ id, log }: { id: TrackId; log: DailyLogSt
                 <button
                   onClick={() => log.deleteHabit(h.id)}
                   title="Remove habit"
+                  aria-label="Remove habit"
                   className="text-muted-foreground/50 hover:text-destructive transition-colors"
                 >
                   <Trash2 size={13} />

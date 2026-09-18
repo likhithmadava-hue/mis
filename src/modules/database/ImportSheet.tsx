@@ -112,6 +112,7 @@ export default function ImportSheet({ file, existing, onClose, onImported }: Imp
           <button
             onClick={onClose}
             title="Close"
+            aria-label="Close"
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted flex-shrink-0"
           >
             <X size={16} />
