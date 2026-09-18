@@ -12,11 +12,28 @@ export default function FilterBar({ filters }: { filters: LogbookFilters }) {
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
+          aria-label="Search subject, chapter, or notes"
           placeholder="Search subject, chapter, or notes…"
           value={filters.search}
           onChange={(e) => filters.setSearch(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-xl text-xs focus:border-primary/50 focus:outline-none"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && filters.search) {
+              e.preventDefault();
+              filters.setSearch('');
+            }
+          }}
+          className="w-full pl-9 pr-8 py-2 bg-background border border-border rounded-xl text-xs focus:border-primary/50 focus:outline-none"
         />
+        {filters.search && (
+          <button
+            type="button"
+            onClick={() => filters.setSearch('')}
+            aria-label="Clear search text"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md hover:bg-muted transition-colors"
+          >
+            <X size={13} />
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
