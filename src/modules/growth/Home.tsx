@@ -250,8 +250,8 @@ export default function Home(props: HomeProps) {
           }
           empty={{
             line: data.continueEmptyLine(),
-            cta: 'Open Daily Log',
-            onGo: () => props.onOpen('log'),
+            cta: 'Open Focus Timer',
+            onGo: () => props.onOpen('focus'),
           }}
           delay={300}
           class={academic() ? 'col-span-2 lg:col-span-3' : 'col-span-2 lg:col-span-4'}

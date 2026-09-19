@@ -17,4 +17,14 @@
 export * from './types';
 export * as api from './api';
 export { errorMessage, isDayLocked, type MisError } from './api';
-export { act, boot, db, mode, ready, reload, revision, setMode } from './store';
+export {
+  act,
+  boot,
+  db,
+  mode,
+  ready,
+  reload,
+  revision,
+  setDailyLogLayout,
+  setMode,
+} from './store';

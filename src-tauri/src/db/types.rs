@@ -65,24 +65,35 @@ pub enum TrackId {
     Mood,
     Habits,
     Wellness,
+    AcademicTasks,
+    LifeTasks,
 }
 
 impl TrackId {
-    pub const ALL: [TrackId; 6] = [
+    pub const ALL: [TrackId; 8] = [
         TrackId::Studies,
         TrackId::Dpps,
         TrackId::WellSpent,
         TrackId::Mood,
         TrackId::Habits,
         TrackId::Wellness,
+        TrackId::AcademicTasks,
+        TrackId::LifeTasks,
     ];
 
     /// Every track belongs to exactly one mode — never both. Academic is the
     /// work that moves marks; Life is what keeps that work sustainable.
+    ///
+    /// The to-do list itself is one shared list split by a task's own `mode`
+    /// field (see `Task`), not two separate lists — but its *score* still has
+    /// to obey this same one-track-one-mode rule, so it is split into
+    /// `AcademicTasks` and `LifeTasks` here, each counting only its own half.
     pub fn mode(self) -> AppMode {
         match self {
-            TrackId::Studies | TrackId::Dpps => AppMode::Academic,
-            TrackId::WellSpent | TrackId::Mood | TrackId::Habits | TrackId::Wellness => AppMode::Life,
+            TrackId::Studies | TrackId::Dpps | TrackId::AcademicTasks => AppMode::Academic,
+            TrackId::WellSpent | TrackId::Mood | TrackId::Habits | TrackId::Wellness | TrackId::LifeTasks => {
+                AppMode::Life
+            }
         }
     }
 }
@@ -451,6 +462,10 @@ pub struct TrackPriorities {
     pub well_spent: Priority,
     #[serde(default = "low")]
     pub wellness: Priority,
+    #[serde(default = "medium")]
+    pub academic_tasks: Priority,
+    #[serde(default = "medium")]
+    pub life_tasks: Priority,
 }
 
 fn high() -> Priority {
@@ -472,6 +487,8 @@ impl TrackPriorities {
             TrackId::Mood => self.mood,
             TrackId::WellSpent => self.well_spent,
             TrackId::Wellness => self.wellness,
+            TrackId::AcademicTasks => self.academic_tasks,
+            TrackId::LifeTasks => self.life_tasks,
         }
     }
 
@@ -483,6 +500,8 @@ impl TrackPriorities {
             TrackId::Mood => self.mood = p,
             TrackId::WellSpent => self.well_spent = p,
             TrackId::Wellness => self.wellness = p,
+            TrackId::AcademicTasks => self.academic_tasks = p,
+            TrackId::LifeTasks => self.life_tasks = p,
         }
     }
 }
@@ -496,6 +515,57 @@ impl Default for TrackPriorities {
             mood: Priority::Medium,
             well_spent: Priority::Low,
             wellness: Priority::Low,
+            academic_tasks: Priority::Medium,
+            life_tasks: Priority::Medium,
+        }
+    }
+}
+
+/// A Daily Log card's snapped width in the two-column grid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WidgetSize {
+    Sm,
+    Lg,
+}
+
+impl Default for WidgetSize {
+    fn default() -> Self {
+        WidgetSize::Sm
+    }
+}
+
+/// One track card's place in a hand-arranged Daily Log layout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WidgetPlacement {
+    pub id: TrackId,
+    #[serde(default)]
+    pub size: WidgetSize,
+}
+
+/// A user's hand-arranged Daily Log card order, kept per mode since each mode
+/// shows a different set of cards. Empty until the user actually drags
+/// something — until then the Daily Log falls back to priority order, exactly
+/// as it always has.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DailyLogLayout {
+    pub academic: Vec<WidgetPlacement>,
+    pub life: Vec<WidgetPlacement>,
+}
+
+impl DailyLogLayout {
+    pub fn get(&self, mode: AppMode) -> &Vec<WidgetPlacement> {
+        match mode {
+            AppMode::Academic => &self.academic,
+            AppMode::Life => &self.life,
+        }
+    }
+
+    pub fn set(&mut self, mode: AppMode, layout: Vec<WidgetPlacement>) {
+        match mode {
+            AppMode::Academic => self.academic = layout,
+            AppMode::Life => self.life = layout,
         }
     }
 }
@@ -523,6 +593,8 @@ pub struct DbShape {
     pub track_priorities: TrackPriorities,
     #[serde(default)]
     pub app_mode: AppMode,
+    #[serde(default)]
+    pub daily_log_layout: DailyLogLayout,
 }
 
 /// A fresh id. The old TS `uid()` produced a random string; anything unique

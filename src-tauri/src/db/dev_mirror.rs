@@ -243,6 +243,8 @@ mod imp {
                 ("mood", tp.mood),
                 ("well_spent", tp.well_spent),
                 ("wellness", tp.wellness),
+                ("academic_tasks", tp.academic_tasks),
+                ("life_tasks", tp.life_tasks),
             ] {
                 stmt.execute(params![track, ser_str(&priority)])?;
             }

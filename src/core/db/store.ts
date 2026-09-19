@@ -23,7 +23,7 @@ import { createSignal } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 
 import * as api from './api';
-import type { AppMode, DbShape } from './types';
+import type { AppMode, DbShape, WidgetPlacement } from './types';
 
 /**
  * The shape the store holds before [`boot`] has run.
@@ -73,8 +73,11 @@ const EMPTY: DbShape = {
     mood: 'medium',
     habits: 'medium',
     wellness: 'low',
+    academic_tasks: 'medium',
+    life_tasks: 'medium',
   },
   app_mode: 'academic',
+  daily_log_layout: { academic: [], life: [] },
 };
 
 const [state, setState] = createStore<DbShape>(EMPTY);
@@ -143,3 +146,7 @@ export async function act<T>(command: Promise<T>): Promise<T> {
 export const mode = () => db.app_mode;
 
 export const setMode = (next: AppMode) => act(api.setAppMode(next));
+
+/** Save a hand-arranged Daily Log card order for one mode. */
+export const setDailyLogLayout = (mode: AppMode, layout: WidgetPlacement[]) =>
+  act(api.setDailyLogLayout(mode, layout));

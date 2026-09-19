@@ -21,7 +21,7 @@
  * Errors arrive as `{ code, message }` — see [`MisError`] below.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from './bridge';
 
 import type {
   AppMode,
@@ -45,6 +45,7 @@ import type {
   TrackerStatus,
   UserConfig,
   VaultInfo,
+  WidgetPlacement,
 } from './types';
 
 // ── Errors ──────────────────────────────────────────────────────────────────
@@ -59,7 +60,9 @@ export interface MisError {
     | 'day-locked'
     | 'audit'
     | 'screen-time'
-    | 'io';
+    | 'io'
+    /** Android only: the command has no Kotlin backend implementation this pass (see `MisPlugin.kt`). */
+    | 'not-implemented';
   message: string;
 }
 
@@ -178,6 +181,9 @@ export const setTrackPriority = (id: TrackId, priority: Priority) =>
   invoke<void>('db_set_track_priority', { id, priority });
 
 export const setAppMode = (mode: AppMode) => invoke<void>('db_set_app_mode', { mode });
+
+export const setDailyLogLayout = (mode: AppMode, layout: WidgetPlacement[]) =>
+  invoke<void>('db_set_daily_log_layout', { mode, layout });
 
 /**
  * Wipe the database back to a starting state.

@@ -4,6 +4,7 @@ import {
   Database,
   Dices,
   House,
+  LayoutGrid,
   MonitorPlay,
   PanelLeftClose,
   PanelLeftOpen,
@@ -16,7 +17,7 @@ import { Dynamic } from 'solid-js/web';
 
 import { db, MODES, setMode, type AppMode } from './core/db';
 import { MODE_META } from './core/scoring';
-import { createRailTooltip, type Icon } from './core/ui';
+import { createRailTooltip, editingLayout, setEditingLayout, type Icon } from './core/ui';
 import { DatabaseExplorer } from './modules/database';
 import { FocusTimer } from './modules/focus';
 import { Home, Report } from './modules/growth';
@@ -252,8 +253,39 @@ export default function App() {
 
           {/* Collapse used to sit directly under the last tab, which made it
               read as a sixth place to go. It is a utility, so it lives down
-              here behind a rule, quieter than a nav item. */}
+              here behind a rule, quieter than a nav item. Rearrange joins it
+              here rather than on the Daily Log page itself, because it needs
+              to stay on while you switch cards' focus around the page —a
+              button living inside the grid it controls would be the first
+              thing covered by a dragged card. */}
           <div class="border-t border-border pt-3">
+            <Show when={activeTab() === 'log'}>
+              <button
+                onClick={() => setEditingLayout((v) => !v)}
+                title={
+                  navCollapsed()
+                    ? undefined
+                    : editingLayout()
+                      ? 'Turn off rearranging'
+                      : 'Drag and resize the cards below'
+                }
+                aria-label={editingLayout() ? 'Done rearranging cards' : 'Rearrange Daily Log cards'}
+                aria-pressed={editingLayout()}
+                {...railTip.trigger('Rearrange Daily Log cards')}
+                class={`w-full mb-1 py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left ${
+                  navCollapsed() ? 'px-0 justify-center' : 'px-3'
+                } ${
+                  editingLayout()
+                    ? 'text-primary bg-primary/10'
+                    : 'text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent'
+                }`}
+              >
+                <LayoutGrid size={16} class="flex-shrink-0" />
+                <span class={navCollapsed() ? 'hidden' : ''}>
+                  {editingLayout() ? 'Done rearranging' : 'Rearrange cards'}
+                </span>
+              </button>
+            </Show>
             <button
               onClick={() => setNavCollapsed((c) => !c)}
               title={navCollapsed() ? undefined : 'Collapse sidebar'}
@@ -354,10 +386,10 @@ export default function App() {
                 <Home mode={mode} onOpen={(tab) => setActiveTab(tab)} />
               </Match>
               <Match when={activeTab() === 'log'}>
-                <DailyLog mode={mode} />
+                <DailyLog mode={mode} onOpen={(tab) => setActiveTab(tab as TabId)} />
               </Match>
               <Match when={activeTab() === 'report'}>
-                <Report mode={mode} />
+                <Report mode={mode} onOpen={(tab) => setActiveTab(tab as TabId)} />
               </Match>
               <Match when={activeTab() === 'db'}>
                 <DatabaseExplorer />

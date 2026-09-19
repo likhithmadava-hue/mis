@@ -1,6 +1,7 @@
 import { Check, Moon, Plus, Trash2 } from 'lucide-solid';
 import { createSignal, For, Match, Show, Switch } from 'solid-js';
 
+import { todayIso } from '../../core/dates';
 import type { TrackId } from '../../core/db';
 import PriorityPicker from './PriorityPicker';
 import type { DailyLogState } from './createDailyLog';
@@ -236,6 +237,57 @@ export default function TrackControl(props: { id: TrackId; log: DailyLogState })
           </div>
         </div>
       </Match>
+
+      {/* Tasks is read-only here — the to-do list itself is entered once,
+          below the track cards, and shared by both modes. This card only
+          shows what today's slice of it is worth. */}
+      <Match when={props.id === 'academic_tasks' || props.id === 'life_tasks'}>
+        <TasksTrackControl log={log} />
+      </Match>
     </Switch>
+  );
+}
+
+function TasksTrackControl(props: { log: DailyLogState }) {
+  const due = () => props.log.tasks().filter((t) => t.due_date === todayIso());
+  const done = () => due().filter((t) => t.completed).length;
+
+  return (
+    <div class="space-y-2">
+      <div class="flex justify-between text-xs">
+        <span class="text-muted-foreground">Due today</span>
+        <span class="font-mono font-bold text-primary">
+          {done()} / {due().length}
+        </span>
+      </div>
+      <Show
+        when={due().length > 0}
+        fallback={
+          <p class="text-xs text-muted-foreground">
+            Nothing due today — this card scores 0 until something is.
+          </p>
+        }
+      >
+        <div class="space-y-1.5">
+          <For each={due()}>
+            {(t) => (
+              <div
+                class={`flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg border ${
+                  t.completed
+                    ? 'bg-success/5 border-success/30 text-success line-through'
+                    : 'bg-background border-border'
+                }`}
+              >
+                <Show when={t.completed}>
+                  <Check size={12} stroke-width={3} class="flex-shrink-0" />
+                </Show>
+                <span class="truncate">{t.title}</span>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
+      <p class="text-[0.625rem] text-muted-foreground">Tick these off in the to-do list below.</p>
+    </div>
   );
 }

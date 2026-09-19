@@ -45,6 +45,8 @@ pub struct TrackScores {
     pub mood: f64,
     pub well_spent: f64,
     pub wellness: f64,
+    pub academic_tasks: f64,
+    pub life_tasks: f64,
 }
 
 impl TrackScores {
@@ -56,16 +58,26 @@ impl TrackScores {
             TrackId::Mood => self.mood,
             TrackId::WellSpent => self.well_spent,
             TrackId::Wellness => self.wellness,
+            TrackId::AcademicTasks => self.academic_tasks,
+            TrackId::LifeTasks => self.life_tasks,
         }
     }
 }
 
 /// Score every track 0–10 for one day.
+///
+/// `tasks` is the *whole* to-do list, both modes together — same shape as the
+/// vault stores it — and `date` picks out that day's slice of it. A task
+/// counts only on the day it was due: what is scored is "did today's
+/// deadlines get met", not "how big is the backlog right now", so a task with
+/// no due date, or due on some other day, never moves either tasks track.
 pub fn score_day(
     m: &DailyMetric,
     habits: &[Habit],
     done_ids: &[String],
     user: &UserConfig,
+    tasks: &[Task],
+    date: &str,
 ) -> TrackScores {
     let habit_total: f64 = habits.iter().map(|h| h.priority.weight()).sum();
     let habit_done: f64 = habits
@@ -81,6 +93,18 @@ pub fn score_day(
         0.0
     };
     let posture = (m.posture_count / POSTURE_TARGET).min(1.0);
+
+    // Nothing due is not the same as everything done, so — like DPPs above —
+    // a day with no deadlines in a mode scores 0 on that mode's tasks track
+    // rather than skipping it.
+    let tasks_score = |mode: AppMode| {
+        let due: Vec<&Task> = tasks.iter().filter(|t| t.mode == mode && t.due_date == date).collect();
+        if due.is_empty() {
+            return 0.0;
+        }
+        let done = due.iter().filter(|t| t.completed).count() as f64;
+        clamp10((done / due.len() as f64) * 10.0)
+    };
 
     TrackScores {
         studies: if user.target_study_hours > 0.0 {
@@ -101,6 +125,8 @@ pub fn score_day(
         mood: clamp10(m.mood_score),
         well_spent: clamp10((m.well_spent_time / WELL_SPENT_TARGET) * 10.0),
         wellness: clamp10((water * 0.6 + posture * 0.4) * 10.0),
+        academic_tasks: tasks_score(AppMode::Academic),
+        life_tasks: tasks_score(AppMode::Life),
     }
 }
 
@@ -192,6 +218,8 @@ pub fn score_range(db: &DbShape, days: i64) -> Vec<ScoredDay> {
                     &db.habits,
                     done_by_date.get(date.as_str()).map(Vec::as_slice).unwrap_or(&[]),
                     &db.user,
+                    &db.tasks,
+                    &date,
                 )
             });
             let by_mode = scores.map(|s| ByMode {
@@ -310,14 +338,34 @@ mod tests {
         m
     }
 
+    fn task(mode: AppMode, due_date: &str, completed: bool) -> Task {
+        Task {
+            id: format!("{mode:?}-{due_date}-{completed}"),
+            title: "task".into(),
+            subject: String::new(),
+            due_date: due_date.into(),
+            completed,
+            mode,
+        }
+    }
+
+    /// One completed task due today in each mode — pairs with `full_day` to
+    /// make a day that is perfect on every track, tasks included.
+    fn full_day_tasks() -> Vec<Task> {
+        let today = today_iso();
+        vec![task(AppMode::Academic, &today, true), task(AppMode::Life, &today, true)]
+    }
+
     #[test]
     fn a_perfect_day_scores_ten_everywhere() {
-        let s = score_day(&full_day(), &[], &[], &user());
+        let s = score_day(&full_day(), &[], &[], &user(), &full_day_tasks(), &today_iso());
         assert_eq!(s.studies, 10.0);
         assert_eq!(s.dpps, 10.0);
         assert_eq!(s.mood, 10.0);
         assert_eq!(s.well_spent, 10.0);
         assert_eq!(s.wellness, 10.0);
+        assert_eq!(s.academic_tasks, 10.0);
+        assert_eq!(s.life_tasks, 10.0);
     }
 
     #[test]
@@ -325,7 +373,7 @@ mod tests {
         let mut m = full_day();
         m.study_hours = 20.0;
         m.well_spent_time = 600.0;
-        let s = score_day(&m, &[], &[], &user());
+        let s = score_day(&m, &[], &[], &user(), &[], &today_iso());
         assert_eq!(s.studies, 10.0);
         assert_eq!(s.well_spent, 10.0);
     }
@@ -335,7 +383,7 @@ mod tests {
         let mut m = full_day();
         m.dpps_got = 0.0;
         m.dpps_complete = 0.0;
-        assert_eq!(score_day(&m, &[], &[], &user()).dpps, 0.0);
+        assert_eq!(score_day(&m, &[], &[], &user(), &[], &today_iso()).dpps, 0.0);
     }
 
     #[test]
@@ -345,7 +393,7 @@ mod tests {
             Habit { id: "b".into(), name: "low".into(), priority: Priority::Low, legacy_key: None },
         ];
         // 3 of 4 weight done.
-        let s = score_day(&full_day(), &habits, &["a".into()], &user());
+        let s = score_day(&full_day(), &habits, &["a".into()], &user(), &[], &today_iso());
         assert_eq!(s.habits, 7.5);
     }
 
@@ -356,8 +404,8 @@ mod tests {
         let mut posture_only = full_day();
         posture_only.water_count = 0.0;
 
-        let w = score_day(&water_only, &[], &[], &user()).wellness;
-        let p = score_day(&posture_only, &[], &[], &user()).wellness;
+        let w = score_day(&water_only, &[], &[], &user(), &[], &today_iso()).wellness;
+        let p = score_day(&posture_only, &[], &[], &user(), &[], &today_iso()).wellness;
         assert!((w - 6.0).abs() < 1e-9);
         assert!((p - 4.0).abs() < 1e-9);
     }
@@ -372,10 +420,54 @@ mod tests {
         m.posture_count = 0.0;
         m.water_count = 0.0;
 
+        let today = today_iso();
+        let tasks = vec![task(AppMode::Academic, &today, true)];
+
         let p = TrackPriorities::default();
-        let s = score_day(&m, &[], &[], &user());
+        let s = score_day(&m, &[], &[], &user(), &tasks, &today);
         assert_eq!(mode_score(&s, &p, AppMode::Academic), 50.0);
         assert_eq!(mode_score(&s, &p, AppMode::Life), 0.0);
+    }
+
+    #[test]
+    fn tasks_score_by_how_many_of_todays_due_tasks_got_done() {
+        let today = today_iso();
+        let tasks = vec![
+            task(AppMode::Academic, &today, true),
+            task(AppMode::Academic, &today, true),
+            task(AppMode::Academic, &today, false),
+        ];
+        let s = score_day(&full_day(), &[], &[], &user(), &tasks, &today);
+        assert!((s.academic_tasks - (20.0 / 3.0)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_task_only_counts_on_the_day_it_is_due() {
+        let today = today_iso();
+        let tasks = vec![
+            task(AppMode::Academic, &today, false),
+            task(AppMode::Academic, "2099-01-01", true), // due some other day
+            task(AppMode::Academic, "", true),           // no due date at all
+        ];
+        let s = score_day(&full_day(), &[], &[], &user(), &tasks, &today);
+        // Only the one task actually due today counts, and it is not done.
+        assert_eq!(s.academic_tasks, 0.0);
+    }
+
+    #[test]
+    fn no_tasks_due_scores_zero_rather_than_a_free_ten() {
+        let s = score_day(&full_day(), &[], &[], &user(), &[], &today_iso());
+        assert_eq!(s.academic_tasks, 0.0);
+        assert_eq!(s.life_tasks, 0.0);
+    }
+
+    #[test]
+    fn a_tasks_score_never_crosses_into_the_other_mode() {
+        let today = today_iso();
+        let tasks = vec![task(AppMode::Life, &today, true)];
+        let s = score_day(&full_day(), &[], &[], &user(), &tasks, &today);
+        assert_eq!(s.academic_tasks, 0.0);
+        assert_eq!(s.life_tasks, 10.0);
     }
 
     #[test]

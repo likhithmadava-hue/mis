@@ -112,7 +112,7 @@ export interface ContinuePick {
   footnote: string;
   cta: string;
   /** which tab finishes this off */
-  goes: 'log' | 'report';
+  goes: 'log' | 'report' | 'focus';
 }
 
 export function createHomeData(mode: () => AppMode) {
@@ -180,6 +180,18 @@ export function createHomeData(mode: () => AppMode) {
         return {
           detail: `${water}/${user.water_target} cups · ${posture}/${POSTURE_TARGET} checks`,
           pct: ((waterPct + posturePct) / 2) * 100,
+        };
+      }
+      case 'academic_tasks':
+      case 'life_tasks': {
+        const wantMode: AppMode = id === 'academic_tasks' ? 'academic' : 'life';
+        const date = todayIso();
+        const due = db.tasks.filter((t) => t.mode === wantMode && t.due_date === date);
+        const done = due.filter((t) => t.completed).length;
+        // Nothing due is not the same as everything done — same reasoning as DPPs above.
+        return {
+          detail: due.length > 0 ? `${done} of ${due.length} done` : 'nothing due today',
+          pct: due.length > 0 ? (done / due.length) * 100 : 0,
         };
       }
     }
@@ -342,7 +354,7 @@ export function createHomeData(mode: () => AppMode) {
           meterLabel: `${done} of ${total} topic${total === 1 ? '' : 's'} done`,
           footnote: added(next.date),
           cta: 'Continue',
-          goes: 'log',
+          goes: 'focus',
         };
       }
 

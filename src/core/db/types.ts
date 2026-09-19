@@ -34,7 +34,16 @@ export const PRIORITY_WEIGHT: Record<Priority, number> = {
 };
 
 /** the things the Daily Log scores, one column-group each in the old sheet */
-export const TRACK_IDS = ['studies', 'dpps', 'well_spent', 'mood', 'habits', 'wellness'] as const;
+export const TRACK_IDS = [
+  'studies',
+  'dpps',
+  'well_spent',
+  'mood',
+  'habits',
+  'wellness',
+  'academic_tasks',
+  'life_tasks',
+] as const;
 export type TrackId = (typeof TRACK_IDS)[number];
 
 /** the nine kinds of mistake a paper can be tagged with */
@@ -188,6 +197,26 @@ export interface HabitLogEntry {
   habit_id: string;
 }
 
+/** a Daily Log card's snapped width in the two-column grid */
+export const WIDGET_SIZES = ['sm', 'lg'] as const;
+export type WidgetSize = (typeof WIDGET_SIZES)[number];
+
+/** one track card's place in a hand-arranged Daily Log layout */
+export interface WidgetPlacement {
+  id: TrackId;
+  size: WidgetSize;
+}
+
+/**
+ * A user's hand-arranged Daily Log card order, kept per mode since each mode
+ * shows a different set of cards. Empty until the user actually drags
+ * something — see `reconcileLayout` in `modules/log/layout.ts`.
+ */
+export interface DailyLogLayout {
+  academic: WidgetPlacement[];
+  life: WidgetPlacement[];
+}
+
 /** the whole database, as Rust hands it over */
 export interface DbShape {
   user: UserConfig;
@@ -201,6 +230,7 @@ export interface DbShape {
   habit_log: HabitLogEntry[];
   track_priorities: Record<TrackId, Priority>;
   app_mode: AppMode;
+  daily_log_layout: DailyLogLayout;
 }
 
 // ── Patches ─────────────────────────────────────────────────────────────────

@@ -1,11 +1,30 @@
 import { confirm } from '@tauri-apps/plugin-dialog';
-import { BellRing, Lock, LockOpen, ShieldAlert, ShieldCheck } from 'lucide-solid';
+import {
+  closestCenter,
+  DragDropProvider,
+  DragDropSensors,
+  createSortable,
+  SortableProvider,
+  transformStyle,
+} from '@thisbeyond/solid-dnd';
+import {
+  BellRing,
+  GripVertical,
+  Lock,
+  LockOpen,
+  Maximize2,
+  Minimize2,
+  ShieldAlert,
+  ShieldCheck,
+} from 'lucide-solid';
 import { For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 
-import type { AppMode } from '../../core/db';
+import type { AppMode, WidgetPlacement } from '../../core/db';
 import { DAY_TARGET, heat, MODE_META, TRACK_META } from '../../core/scoring';
-import { createDailyLog } from './createDailyLog';
+import { editingLayout } from '../../core/ui';
+import { createDailyLog, type DailyLogState } from './createDailyLog';
+import { cycleSize, moveItem } from './layout';
 import PaperForm from './PaperForm';
 import PriorityPicker from './PriorityPicker';
 import TasksPanel from './TasksPanel';
@@ -18,7 +37,7 @@ import TrackControl from './TrackControl';
  * One card per track, ordered by the priority you give it, each scored out of
  * 10. Topics and papers are academic work, so they only appear in that mode.
  */
-export default function DailyLog(props: { mode: () => AppMode }) {
+export default function DailyLog(props: { mode: () => AppMode; onOpen?: (tab: string) => void }) {
   const log = createDailyLog(props.mode);
   const meta = () => MODE_META[props.mode()];
 
@@ -118,44 +137,51 @@ export default function DailyLog(props: { mode: () => AppMode }) {
         </div>
       </div>
 
-      <div class={`grid grid-cols-1 lg:grid-cols-2 gap-6 items-start ${frozen()}`}>
-        <For each={log.ordered()}>
-          {(id) => {
-            const isHigh = () => log.priorities()[id] === 'high';
-            return (
-              <div
-                class={`bg-card rounded-2xl border card-shadow p-5 space-y-4 ${
-                  isHigh() ? 'border-primary/30' : 'border-border'
-                } ${id === 'habits' ? 'lg:col-span-2' : ''}`}
-              >
-                <div class="flex items-center gap-2.5 border-b border-border pb-3">
-                  <Dynamic
-                    component={TRACK_META[id].icon}
-                    size={16}
-                    class={isHigh() ? 'text-primary' : 'text-muted-foreground'}
-                  />
-                  <div class="flex-1 min-w-0">
-                    <h4 class="text-sm font-bold font-space">{TRACK_META[id].label}</h4>
-                    <p class="text-[0.625rem] text-muted-foreground">{TRACK_META[id].hint}</p>
-                  </div>
-                  <PriorityPicker
-                    value={log.priorities()[id]}
-                    onChange={(p) => void log.setTrackPriority(id, p)}
-                  />
-                  <span
-                    class={`w-9 h-9 flex-shrink-0 rounded-lg border flex items-center justify-center text-sm font-bold font-mono ${heat(
-                      log.scores()[id],
-                    )}`}
-                  >
-                    {Math.round(log.scores()[id])}
-                  </span>
-                </div>
-                <TrackControl id={id} log={log} />
-              </div>
-            );
+      {/* Cards arrange themselves in priority order by default — this is only
+          the user's own override once they have dragged something, via the
+          "Edit layout" toggle in the sidebar. Editing swaps the masonry
+          columns for a plain grid: solid-dnd measures item positions in
+          normal flow, and a multi-column layout would reflow unpredictably
+          mid-drag. The polished masonry view returns the moment editing ends. */}
+      <Show
+        when={editingLayout()}
+        fallback={
+          <div class={`columns-1 lg:columns-2 gap-6 ${frozen()}`}>
+            <For each={log.layout}>
+              {(placement) => (
+                <TrackCard
+                  placement={placement}
+                  log={log}
+                  spanClass={placement.size === 'lg' ? 'lg:[column-span:all]' : ''}
+                  class="mb-6 break-inside-avoid"
+                />
+              )}
+            </For>
+          </div>
+        }
+      >
+        <DragDropProvider
+          collisionDetector={closestCenter}
+          onDragEnd={({ draggable, droppable }) => {
+            if (!draggable || !droppable) return;
+            const current = log.layout;
+            const from = current.findIndex((p) => p.id === draggable.id);
+            const to = current.findIndex((p) => p.id === droppable.id);
+            if (from === -1 || to === -1 || from === to) return;
+            void log.setLayout(moveItem([...current], from, to));
           }}
-        </For>
-      </div>
+        >
+          <DragDropSensors>
+            <SortableProvider ids={log.layout.map((p) => p.id)}>
+              <div class={`grid grid-cols-1 lg:grid-cols-2 gap-6 items-start ${frozen()}`}>
+                <For each={log.layout}>
+                  {(placement) => <SortableTrackCard placement={placement} log={log} />}
+                </For>
+              </div>
+            </SortableProvider>
+          </DragDropSensors>
+        </DragDropProvider>
+      </Show>
 
       {/* the to-do list is the one entry surface both modes share */}
       <div class={frozen()}>
@@ -177,7 +203,10 @@ export default function DailyLog(props: { mode: () => AppMode }) {
             onToggle={(id) => void log.toggleTopic(id)}
             onDelete={(id) => void log.deleteTopic(id)}
           />
-          <PaperForm onSubmit={(entry) => void log.addPaper(entry)} />
+          <PaperForm
+            onSubmit={(entry) => void log.addPaper(entry)}
+            onOpenDatabase={() => props.onOpen?.('db')}
+          />
         </div>
       </Show>
 
@@ -204,6 +233,116 @@ export default function DailyLog(props: { mode: () => AppMode }) {
           </button>
         </div>
       </Show>
+    </div>
+  );
+}
+
+/**
+ * One track's card — the header, priority picker and score badge, then
+ * whatever `TrackControl` draws for that track.
+ *
+ * The drag handle and resize button are optional props rather than an
+ * `editing` flag, because the two render paths above want genuinely
+ * different things here: outside edit mode there is nothing to attach them
+ * to, so they simply do not render.
+ */
+function TrackCard(props: {
+  placement: WidgetPlacement;
+  log: DailyLogState;
+  spanClass: string;
+  class?: string;
+  dragHandle?: Record<string, (event: any) => void>;
+  onResize?: () => void;
+}) {
+  const meta = () => TRACK_META[props.placement.id];
+  const isHigh = () => props.log.priorities()[props.placement.id] === 'high';
+
+  return (
+    <div
+      class={`bg-card rounded-2xl border card-shadow p-5 space-y-4 ${props.class ?? ''} ${
+        isHigh() ? 'border-primary/30' : 'border-border'
+      } ${props.spanClass}`}
+    >
+      <div class="flex items-center gap-2.5 border-b border-border pb-3">
+        <Show when={props.dragHandle}>
+          {(activators) => (
+            <button
+              type="button"
+              {...activators()}
+              title="Drag to reorder"
+              aria-label={`Drag to reorder ${meta().label}`}
+              class="flex-shrink-0 -ml-1.5 w-7 h-7 rounded-md grid place-items-center text-subtle-foreground hover:text-foreground hover:bg-muted cursor-grab active:cursor-grabbing touch-none"
+            >
+              <GripVertical size={14} />
+            </button>
+          )}
+        </Show>
+        <Dynamic
+          component={meta().icon}
+          size={16}
+          class={isHigh() ? 'text-primary' : 'text-muted-foreground'}
+        />
+        <div class="flex-1 min-w-0">
+          <h4 class="text-sm font-bold font-space">{meta().label}</h4>
+          <p class="text-[0.625rem] text-muted-foreground">{meta().hint}</p>
+        </div>
+        <Show when={props.onResize}>
+          <button
+            type="button"
+            onClick={props.onResize}
+            title={props.placement.size === 'lg' ? 'Shrink to one column' : 'Widen to a full row'}
+            aria-label={
+              props.placement.size === 'lg' ? 'Shrink to one column' : 'Widen to a full row'
+            }
+            class="flex-shrink-0 w-7 h-7 rounded-md grid place-items-center text-subtle-foreground hover:text-foreground hover:bg-muted"
+          >
+            <Show when={props.placement.size === 'lg'} fallback={<Maximize2 size={13} />}>
+              <Minimize2 size={13} />
+            </Show>
+          </button>
+        </Show>
+        <PriorityPicker
+          value={props.log.priorities()[props.placement.id]}
+          onChange={(p) => void props.log.setTrackPriority(props.placement.id, p)}
+        />
+        <span
+          class={`w-9 h-9 flex-shrink-0 rounded-lg border flex items-center justify-center text-sm font-bold font-mono ${heat(
+            props.log.scores()[props.placement.id],
+          )}`}
+        >
+          {Math.round(props.log.scores()[props.placement.id])}
+        </span>
+      </div>
+      <TrackControl id={props.placement.id} log={props.log} />
+    </div>
+  );
+}
+
+/** `TrackCard`, made draggable and given its own resize toggle — Edit-layout mode only. */
+function SortableTrackCard(props: { placement: WidgetPlacement; log: DailyLogState }) {
+  const sortable = createSortable(props.placement.id);
+
+  return (
+    <div
+      ref={sortable.ref}
+      style={transformStyle(sortable.transform)}
+      class={`transition-opacity ${sortable.isActiveDraggable ? 'opacity-40' : ''} ${
+        props.placement.size === 'lg' ? 'lg:col-span-2' : ''
+      }`}
+    >
+      <TrackCard
+        placement={props.placement}
+        log={props.log}
+        spanClass=""
+        dragHandle={sortable.dragActivators}
+        onResize={() =>
+          void props.log.setLayout(
+            props.log.layout.map((p) =>
+              p.id === props.placement.id ? { ...p, size: cycleSize(p.size) } : p,
+            ),
+          )
+        }
+      />
     </div>
   );
 }

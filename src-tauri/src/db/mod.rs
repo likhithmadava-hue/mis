@@ -415,6 +415,10 @@ pub fn set_app_mode(db: &mut DbShape, mode: AppMode) {
     db.app_mode = mode;
 }
 
+pub fn set_daily_log_layout(db: &mut DbShape, mode: AppMode, layout: Vec<WidgetPlacement>) {
+    db.daily_log_layout.set(mode, layout);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

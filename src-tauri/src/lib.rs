@@ -98,6 +98,7 @@ pub fn run() {
             // tracks and mode
             commands::db_set_track_priority,
             commands::db_set_app_mode,
+            commands::db_set_daily_log_layout,
             commands::db_reset,
             // scoring
             commands::score_range,

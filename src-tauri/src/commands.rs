@@ -261,6 +261,18 @@ pub fn db_set_app_mode(state: State<AppState>, mode: AppMode) -> Result<()> {
     })
 }
 
+#[tauri::command]
+pub fn db_set_daily_log_layout(
+    state: State<AppState>,
+    mode: AppMode,
+    layout: Vec<WidgetPlacement>,
+) -> Result<()> {
+    state.mutate(|db| {
+        db::set_daily_log_layout(db, mode, layout);
+        Ok(())
+    })
+}
+
 /// Wipe the database back to a starting state.
 ///
 /// `demo` fills it with two weeks of sample data instead of leaving it empty.
