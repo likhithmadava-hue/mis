@@ -27,17 +27,37 @@
 //! socket to find, and `X-MIS-Token` no longer exists because there is nothing
 //! left to authenticate.
 //!
+//! ## Two ways the data key can be held
+//!
+//! **Device mode** (the original, and a fresh install until the account is set
+//! up): `vault.key` carries a DPAPI wrap, so anyone signed in to this Windows
+//! account opens the vault with no further step.
+//!
+//! **Password mode** (after onboarding): the DPAPI wrap is *deleted* and the key
+//! is held by a password wrap and a recovery-code wrap instead — see
+//! [`passkey`]. Deleting it is the point. If the DPAPI wrap stayed, the lock
+//! screen would be a curtain in front of an unlocked door: any program running
+//! as you could still unwrap the key and read the vault without the password.
+//! In password mode the vault cannot be opened without a secret only the person
+//! holds.
+//!
+//! The developer recovery wrap is kept in both modes, exactly as before.
+//!
 //! ## Honest limits
 //!
-//! This protects the data from *other Windows users*, from being read on
-//! *another PC*, and from *silent tampering*. It cannot hide data from the
-//! person logged in at this keyboard, nor from an administrator — no purely
-//! local app can, and this one does not pretend to. Do not let the UI claim
-//! otherwise.
+//! In device mode this protects the data from *other Windows users*, from being
+//! read on *another PC*, and from *silent tampering*, and cannot hide it from
+//! the person logged in at this keyboard. Password mode adds a real barrier
+//! against that person's *unattended session* and against malware running as
+//! them — but not against someone who watches the password being typed, and not
+//! against an administrator who reads the process's memory while MIS is
+//! unlocked. Screen-time files stay DPAPI-sealed in both modes. Do not let the UI
+//! claim otherwise.
 
 pub mod audit;
 pub mod crypto;
 pub mod dpapi;
+pub mod passkey;
 pub mod recovery_key;
 
 use std::path::{Path, PathBuf};
@@ -122,12 +142,30 @@ struct KeyRecord {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct KeyWraps {
-    /// The data key sealed to this Windows user. The everyday way in.
-    dpapi: String,
+    /// The data key sealed to this Windows user. The everyday way in — and, once
+    /// a password is set, **absent**: see the module docs for why it is removed
+    /// rather than ignored.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    dpapi: Option<String>,
     /// The same key under the developer recovery public key. The way back in
     /// after a Windows reinstall, when the DPAPI wrap is gone forever.
     dev: String,
     dev_key_id: String,
+    /// The key under the account password. Present only in password mode.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pass: Option<passkey::PassWrap>,
+    /// The key under the recovery code, for a forgotten password.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recovery: Option<passkey::RecoveryWrap>,
+}
+
+/// How the data key is currently held.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Protection {
+    /// Sealed to the Windows user; opens automatically.
+    Device,
+    /// Sealed to a password; opens only after sign-in.
+    Password,
 }
 
 /// The `vault.mis` envelope.
@@ -181,9 +219,11 @@ impl Vault {
             v: crypto::KEY_VERSION,
             alg: "AES-256-GCM".into(),
             wrap: KeyWraps {
-                dpapi: crypto::b64_encode(&dpapi::protect(&dk, crypto::AAD)?),
+                dpapi: Some(crypto::b64_encode(&dpapi::protect(&dk, crypto::AAD)?)),
                 dev: crypto::wrap_for_recovery(&dk)?,
                 dev_key_id: crypto::recovery_key_id(),
+                pass: None,
+                recovery: None,
             },
             created: chrono::Local::now().format("%Y-%m-%dT%H:%M:%S%z").to_string(),
         };
@@ -199,14 +239,134 @@ impl Vault {
             return Ok(k.clone());
         }
         let key = if self.key_path.exists() {
-            let record: KeyRecord = serde_json::from_str(&std::fs::read_to_string(&self.key_path)?)?;
-            let sealed = crypto::b64_decode(&record.wrap.dpapi)?;
-            Zeroizing::new(dpapi::unprotect(&sealed, crypto::AAD)?)
+            let record = self.read_record()?;
+            // No DPAPI wrap means password mode: the key is not ours to fetch.
+            // `Locked`, not a decryption error — nothing is wrong, nobody has
+            // signed in yet.
+            let Some(sealed) = record.wrap.dpapi else {
+                return Err(MisError::Locked);
+            };
+            Zeroizing::new(dpapi::unprotect(&crypto::b64_decode(&sealed)?, crypto::AAD)?)
         } else {
             self.create_key()?
         };
         self.data_key = Some(key.clone());
         Ok(key)
+    }
+
+    fn read_record(&self) -> Result<KeyRecord> {
+        Ok(serde_json::from_str(&std::fs::read_to_string(&self.key_path)?)?)
+    }
+
+    fn write_record(&self, record: &KeyRecord) -> Result<()> {
+        write_atomic(&self.key_path, serde_json::to_string_pretty(record)?.as_bytes())
+    }
+
+    // ── Password mode ───────────────────────────────────────────────────────
+
+    /// How the key is held right now, or `None` before any key exists.
+    pub fn protection(&self) -> Result<Option<Protection>> {
+        if !self.key_path.exists() {
+            return Ok(None);
+        }
+        Ok(Some(if self.read_record()?.wrap.dpapi.is_some() {
+            Protection::Device
+        } else {
+            Protection::Password
+        }))
+    }
+
+    /// Whether the data key is in memory — i.e. whether the vault can be read.
+    pub fn is_unlocked(&self) -> bool {
+        self.data_key.is_some()
+    }
+
+    /// Forget the key. The vault cannot be read again until [`Self::unlock`] or
+    /// [`Self::recover`]. (`Zeroizing` wipes it as it drops.)
+    pub fn lock(&mut self) {
+        self.data_key = None;
+    }
+
+    /// Open a password-mode vault. A wrong username and a wrong password are the
+    /// same failure; see [`passkey`].
+    pub fn unlock(&mut self, username: &str, password: &str) -> Result<()> {
+        let record = self.read_record()?;
+        let Some(wrap) = record.wrap.pass else {
+            return Err(MisError::Invalid("This vault has no password set".into()));
+        };
+        self.data_key = Some(passkey::unwrap_with_password(&wrap, username, password)?);
+        Ok(())
+    }
+
+    /// Check a password without changing what is unlocked.
+    pub fn verify_password(&self, username: &str, password: &str) -> Result<()> {
+        let wrap = self
+            .read_record()?
+            .wrap
+            .pass
+            .ok_or_else(|| MisError::Invalid("This vault has no password set".into()))?;
+        passkey::unwrap_with_password(&wrap, username, password).map(|_| ())
+    }
+
+    /// Open the vault with the recovery code instead of the password.
+    pub fn recover(&mut self, code: &str) -> Result<()> {
+        let record = self.read_record()?;
+        let Some(wrap) = record.wrap.recovery else {
+            return Err(MisError::Invalid("This vault has no recovery code".into()));
+        };
+        self.data_key = Some(passkey::unwrap_with_code(&wrap, code)?);
+        Ok(())
+    }
+
+    /// Put the vault in password mode, or change its credentials.
+    ///
+    /// The one operation behind first-time setup, a password change and a
+    /// recovery reset: it needs the data key already in memory (DPAPI, a
+    /// sign-in, or the recovery code), rewrites the password wrap, deletes the
+    /// DPAPI wrap, and — when `new_recovery_code` — mints a fresh recovery code
+    /// and retires the old one. Everything lands in **one** atomic write of
+    /// `vault.key`, so a crash leaves either the old credentials or the new,
+    /// never a vault with neither.
+    ///
+    /// Returns the new recovery code when one was made. It is shown to the
+    /// person once and never stored.
+    pub fn set_credentials(
+        &mut self,
+        username: &str,
+        password: &str,
+        new_recovery_code: bool,
+    ) -> Result<Option<String>> {
+        self.set_credentials_with(username, password, new_recovery_code, passkey::KdfParams::interactive())
+    }
+
+    fn set_credentials_with(
+        &mut self,
+        username: &str,
+        password: &str,
+        new_recovery_code: bool,
+        params: passkey::KdfParams,
+    ) -> Result<Option<String>> {
+        if passkey::normalise_username(username).is_empty() {
+            return Err(MisError::Invalid("Choose a username".into()));
+        }
+        passkey::check_password(password)?;
+
+        let key = self.load_key()?;
+        let mut record = self.read_record()?;
+
+        record.wrap.pass = Some(passkey::wrap_with_password(&key, username, password, params)?);
+        record.wrap.dpapi = None;
+
+        // A vault that has never had a recovery code needs one whether or not the
+        // caller asked; otherwise a forgotten password would strand it.
+        let code = (new_recovery_code || record.wrap.recovery.is_none())
+            .then(passkey::new_recovery_code);
+        if let Some(code) = &code {
+            record.wrap.recovery = Some(passkey::wrap_with_code(&key, code)?);
+        }
+
+        self.write_record(&record)?;
+        Ok(code)
     }
 
     // ── Data ────────────────────────────────────────────────────────────────
@@ -267,7 +427,11 @@ impl Vault {
 
     /// Create the key on first run, drop a README, and lock the folder down.
     pub fn ensure_ready(&mut self) -> Result<()> {
-        self.load_key()?;
+        // A password-mode vault stays shut: fetching its key here is exactly
+        // what the lock exists to prevent.
+        if self.protection()? != Some(Protection::Password) {
+            self.load_key()?;
+        }
         let readme = self.dir.join("README.txt");
         if !readme.exists() {
             let _ = std::fs::write(&readme, README_TEXT);
@@ -396,6 +560,143 @@ mod tests {
         assert_eq!(broken_at, None);
         // key-created, then two writes.
         assert_eq!(audit::recent(&v.audit_path, 10).len(), 3);
+        let _ = std::fs::remove_dir_all(&v.dir);
+    }
+
+    // ── Password mode ───────────────────────────────────────────────────────
+
+    const CHEAP: passkey::KdfParams = passkey::KdfParams::cheap();
+
+    /// A vault holding `{"n":1}`, switched to password mode. Returns the vault
+    /// dir and the recovery code that was issued.
+    fn locked_vault(name: &str) -> (Vault, String) {
+        let mut v = temp_vault(name);
+        v.write_raw(&json!({ "n": 1 })).unwrap();
+        let code = v
+            .set_credentials_with("Vohrim", "correct horse", true, CHEAP)
+            .unwrap()
+            .expect("first setup must issue a recovery code");
+        (v, code)
+    }
+
+    /// What a fresh launch sees: a new `Vault` over the same folder, no key in
+    /// memory.
+    fn relaunch(v: &Vault) -> Vault {
+        Vault::new(v.dir.clone())
+    }
+
+    #[test]
+    fn a_new_vault_starts_in_device_mode() {
+        let mut v = temp_vault("device-mode");
+        assert_eq!(v.protection().unwrap(), None);
+        v.write_raw(&json!({})).unwrap();
+        assert_eq!(v.protection().unwrap(), Some(Protection::Device));
+        let _ = std::fs::remove_dir_all(&v.dir);
+    }
+
+    #[test]
+    fn setting_a_password_removes_the_dpapi_wrap_from_disk() {
+        let (v, _) = locked_vault("no-dpapi");
+        assert_eq!(v.protection().unwrap(), Some(Protection::Password));
+        let raw = std::fs::read_to_string(&v.key_path).unwrap();
+        assert!(!raw.contains("\"dpapi\""), "the DPAPI wrap must be gone, not just unused");
+        assert!(raw.contains("\"pass\"") && raw.contains("\"recovery\"") && raw.contains("\"dev\""));
+        let _ = std::fs::remove_dir_all(&v.dir);
+    }
+
+    #[test]
+    fn a_locked_vault_cannot_be_read_without_signing_in() {
+        // The whole reason for deleting the DPAPI wrap: a fresh process that is
+        // the same Windows user still cannot open it.
+        let (v, _) = locked_vault("stays-shut");
+        let mut fresh = relaunch(&v);
+        assert!(matches!(fresh.read_raw(), Err(MisError::Locked)));
+        assert!(fresh.ensure_ready().is_ok(), "opening the app must not fetch the key");
+        assert!(!fresh.is_unlocked());
+        let _ = std::fs::remove_dir_all(&v.dir);
+    }
+
+    #[test]
+    fn the_right_credentials_open_the_same_data() {
+        let (v, _) = locked_vault("sign-in");
+        let mut fresh = relaunch(&v);
+        fresh.unlock("vohrim", "correct horse").unwrap();
+        assert_eq!(fresh.read_raw().unwrap().unwrap(), json!({ "n": 1 }));
+        let _ = std::fs::remove_dir_all(&v.dir);
+    }
+
+    #[test]
+    fn wrong_credentials_leave_it_locked() {
+        let (v, _) = locked_vault("bad-sign-in");
+        let mut fresh = relaunch(&v);
+        assert!(matches!(fresh.unlock("vohrim", "wrong"), Err(MisError::BadCredentials)));
+        assert!(matches!(fresh.unlock("nobody", "correct horse"), Err(MisError::BadCredentials)));
+        assert!(!fresh.is_unlocked());
+        let _ = std::fs::remove_dir_all(&v.dir);
+    }
+
+    #[test]
+    fn locking_forgets_the_key() {
+        let (mut v, _) = locked_vault("re-lock");
+        v.unlock("vohrim", "correct horse").unwrap();
+        assert!(v.read_raw().is_ok());
+        v.lock();
+        assert!(matches!(v.read_raw(), Err(MisError::Locked)));
+        let _ = std::fs::remove_dir_all(&v.dir);
+    }
+
+    #[test]
+    fn the_recovery_code_opens_the_vault_and_a_reset_retires_it() {
+        let (v, old_code) = locked_vault("recovery");
+        let mut fresh = relaunch(&v);
+        fresh.recover(&old_code).unwrap();
+        assert_eq!(fresh.read_raw().unwrap().unwrap(), json!({ "n": 1 }));
+
+        let new_code = fresh
+            .set_credentials_with("vohrim", "a brand new password", true, CHEAP)
+            .unwrap()
+            .unwrap();
+        assert_ne!(new_code, old_code);
+
+        let mut after = relaunch(&v);
+        assert!(after.recover(&old_code).is_err(), "the used code must stop working");
+        assert!(after.unlock("vohrim", "correct horse").is_err(), "so must the old password");
+        after.unlock("vohrim", "a brand new password").unwrap();
+        after.recover(&new_code).unwrap();
+        let _ = std::fs::remove_dir_all(&v.dir);
+    }
+
+    #[test]
+    fn changing_the_password_keeps_the_existing_recovery_code() {
+        let (mut v, code) = locked_vault("change-pw");
+        v.unlock("vohrim", "correct horse").unwrap();
+        let issued = v.set_credentials_with("vohrim", "another password", false, CHEAP).unwrap();
+        assert!(issued.is_none(), "no new code was asked for");
+
+        let mut fresh = relaunch(&v);
+        fresh.unlock("vohrim", "another password").unwrap();
+        fresh.recover(&code).unwrap();
+        let _ = std::fs::remove_dir_all(&v.dir);
+    }
+
+    #[test]
+    fn the_developer_recovery_wrap_survives_password_mode() {
+        let (v, _) = locked_vault("dev-wrap");
+        let raw = std::fs::read_to_string(&v.key_path).unwrap();
+        let rec: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert!(rec["wrap"]["dev"].as_str().is_some_and(|s| !s.is_empty()));
+        let _ = std::fs::remove_dir_all(&v.dir);
+    }
+
+    #[test]
+    fn weak_credentials_are_refused_before_anything_is_written() {
+        let mut v = temp_vault("weak");
+        v.write_raw(&json!({})).unwrap();
+        let before = std::fs::read_to_string(&v.key_path).unwrap();
+        assert!(v.set_credentials_with("me", "short", true, CHEAP).is_err());
+        assert!(v.set_credentials_with("  ", "long enough pw", true, CHEAP).is_err());
+        assert_eq!(std::fs::read_to_string(&v.key_path).unwrap(), before);
+        assert_eq!(v.protection().unwrap(), Some(Protection::Device));
         let _ = std::fs::remove_dir_all(&v.dir);
     }
 

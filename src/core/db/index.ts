@@ -16,10 +16,11 @@
 
 export * from './types';
 export * as api from './api';
-export { errorMessage, isDayLocked, type MisError } from './api';
+export { errorCode, errorMessage, isDayLocked, type MisError } from './api';
 export {
   act,
   boot,
+  clear,
   db,
   mode,
   ready,

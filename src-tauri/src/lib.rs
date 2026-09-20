@@ -16,8 +16,12 @@
 //! Nothing here talks to the network, and there is no server. The Python host
 //! that used to serve the app over loopback is gone, along with its port, its
 //! per-launch token, and the dormant Supabase sync that was left switched off in
-//! the old codebase. If accounts come back one day they will be a new decision,
-//! not a commented-out block waiting to be uncommented.
+//! the old codebase.
+//!
+//! There *is* an account now, but it is local: a username, an email kept on the
+//! profile, and a password that wraps the vault key (`vault/passkey.rs`).
+//! Nothing is sent anywhere, which is also why a forgotten password is recovered
+//! with a code shown at sign-up and not an email — there is no server to send one.
 
 pub mod commands;
 pub mod dates;
@@ -61,6 +65,14 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // account and lock
+            commands::auth_status,
+            commands::auth_setup,
+            commands::auth_login,
+            commands::auth_lock,
+            commands::auth_recover,
+            commands::auth_change_password,
+            commands::auth_new_recovery_code,
             // database
             commands::db_load,
             commands::db_today_metric,

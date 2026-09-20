@@ -93,6 +93,55 @@ export interface UserConfig {
   sleep_wake: string;
 }
 
+/** One subject as described at onboarding. Mirrors `ProfileSubject` in `types.rs`. */
+export interface ProfileSubject {
+  name: string;
+  /** 1 (shaky) to 5 (confident). A starting guess, before MIS has any data. */
+  confidence: number;
+  /** Free text — "B+", "72%". */
+  last_result: string;
+}
+
+export const PRODUCTIVE_TIMES = ['morning', 'afternoon', 'evening', 'night'] as const;
+export type ProductiveTime = (typeof PRODUCTIVE_TIMES)[number];
+
+/**
+ * The onboarding answers plus the account identifiers. Mirrors `Profile` in
+ * `types.rs`; Rust validates it (`db/profile.rs`), so the wizard's checks are a
+ * courtesy and not the guard. **No secret is in here** — see the Rust docs.
+ */
+export interface Profile {
+  username: string;
+  email: string;
+  full_name: string;
+  age: number;
+  grade: string;
+  program: string;
+  goals: string[];
+  target_exam: string;
+  /** `YYYY-MM-DD`, or empty when there is no fixed date. */
+  exam_date: string;
+  target_score: string;
+  subjects: ProfileSubject[];
+  daily_study_hours: number;
+  focus_span_minutes: number;
+  productive_time: ProductiveTime;
+  /** `HH:MM`; both empty when school hours don't apply. */
+  school_start: string;
+  school_end: string;
+  sleep_bedtime: string;
+  sleep_wake: string;
+  preferences: string[];
+  created_at: string;
+}
+
+/** Which screen the app should show. Mirrors `Stage` in `state.rs`. */
+export type AuthStage = 'setup' | 'locked' | 'unlocked';
+
+export interface AuthStatus {
+  stage: AuthStage;
+}
+
 export interface DailyMetric {
   id: string;
   date: string;
@@ -231,6 +280,8 @@ export interface DbShape {
   track_priorities: Record<TrackId, Priority>;
   app_mode: AppMode;
   daily_log_layout: DailyLogLayout;
+  /** `null` until onboarding has been completed. */
+  profile: Profile | null;
 }
 
 // ── Patches ─────────────────────────────────────────────────────────────────

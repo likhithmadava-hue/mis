@@ -57,14 +57,34 @@ fn cipher(data_key: &[u8]) -> Result<Aes256Gcm> {
 /// Encrypt the vault body. Returns `(nonce, ciphertext‖tag)` — the same layout
 /// Python's `AESGCM.encrypt` produces, so the two are interchangeable.
 pub fn seal(data_key: &[u8], plaintext: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+    seal_aad(data_key, plaintext, AAD)
+}
+
+/// [`seal`] with a caller-chosen AAD. The password and recovery wraps use their
+/// own, so a wrapped key lifted out of `vault.key` cannot be replayed as if it
+/// were a vault body, or one kind of wrap as the other.
+pub fn seal_aad(key: &[u8], plaintext: &[u8], aad: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
     let mut nonce_bytes = [0u8; 12];
     rand::thread_rng().fill_bytes(&mut nonce_bytes);
 
-    let ct = cipher(data_key)?
-        .encrypt(Nonce::from_slice(&nonce_bytes), Payload { msg: plaintext, aad: AAD })
+    let ct = cipher(key)?
+        .encrypt(Nonce::from_slice(&nonce_bytes), Payload { msg: plaintext, aad })
         .map_err(|_| MisError::Vault("could not encrypt the vault".into()))?;
 
     Ok((nonce_bytes.to_vec(), ct))
+}
+
+/// [`open`] with a caller-chosen AAD. Returns `None` for any failure so the
+/// caller decides what a failure *means* — for a password wrap it is "wrong
+/// credentials", not "the vault is corrupt".
+pub fn open_aad(key: &[u8], nonce: &[u8], ciphertext: &[u8], aad: &[u8]) -> Option<Vec<u8>> {
+    if nonce.len() != 12 {
+        return None;
+    }
+    cipher(key)
+        .ok()?
+        .decrypt(Nonce::from_slice(nonce), Payload { msg: ciphertext, aad })
+        .ok()
 }
 
 /// Decrypt the vault body.
