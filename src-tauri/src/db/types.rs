@@ -252,6 +252,70 @@ fn default_wake() -> String {
     "06:30".into()
 }
 
+/// One subject the person is studying, as they described it at onboarding.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ProfileSubject {
+    pub name: String,
+    /// 1 (shaky) to 5 (confident) — how they rate themselves *before* MIS has
+    /// any data. It is a starting guess, and the mistake analytics will
+    /// eventually contradict it, which is the point of keeping it.
+    pub confidence: u8,
+    /// Free text — "B+", "72%", "Grade 7". Not parsed.
+    pub last_result: String,
+}
+
+/// Who the person is and what they are working towards: the answers from the
+/// onboarding questionnaire, plus the account identifiers shown back to them.
+///
+/// **No secret lives here.** The password and the recovery code are turned into
+/// keys in `vault.key` (`vault/passkey.rs`), which has to be readable *before*
+/// the vault can be — so the credential material cannot sit in the vault it
+/// unlocks. This record is what the vault holds *about* the account, not the
+/// means of opening it.
+///
+/// Every field defaults, so a profile written by an older build still loads
+/// after a field is added.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Profile {
+    // account
+    pub username: String,
+    pub email: String,
+
+    // about you
+    pub full_name: String,
+    pub age: u32,
+    /// "Class 11", "Year 12", "Undergraduate"…
+    pub grade: String,
+
+    // what you are working towards
+    /// "CBSE / ICSE", "IGCSE (Cambridge)", "JEE", "NEET"…
+    pub program: String,
+    pub goals: Vec<String>,
+    pub target_exam: String,
+    /// `YYYY-MM-DD`, or empty when there is no fixed date.
+    pub exam_date: String,
+    /// "90%", "A*", "AIR under 1000" — free text.
+    pub target_score: String,
+    pub subjects: Vec<ProfileSubject>,
+
+    // how you work
+    pub daily_study_hours: f64,
+    /// How long you can hold focus before drifting, in minutes.
+    pub focus_span_minutes: f64,
+    /// `morning` | `afternoon` | `evening` | `night`
+    pub productive_time: String,
+    /// School or college hours, `HH:MM`; both empty when not applicable.
+    pub school_start: String,
+    pub school_end: String,
+    pub sleep_bedtime: String,
+    pub sleep_wake: String,
+    pub preferences: Vec<String>,
+
+    pub created_at: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DailyMetric {
     pub id: String,
@@ -595,6 +659,10 @@ pub struct DbShape {
     pub app_mode: AppMode,
     #[serde(default)]
     pub daily_log_layout: DailyLogLayout,
+    /// `None` until onboarding has been completed. That absence is what routes a
+    /// launch to the setup wizard — including for a vault that predates it.
+    #[serde(default)]
+    pub profile: Option<Profile>,
 }
 
 /// A fresh id. The old TS `uid()` produced a random string; anything unique

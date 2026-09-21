@@ -11,6 +11,7 @@ import {
   Quote,
   Sprout,
   Timer,
+  UserRound,
 } from 'lucide-solid';
 import { createEffect, createSignal, For, Match, Show, Switch } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
@@ -18,6 +19,7 @@ import { Dynamic } from 'solid-js/web';
 import { db, MODES, setMode, type AppMode } from './core/db';
 import { MODE_META } from './core/scoring';
 import { createRailTooltip, editingLayout, setEditingLayout, type Icon } from './core/ui';
+import { AccountDialog } from './modules/auth';
 import { DatabaseExplorer } from './modules/database';
 import { FocusTimer } from './modules/focus';
 import { Home, Report } from './modules/growth';
@@ -93,13 +95,13 @@ const greeting = () => {
 /**
  * The shell: the rail, the heading, and whichever tab is open.
  *
- * There is no auth gate and no loading state. The old `App` had both — a spinner
- * while a session was worked out, then either a login screen or the workspace,
- * with a large commented-out block explaining how to switch accounts back on.
- * MIS is device-only: the vault is sealed to this Windows account and nothing
- * leaves the machine. If accounts ever come back they will be a new decision
- * with a new design, not a block waiting to be uncommented — so the dead code is
- * gone rather than carried.
+ * There is no auth gate in here and no loading state. The old `App` had both — a
+ * spinner while a session was worked out, then either a login screen or the
+ * workspace, with a large commented-out block for switching accounts back on.
+ * That is gone. Accounts are now local and gated a level up: `index.tsx` mounts
+ * this component only once `core/auth` says the vault is open, so by the time
+ * anything here runs the database is loaded. The account button in the rail is
+ * the way back out (`AccountDialog`).
  *
  * There is also no `triggerUpdate` counter. Every tab used to take one and
  * re-read the database when it changed; now they all read the same reactive
@@ -109,6 +111,7 @@ const greeting = () => {
 export default function App() {
   const [activeTab, setActiveTab] = createSignal<TabId>('home');
   const [navCollapsed, setNavCollapsed] = createSignal(false);
+  const [accountOpen, setAccountOpen] = createSignal(false);
   const [quoteIndex, setQuoteIndex] = createSignal(dayOfYear % QUOTES.length);
 
   // Collapsed, every rail button is a bare icon — this is what says which is
@@ -286,6 +289,26 @@ export default function App() {
                 </span>
               </button>
             </Show>
+            {/* Only once an account exists — before onboarding, and on a build
+                with no account backend, there is nothing to show or lock. */}
+            <Show when={db.profile}>
+              {(profile) => (
+                <button
+                  onClick={() => setAccountOpen(true)}
+                  title={navCollapsed() ? undefined : 'Account, password and lock'}
+                  aria-label="Account"
+                  {...railTip.trigger(`Account — ${profile().full_name}`)}
+                  class={`w-full mb-1 py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent ${
+                    navCollapsed() ? 'px-0 justify-center' : 'px-3'
+                  }`}
+                >
+                  <UserRound size={16} class="flex-shrink-0" />
+                  <span class={`truncate ${navCollapsed() ? 'hidden' : ''}`}>
+                    {profile().full_name}
+                  </span>
+                </button>
+              )}
+            </Show>
             <button
               onClick={() => setNavCollapsed((c) => !c)}
               title={navCollapsed() ? undefined : 'Collapse sidebar'}
@@ -311,6 +334,10 @@ export default function App() {
             own `overflow-y-auto` cannot clip it */}
         <railTip.Tooltip />
       </aside>
+
+      <Show when={accountOpen()}>
+        <AccountDialog onClose={() => setAccountOpen(false)} />
+      </Show>
 
       {/* `main` is the scroll container so the scrollbar sits against the window
           edge rather than halfway across a wide monitor; the column inside it is

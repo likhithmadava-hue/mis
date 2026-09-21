@@ -14,6 +14,7 @@
 pub mod day_hash;
 pub mod dev_mirror;
 pub mod migrations;
+pub mod profile;
 pub mod seed;
 pub mod types;
 

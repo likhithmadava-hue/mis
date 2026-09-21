@@ -92,6 +92,7 @@ pub fn fresh_db() -> DbShape {
         track_priorities: TrackPriorities::default(),
         app_mode: AppMode::Academic,
         daily_log_layout: DailyLogLayout::default(),
+        profile: None,
     }
 }
 
