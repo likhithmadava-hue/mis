@@ -30,7 +30,7 @@ export default function LeftTodayPanel(props: LeftTodayPanelProps) {
   const [openKey, setOpenKey] = createSignal<string | null>(null);
 
   return (
-    <div class="bg-card rounded-2xl border border-border card-shadow p-6 space-y-4">
+    <div class="flex-1 flex flex-col gap-4 bg-card rounded-2xl border border-border card-shadow p-6">
       <div class="flex items-center justify-between gap-2">
         <h3 class="text-sm font-bold uppercase tracking-wider text-muted-foreground font-space flex items-center gap-2">
           <ClipboardList size={16} class="text-primary" /> Left Today
@@ -42,7 +42,7 @@ export default function LeftTodayPanel(props: LeftTodayPanelProps) {
         </Show>
       </div>
 
-      <div class="space-y-3">
+      <div class="flex-1 flex flex-col justify-between gap-3">
         <For each={props.remaining}>
           {(item) => {
             const cleared = () => item.left === 0;
@@ -85,7 +85,7 @@ export default function LeftTodayPanel(props: LeftTodayPanelProps) {
                   <span
                     class={`text-sm font-bold font-mono flex-shrink-0 ${
                       nothingSet()
-                        ? 'text-muted-foreground/50'
+                        ? 'text-subtle-foreground'
                         : cleared()
                           ? 'text-success'
                           : 'text-foreground'
@@ -112,7 +112,11 @@ export default function LeftTodayPanel(props: LeftTodayPanelProps) {
                 <Show when={!nothingSet() && item.note?.()}>
                   {(note) => <p class="text-[0.625rem] text-primary font-mono">{note()}</p>}
                 </Show>
-                <Show when={open()}>{detail()}</Show>
+                {/* capped, with its own scroll: a long habit list opening here must
+                    not lengthen the card and, through it, the whole column */}
+                <Show when={open()}>
+                  <div class="max-h-48 overflow-y-auto pr-1">{detail()}</div>
+                </Show>
               </div>
             );
           }}

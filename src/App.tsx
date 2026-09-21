@@ -4,25 +4,35 @@ import {
   Database,
   Dices,
   House,
-  LayoutGrid,
   MonitorPlay,
   PanelLeftClose,
   PanelLeftOpen,
   Quote,
+  Settings,
   Sprout,
   Timer,
+  UserRound,
 } from 'lucide-solid';
 import { createEffect, createSignal, For, Match, Show, Switch } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 
 import { db, MODES, setMode, type AppMode } from './core/db';
 import { MODE_META } from './core/scoring';
-import { createRailTooltip, editingLayout, setEditingLayout, type Icon } from './core/ui';
+import {
+  createRailTooltip,
+  DialogHost,
+  registerNavigator,
+  subViewLabel,
+  viewState,
+  type Icon,
+} from './core/ui';
+import { AccountDialog } from './modules/auth';
 import { DatabaseExplorer } from './modules/database';
 import { FocusTimer } from './modules/focus';
 import { Home, Report } from './modules/growth';
 import { DailyLog } from './modules/log';
 import { ScreenTime } from './modules/screentime';
+import { Appearance } from './modules/settings';
 
 /**
  * Home leads — the Focus Timer is deliberately not the landing tab.
@@ -49,6 +59,7 @@ const TABS = [
   { id: 'db', label: 'Database', icon: Database, modes: ['academic'] },
   { id: 'screen', label: 'Screen Time', icon: MonitorPlay, modes: ['life'] },
   { id: 'focus', label: 'Focus Timer', icon: Timer, modes: ['academic'] },
+  { id: 'settings', label: 'Settings', icon: Settings, modes: ['academic', 'life'] },
 ] as const satisfies readonly {
   id: string;
   label: string;
@@ -93,13 +104,13 @@ const greeting = () => {
 /**
  * The shell: the rail, the heading, and whichever tab is open.
  *
- * There is no auth gate and no loading state. The old `App` had both — a spinner
- * while a session was worked out, then either a login screen or the workspace,
- * with a large commented-out block explaining how to switch accounts back on.
- * MIS is device-only: the vault is sealed to this Windows account and nothing
- * leaves the machine. If accounts ever come back they will be a new decision
- * with a new design, not a block waiting to be uncommented — so the dead code is
- * gone rather than carried.
+ * There is no auth gate in here and no loading state. The old `App` had both — a
+ * spinner while a session was worked out, then either a login screen or the
+ * workspace, with a large commented-out block for switching accounts back on.
+ * That is gone. Accounts are now local and gated a level up: `index.tsx` mounts
+ * this component only once `core/auth` says the vault is open, so by the time
+ * anything here runs the database is loaded. The account button in the rail is
+ * the way back out (`AccountDialog`).
  *
  * There is also no `triggerUpdate` counter. Every tab used to take one and
  * re-read the database when it changed; now they all read the same reactive
@@ -107,8 +118,19 @@ const greeting = () => {
  * before the click finishes. See `core/db/store.ts`.
  */
 export default function App() {
-  const [activeTab, setActiveTab] = createSignal<TabId>('home');
+  // Remembered across restarts, and checked against the current mode: a stored
+  // tab that this mode does not have (Database, after quitting in Life) would
+  // otherwise open an empty pane.
+  const [activeTab, setActiveTab] = viewState<TabId>(
+    'shell.tab',
+    'home',
+    (t) =>
+      TABS.some((tab) => tab.id === t && (tab.modes as readonly AppMode[]).includes(db.app_mode)),
+  );
+  // empty charts and other deep panels send you to a tab through this
+  registerNavigator((tab) => setActiveTab(tab as TabId));
   const [navCollapsed, setNavCollapsed] = createSignal(false);
+  const [accountOpen, setAccountOpen] = createSignal(false);
   const [quoteIndex, setQuoteIndex] = createSignal(dayOfYear % QUOTES.length);
 
   // Collapsed, every rail button is a bare icon — this is what says which is
@@ -253,38 +275,27 @@ export default function App() {
 
           {/* Collapse used to sit directly under the last tab, which made it
               read as a sixth place to go. It is a utility, so it lives down
-              here behind a rule, quieter than a nav item. Rearrange joins it
-              here rather than on the Daily Log page itself, because it needs
-              to stay on while you switch cards' focus around the page —a
-              button living inside the grid it controls would be the first
-              thing covered by a dragged card. */}
+              here behind a rule, quieter than a nav item. */}
           <div class="border-t border-border pt-3">
-            <Show when={activeTab() === 'log'}>
-              <button
-                onClick={() => setEditingLayout((v) => !v)}
-                title={
-                  navCollapsed()
-                    ? undefined
-                    : editingLayout()
-                      ? 'Turn off rearranging'
-                      : 'Drag and resize the cards below'
-                }
-                aria-label={editingLayout() ? 'Done rearranging cards' : 'Rearrange Daily Log cards'}
-                aria-pressed={editingLayout()}
-                {...railTip.trigger('Rearrange Daily Log cards')}
-                class={`w-full mb-1 py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left ${
-                  navCollapsed() ? 'px-0 justify-center' : 'px-3'
-                } ${
-                  editingLayout()
-                    ? 'text-primary bg-primary/10'
-                    : 'text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent'
-                }`}
-              >
-                <LayoutGrid size={16} class="flex-shrink-0" />
-                <span class={navCollapsed() ? 'hidden' : ''}>
-                  {editingLayout() ? 'Done rearranging' : 'Rearrange cards'}
-                </span>
-              </button>
+            {/* Only once an account exists — before onboarding, and on a build
+                with no account backend, there is nothing to show or lock. */}
+            <Show when={db.profile}>
+              {(profile) => (
+                <button
+                  onClick={() => setAccountOpen(true)}
+                  title={navCollapsed() ? undefined : 'Account, password and lock'}
+                  aria-label="Account"
+                  {...railTip.trigger(`Account — ${profile().full_name}`)}
+                  class={`w-full mb-1 py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent ${
+                    navCollapsed() ? 'px-0 justify-center' : 'px-3'
+                  }`}
+                >
+                  <UserRound size={16} class="flex-shrink-0" />
+                  <span class={`truncate ${navCollapsed() ? 'hidden' : ''}`}>
+                    {profile().full_name}
+                  </span>
+                </button>
+              )}
             </Show>
             <button
               onClick={() => setNavCollapsed((c) => !c)}
@@ -312,6 +323,10 @@ export default function App() {
         <railTip.Tooltip />
       </aside>
 
+      <Show when={accountOpen()}>
+        <AccountDialog onClose={() => setAccountOpen(false)} />
+      </Show>
+
       {/* `main` is the scroll container so the scrollbar sits against the window
           edge rather than halfway across a wide monitor; the column inside it is
           what carries the reading width, and mx-auto centres that column instead
@@ -328,6 +343,16 @@ export default function App() {
             <div>
               <h2 class="text-[1.875rem] font-bold font-space tracking-tight leading-none">
                 {activeLabel()}
+                {/* where you are inside the tab — the rail highlights the tab, this
+                    says which sub-view of it, so a filter never hides your place */}
+                <Show when={subViewLabel()}>
+                  {(label) => (
+                    <span class="text-muted-foreground font-medium text-[1.25rem] tracking-normal">
+                      {' '}
+                      / {label()}
+                    </span>
+                  )}
+                </Show>
               </h2>
               <p class="text-[0.9375rem] text-muted-foreground mt-1.5">
                 {greeting()} —{' '}
@@ -400,10 +425,14 @@ export default function App() {
               <Match when={activeTab() === 'focus'}>
                 <FocusTimer />
               </Match>
+              <Match when={activeTab() === 'settings'}>
+                <Appearance />
+              </Match>
             </Switch>
           </div>
         </div>
       </main>
+      <DialogHost />
     </div>
   );
 }

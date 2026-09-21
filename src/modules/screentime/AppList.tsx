@@ -60,7 +60,7 @@ export default function AppList(props: {
 
                 <div class="flex items-center gap-2 flex-shrink-0">
                   <span class="font-mono text-muted-foreground">{humanise(row.seconds)}</span>
-                  <span class="text-[0.625rem] text-muted-foreground/60 font-mono w-9 text-right">
+                  <span class="text-[0.625rem] text-subtle-foreground font-mono w-9 text-right">
                     {Math.round(pct())}%
                   </span>
                   <CategoryPicker
@@ -115,7 +115,7 @@ function CategoryPicker(props: { value: Category; onChange: (c: Category) => voi
                   : c === 'distraction'
                     ? 'bg-[hsl(var(--destructive))] text-background'
                     : 'bg-muted-foreground text-background'
-                : 'text-muted-foreground/50 hover:text-foreground'
+                : 'text-subtle-foreground hover:text-foreground'
             }`}
           >
             {c[0]}

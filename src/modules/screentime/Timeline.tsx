@@ -61,7 +61,7 @@ export default function Timeline(props: {
           <div class="flex justify-between">
             <For each={a().hours}>
               {(h, i) => (
-                <span class="text-[0.5625rem] text-muted-foreground font-mono">
+                <span class="text-[0.625rem] text-muted-foreground font-mono">
                   {i() % a().labelEvery === 0 ? clockOf(h) : ''}
                 </span>
               )}

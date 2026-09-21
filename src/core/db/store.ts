@@ -28,13 +28,17 @@ import type { AppMode, DbShape, WidgetPlacement } from './types';
 /**
  * The shape the store holds before [`boot`] has run.
  *
+ * A *function*, not a constant: Solid's `createStore` mutates the object it is
+ * given, so a shared constant would end up holding real data and could no longer
+ * be used to blank the store on lock.
+ *
  * It exists so `db` is never null and no component has to guard against a
  * half-loaded database. Nothing renders against it in practice — `main.tsx`
  * awaits `boot()` before mounting the app — but a store needs an initial value
  * and an *empty* one is the only honest choice. Filling it with plausible
  * numbers would put figures on screen that were never anyone's data.
  */
-const EMPTY: DbShape = {
+const emptyDb = (): DbShape => ({
   user: {
     id: 'user',
     name: '',
@@ -51,6 +55,7 @@ const EMPTY: DbShape = {
   focus_sessions: [],
   tasks: [],
   topics: [],
+  dpps: [],
   focus_settings: {
     focus_minutes: 25,
     short_break: 5,
@@ -78,9 +83,10 @@ const EMPTY: DbShape = {
   },
   app_mode: 'academic',
   daily_log_layout: { academic: [], life: [] },
-};
+  profile: null,
+});
 
-const [state, setState] = createStore<DbShape>(EMPTY);
+const [state, setState] = createStore<DbShape>(emptyDb());
 
 /** The database. Read it; never assign to it. */
 export const db = state as Readonly<DbShape>;
@@ -112,6 +118,20 @@ export async function reload(): Promise<void> {
 export async function boot(): Promise<void> {
   await reload();
   setReady(true);
+}
+
+/**
+ * Drop everything held in memory, for when the app locks.
+ *
+ * Locking on the Rust side forgets the key and the database; this is the same
+ * promise made on this side of the bridge. Without it the lock screen would sit
+ * over a store still full of the person's marks and mistakes, one devtools
+ * console away from being read.
+ */
+export function clear(): void {
+  setState(reconcile(emptyDb(), { key: 'id', merge: false }));
+  bumpRevision((n) => n + 1);
+  setReady(false);
 }
 
 /**

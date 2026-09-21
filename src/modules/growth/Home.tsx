@@ -27,6 +27,7 @@ import { For, Show } from 'solid-js';
 import { shortDate } from '../../core/dates';
 import type { AppMode } from '../../core/db';
 import { DAY_TARGET, TRACK_TARGET, WELL_SPENT_TARGET } from '../../core/scoring';
+import { Workspace } from '../../core/ui';
 import { createHomeData, humanDuration } from './homeData';
 import {
   BacklogCard,
@@ -134,110 +135,125 @@ export default function Home(props: HomeProps) {
   );
 
   return (
-    <div class="flex-1 flex flex-col gap-7 min-h-0">
-      {/* ── Today ──────────────────────────────────────────────────────────── */}
-      <Band label="Today">
-        <ScoreHero
-          icon={Target}
-          label="Today’s score"
-          value={data.todayScore()}
-          max={DAY_TARGET}
-          logged={data.logged()}
-          status={
-            data.logged()
-              ? data.submitted()
-                ? 'Submitted and locked'
-                : 'Open — still editable'
-              : 'Nothing logged yet today'
-          }
-          onOpen={() => props.onOpen('log')}
-          goes="Open the Daily Log"
-          hint={`Today's ${props.mode()} score, out of ${DAY_TARGET}. Opens the Daily Log.`}
-          class="col-span-2"
-        />
-
-        <Widget
-          icon={Flame}
-          label="Study streak"
-          value={`${data.streak().days}`}
-          sub={
-            data.streak().today_done
-              ? `day${data.streak().days === 1 ? '' : 's'} · today is in`
-              : `day${data.streak().days === 1 ? '' : 's'} · best ${data.streak().best}`
-          }
-          tone={data.streak().days > 0 ? 'text-primary' : 'text-subtle-foreground'}
-          delay={60}
-          hint="Days that cleared your study target, counted over your whole history."
-        >
-          <DayStrip days={data.recentDays()} targetHours={data.user().target_study_hours} />
-        </Widget>
-
-        <Widget
-          icon={TrendingUp}
-          label="7-day average"
-          value={String(data.avgScore())}
-          sub={`of ${DAY_TARGET}, across days you logged`}
-          delay={120}
-          onClick={() => props.onOpen('report')}
-          goes="Open the Report"
-          hint="Your mean day score over the last week. Opens the Report."
-        >
-          <Spark data={data.sparks().score} max={DAY_TARGET} />
-        </Widget>
-
-        <Show
-          when={academic()}
-          fallback={
-            <Widget
-              icon={Hourglass}
-              label="Leisure"
-              value={`${data.leisureWeek().avg}m`}
-              sub={`a day, over ${data.leisureWeek().days} logged day${
-                data.leisureWeek().days === 1 ? '' : 's'
-              }`}
-              tone={muted(data.leisureWeek().days === 0)}
-              delay={180}
-              hint={`Well-spent leisure per logged day. The target is ${WELL_SPENT_TARGET} minutes.`}
-              class="col-span-2 lg:col-span-1"
-            >
-              <Spark
-                data={data.sparks().leisure}
-                max={Math.max(WELL_SPENT_TARGET, ...data.sparks().leisure.map((v) => v ?? 0))}
-              />
-            </Widget>
-          }
-        >
-          <Widget
-            icon={Clock}
-            label="Hours logged"
-            value={`${data.totalStudy()}h`}
-            sub="in the last 7 days"
-            tone={muted(data.totalStudy() === 0)}
-            delay={180}
-            hint="Study hours across the week, however they were logged."
-            class="col-span-2 lg:col-span-1"
-          >
-            <Spark
-              data={data.sparks().study}
-              max={Math.max(
-                data.user().target_study_hours,
-                ...data.sparks().study.map((v) => v ?? 0),
-              )}
+    <Workspace
+      header={
+          <Band label="Today">
+            <ScoreHero
+              icon={Target}
+              label="Today’s score"
+              value={data.todayScore()}
+              max={DAY_TARGET}
+              logged={data.logged()}
+              status={
+                data.logged()
+                  ? data.submitted()
+                    ? 'Submitted and locked'
+                    : 'Open — still editable'
+                  : 'Nothing logged yet today'
+              }
+              onOpen={() => props.onOpen('log')}
+              goes="Open the Daily Log"
+              hint={`Today's ${props.mode()} score, out of ${DAY_TARGET}. Opens the Daily Log.`}
+              class="col-span-2"
             />
-          </Widget>
-        </Show>
 
-        <BoardCard
-          icon={Activity}
-          label="This week"
-          delay={240}
-          hint={`Each day's ${props.mode()} score out of ${DAY_TARGET}. A day with no log is drawn as a gap.`}
-          class="col-span-2 lg:col-span-3"
-        >
-          <WeekChart days={data.week()} max={DAY_TARGET} />
-        </BoardCard>
-      </Band>
+            <Widget
+              icon={Flame}
+              label="Study streak"
+              value={`${data.streak().days}`}
+              sub={
+                data.streak().today_done
+                  ? `day${data.streak().days === 1 ? '' : 's'} · today is in`
+                  : `day${data.streak().days === 1 ? '' : 's'} · best ${data.streak().best}`
+              }
+              tone={data.streak().days > 0 ? 'text-primary' : 'text-subtle-foreground'}
+              delay={60}
+              hint="Days that cleared your study target, counted over your whole history."
+            >
+              <DayStrip days={data.recentDays()} targetHours={data.user().target_study_hours} />
+            </Widget>
 
+            <Widget
+              icon={TrendingUp}
+              label="7-day average"
+              value={String(data.avgScore())}
+              sub={`of ${DAY_TARGET}, across days you logged`}
+              delay={120}
+              onClick={() => props.onOpen('report')}
+              goes="Open the Report"
+              hint="Your mean day score over the last week. Opens the Report."
+            >
+              <Spark data={data.sparks().score} max={DAY_TARGET} />
+            </Widget>
+
+            <Show
+              when={academic()}
+              fallback={
+                <Widget
+                  icon={Hourglass}
+                  label="Leisure"
+                  value={`${data.leisureWeek().avg}m`}
+                  sub={`a day, over ${data.leisureWeek().days} logged day${
+                    data.leisureWeek().days === 1 ? '' : 's'
+                  }`}
+                  tone={muted(data.leisureWeek().days === 0)}
+                  delay={180}
+                  hint={`Well-spent leisure per logged day. The target is ${WELL_SPENT_TARGET} minutes.`}
+                  class="col-span-2 lg:col-span-1"
+                >
+                  <Spark
+                    data={data.sparks().leisure}
+                    max={Math.max(WELL_SPENT_TARGET, ...data.sparks().leisure.map((v) => v ?? 0))}
+                  />
+                </Widget>
+              }
+            >
+              <Widget
+                icon={Clock}
+                label="Hours logged"
+                value={`${data.totalStudy()}h`}
+                sub="in the last 7 days"
+                tone={muted(data.totalStudy() === 0)}
+                delay={180}
+                hint="Study hours across the week, however they were logged."
+                class="col-span-2 lg:col-span-1"
+              >
+                <Spark
+                  data={data.sparks().study}
+                  max={Math.max(
+                    data.user().target_study_hours,
+                    ...data.sparks().study.map((v) => v ?? 0),
+                  )}
+                />
+              </Widget>
+            </Show>
+
+            <BoardCard
+              icon={Activity}
+              label="This week"
+              delay={240}
+              hint={`Each day's ${props.mode()} score out of ${DAY_TARGET}. A day with no log is drawn as a gap.`}
+              class="col-span-2 lg:col-span-3"
+            >
+              <WeekChart days={data.week()} max={DAY_TARGET} />
+            </BoardCard>
+          </Band>
+      }
+      footer={
+          <p class="text-[0.75rem] text-subtle-foreground text-center">
+            Every tile opens the tab it came from. Charts, trends and paper analysis live in{' '}
+            <button
+              type="button"
+              onClick={() => props.onOpen('report')}
+              class="text-primary font-semibold hover:underline"
+            >
+              Report
+            </button>
+            .
+          </p>
+      }
+      bodyClass="flex flex-col gap-7 py-3"
+    >
       {/* ── What to do next ────────────────────────────────────────────────── */}
       <Band label={academic() ? 'Continue studying' : 'Pick up where you left off'}>
         <ContinueCard
@@ -500,19 +516,7 @@ export default function Home(props: HomeProps) {
           </div>
         </Show>
       </Section>
-
-      <p class="flex-shrink-0 text-[0.75rem] text-subtle-foreground text-center">
-        Every tile opens the tab it came from. Charts, trends and paper analysis live in{' '}
-        <button
-          type="button"
-          onClick={() => props.onOpen('report')}
-          class="text-primary font-semibold hover:underline"
-        >
-          Report
-        </button>
-        .
-      </p>
-    </div>
+    </Workspace>
   );
 }
 
@@ -532,14 +536,14 @@ function Band(props: {
   children: JSX.Element;
 }) {
   return (
-    <section class="flex flex-col gap-3">
+    <section class="flex-1 flex flex-col gap-3">
       <div class="flex items-center justify-between gap-3">
         <h3 class="text-[0.75rem] font-bold uppercase tracking-[0.12em] text-muted-foreground font-space">
           {props.label}
         </h3>
         {props.action}
       </div>
-      <div class="grid gap-4 items-stretch grid-cols-2 lg:grid-cols-4">{props.children}</div>
+      <div class="flex-1 grid gap-4 items-stretch grid-cols-2 lg:grid-cols-4">{props.children}</div>
     </section>
   );
 }

@@ -1,4 +1,12 @@
-import { Activity, BarChart3, Droplets, Hourglass, Smile, Sparkles } from 'lucide-solid';
+import {
+  Activity,
+  BarChart3,
+  Droplets,
+  Hourglass,
+  ListChecks,
+  Smile,
+  Sparkles,
+} from 'lucide-solid';
 import { Show } from 'solid-js';
 
 import { longDate } from '../../core/dates';
@@ -74,6 +82,33 @@ export function lifePanels(data: GrowthData, range: Range): PanelDef[] {
     },
 
     {
+      id: 'completion',
+      title: 'Daily Completion',
+      subtitle:
+        'Items ticked off each day — tasks, topics, habits and DPPs. Older tasks and topics were not dated, so early days read lower.',
+      icon: ListChecks,
+      group: 'overview',
+      render: (view) => (
+        <Show
+          when={data.completion().some((b) => b.value > 0)}
+          fallback={
+            <EmptyChart
+              message="Nothing ticked off in this range yet."
+              compact={view === 'tile'}
+              action={{ label: 'Open Daily Log', to: 'log' }}
+            />
+          }
+        >
+          <BarChart
+            data={data.completion()}
+            max={Math.max(5, ...data.completion().map((b) => b.value))}
+            height={view === 'full' ? 300 : 76}
+          />
+        </Show>
+      ),
+    },
+
+    {
       id: 'tracks',
       title: `Last ${range} Days`,
       subtitle: 'Each life track scored 0–10 per day, ordered by the priority you set in the Log.',
@@ -93,7 +128,11 @@ export function lifePanels(data: GrowthData, range: Range): PanelDef[] {
         <Show
           when={data.bestDay()}
           fallback={
-            <EmptyChart message="Nothing logged in this range yet." compact={view === 'tile'} />
+            <EmptyChart
+              message="Nothing logged in this range yet."
+              compact={view === 'tile'}
+              action={{ label: 'Open Daily Log', to: 'log' }}
+            />
           }
         >
           {(best) => (

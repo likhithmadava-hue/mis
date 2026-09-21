@@ -14,18 +14,22 @@ interface AmbientPanelProps {
 
 const AMBIENT_OPTIONS: SelectOption<AmbientSound>[] = [
   { value: 'off', label: 'Off' },
-  ...(Object.entries(AMBIENT_LABEL) as [Exclude<AmbientSound, 'off'>, string][]).map(([value, label]) => ({
-    value,
-    label,
-  })),
+  ...(Object.entries(AMBIENT_LABEL) as [Exclude<AmbientSound, 'off'>, string][]).map(
+    ([value, label]) => ({
+      value,
+      label,
+    }),
+  ),
 ];
 
 const BRAINWAVE_OPTIONS: SelectOption<Brainwave>[] = [
   { value: 'off', label: 'Off' },
-  ...(Object.entries(BRAINWAVE_LABEL) as [Exclude<Brainwave, 'off'>, string][]).map(([value, label]) => ({
-    value,
-    label,
-  })),
+  ...(Object.entries(BRAINWAVE_LABEL) as [Exclude<Brainwave, 'off'>, string][]).map(
+    ([value, label]) => ({
+      value,
+      label,
+    }),
+  ),
 ];
 
 interface LayerProps<T extends string> {
@@ -45,6 +49,8 @@ interface LayerProps<T extends string> {
 
 /** one sound layer — a Select, a play button and a volume slider, shared by both rows below */
 function SoundLayer<T extends string>(props: LayerProps<T>) {
+  const off = () => props.kind() === 'off';
+
   return (
     <div class="space-y-3">
       <h3 class="text-sm font-bold uppercase tracking-wider text-muted-foreground font-space flex items-center gap-2">
@@ -52,42 +58,55 @@ function SoundLayer<T extends string>(props: LayerProps<T>) {
       </h3>
 
       <div class="flex items-center gap-2">
-        <Select value={props.kind()} onChange={props.onKind} options={props.options} ariaLabel={props.ariaLabel} class="flex-1" />
-        <Show when={props.kind() !== 'off'}>
-          <button
-            onClick={props.toggle}
-            title={props.isPlaying() ? 'Pause' : 'Play'}
-            class="p-2.5 rounded-xl bg-primary text-primary-foreground flex-shrink-0"
-          >
-            <Show when={props.isPlaying()} fallback={<Play size={15} />}>
-              <Pause size={15} />
-            </Show>
-          </button>
-        </Show>
+        <Select
+          value={props.kind()}
+          onChange={props.onKind}
+          options={props.options}
+          ariaLabel={props.ariaLabel}
+          class="flex-1"
+        />
+        <button
+          onClick={props.toggle}
+          disabled={off()}
+          title={props.isPlaying() ? 'Pause' : 'Play'}
+          class={`p-2.5 rounded-xl bg-primary text-primary-foreground flex-shrink-0 transition-opacity disabled:cursor-not-allowed ${
+            off() ? 'opacity-50' : ''
+          }`}
+        >
+          <Show when={props.isPlaying()} fallback={<Play size={15} />}>
+            <Pause size={15} />
+          </Show>
+        </button>
       </div>
 
-      <Show when={props.kind() !== 'off'}>
-        <Show when={props.hint}>
-          <p class="text-[0.6875rem] text-muted-foreground flex items-center gap-1.5">
-            <Headphones size={12} class="flex-shrink-0" /> {props.hint}
-          </p>
-        </Show>
-        <div class="flex items-center gap-1.5">
-          <Show when={props.volume() > 0} fallback={<VolumeX size={14} class="text-muted-foreground" />}>
-            <Volume2 size={14} class="text-muted-foreground" />
-          </Show>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={props.volume()}
-            onInput={(e) => props.setVolume(Number(e.currentTarget.value))}
-            onChange={(e) => void props.commitVolume(Number(e.currentTarget.value))}
-            class="flex-1 accent-primary"
-          />
-        </div>
+      {/* Play and volume are always drawn, dimmed while Off, and the hint is
+          static — a layer that grew rows when you picked a sound would push the
+          layer below it, and the cards below that, down the column. */}
+      <Show when={props.hint}>
+        <p class="text-[0.6875rem] text-muted-foreground flex items-center gap-1.5">
+          <Headphones size={12} class="flex-shrink-0" /> {props.hint}
+        </p>
       </Show>
+      <div class={`flex items-center gap-1.5 transition-opacity ${off() ? 'opacity-50' : ''}`}>
+        <Show
+          when={props.volume() > 0}
+          fallback={<VolumeX size={14} class="text-muted-foreground" />}
+        >
+          <Volume2 size={14} class="text-muted-foreground" />
+        </Show>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          disabled={off()}
+          value={props.volume()}
+          onInput={(e) => props.setVolume(Number(e.currentTarget.value))}
+          onChange={(e) => void props.commitVolume(Number(e.currentTarget.value))}
+          class="flex-1 accent-primary"
+          aria-label={`${props.title} volume`}
+        />
+      </div>
     </div>
   );
 }

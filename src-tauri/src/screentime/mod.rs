@@ -20,6 +20,7 @@
 //! `TABS`. Three missing connections. It is wired up here (see `commands.rs` and
 //! `App.tsx`), which is the difference between a feature and a folder.
 
+pub mod autostart;
 pub mod categories;
 pub mod store;
 pub mod summary;
@@ -51,7 +52,7 @@ impl Availability {
 /// **Paused is deliberately not unavailable.** Pausing stops new recording; it
 /// does not make the days already recorded unreadable, and hiding the whole tab
 /// behind a "nothing is watching" card would take away the history along with
-/// the live figures — including the Resume button. That state is reported by
+/// the live figures. That state is reported by
 /// `st_status` and shown as a pill, which is what it is: a status.
 ///
 /// What *is* unavailable is a machine that cannot watch the foreground window

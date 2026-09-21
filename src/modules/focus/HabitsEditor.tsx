@@ -60,7 +60,7 @@ export default function HabitsEditor(props: { habits: FocusHabitsState }) {
               <button
                 onClick={() => void habits.deleteHabit(h.id)}
                 title="Remove habit"
-                class="text-muted-foreground/40 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                class="text-subtle-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
               >
                 <Trash2 size={12} />
               </button>

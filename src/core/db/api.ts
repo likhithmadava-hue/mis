@@ -26,6 +26,7 @@ import { invoke } from './bridge';
 import type {
   AppMode,
   AuditRecord,
+  AuthStatus,
   Availability,
   CompactDay,
   DailyMetric,
@@ -37,6 +38,7 @@ import type {
   MetricPatch,
   NewEntry,
   Priority,
+  Profile,
   ScoredDay,
   StSettings,
   Streak,
@@ -58,6 +60,15 @@ export interface MisError {
     | 'corrupt'
     | 'not-found'
     | 'day-locked'
+    /** The vault is password-protected and nobody has signed in. */
+    | 'locked'
+    /** Wrong username or password — deliberately not told apart. */
+    | 'bad-credentials'
+    | 'bad-recovery-code'
+    /** Too many failed sign-ins; the message says how long to wait. */
+    | 'throttled'
+    /** A form problem the user can fix; the message says which. */
+    | 'invalid'
     | 'audit'
     | 'screen-time'
     | 'io'
@@ -78,9 +89,48 @@ const isMisError = (e: unknown): e is MisError =>
  */
 export const isDayLocked = (e: unknown) => isMisError(e) && e.code === 'day-locked';
 
+/** The stable tag of a rejection, or `undefined` if it wasn't one of ours. */
+export const errorCode = (e: unknown): MisError['code'] | undefined =>
+  isMisError(e) ? e.code : undefined;
+
 /** The sentence to show the user for any rejection, however it arrived. */
 export const errorMessage = (e: unknown) =>
   isMisError(e) ? e.message : e instanceof Error ? e.message : String(e);
+
+// ── Account ─────────────────────────────────────────────────────────────────
+//
+// The only commands that work while the app is locked. Every other command
+// rejects with `locked` until `authLogin` resolves — enforced in Rust, so this
+// list is not the lock, only the way to open it.
+
+export const authStatus = () => invoke<AuthStatus>('auth_status');
+
+/**
+ * Finish onboarding: store the profile and put the vault behind the password.
+ * Resolves with the recovery code — the one and only time it is ever available.
+ */
+export const authSetup = (profile: Profile, password: string) =>
+  invoke<string>('auth_setup', { profile, password });
+
+export const authLogin = (username: string, password: string) =>
+  invoke<void>('auth_login', { username, password });
+
+/** Lock MIS without quitting. */
+export const authLock = () => invoke<void>('auth_lock');
+
+/**
+ * Reset a forgotten password with the recovery code. Signs in, and resolves with
+ * the *replacement* code — the one used is retired.
+ */
+export const authRecover = (code: string, newPassword: string) =>
+  invoke<string>('auth_recover', { code, newPassword });
+
+export const authChangePassword = (current: string, newPassword: string) =>
+  invoke<void>('auth_change_password', { current, newPassword });
+
+/** Retire the current recovery code and get a new one. Needs the password. */
+export const authNewRecoveryCode = (current: string) =>
+  invoke<string>('auth_new_recovery_code', { current });
 
 // ── Database ────────────────────────────────────────────────────────────────
 
@@ -149,6 +199,15 @@ export const addTask = (title: string, subject: string, dueDate: string, mode: A
 export const toggleTask = (id: string) => invoke<void>('db_toggle_task', { id });
 
 export const deleteTask = (id: string) => invoke<void>('db_delete_task', { id });
+
+// ── DPPs ────────────────────────────────────────────────────────────────────
+
+export const addDpp = (subject: string, topic: string, teacher: string) =>
+  invoke<void>('db_add_dpp', { subject, topic, teacher });
+
+export const toggleDpp = (id: string) => invoke<void>('db_toggle_dpp', { id });
+
+export const deleteDpp = (id: string) => invoke<void>('db_delete_dpp', { id });
 
 // ── Topics ──────────────────────────────────────────────────────────────────
 
@@ -236,7 +295,13 @@ export const stDay = (day?: string) => invoke<DaySummary>('st_day', { day: day ?
 /** The last `days` days, oldest first, without the per-day timelines. */
 export const stRange = (days: number) => invoke<CompactDay[]>('st_range', { days });
 
-export const stSetPaused = (paused: boolean) => invoke<TrackerStatus>('st_set_paused', { paused });
+/**
+ * Opt in or out of background tracking: recording continues with no window open
+ * (from a tray icon), and MIS starts with Windows. Rejects if Windows refuses
+ * the startup entry, in which case nothing has changed.
+ */
+export const stSetBackground = (enabled: boolean) =>
+  invoke<TrackerStatus>('st_set_background', { enabled });
 
 /** Every app→category assignment in force, defaults and overrides merged. */
 export const stCategories = () => invoke<Record<string, string>>('st_categories');

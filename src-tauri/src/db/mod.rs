@@ -14,6 +14,7 @@
 pub mod day_hash;
 pub mod dev_mirror;
 pub mod migrations;
+pub mod profile;
 pub mod seed;
 pub mod types;
 
@@ -193,12 +194,13 @@ pub fn lock_today(db: &mut DbShape) -> Result<String> {
     let today = today_iso();
     let done = habits_done_on(db, &today);
     let topics: Vec<TopicItem> = db.topics.iter().filter(|t| t.date == today).cloned().collect();
+    let dpps: Vec<DppItem> = db.dpps.iter().filter(|d| d.date == today).cloned().collect();
 
     let Some(idx) = db.daily_metrics.iter().position(|m| m.date == today) else {
         return Err(MisError::NotFound("there is nothing logged today to submit".into()));
     };
 
-    let hash = day_hash::hash_day(&db.daily_metrics[idx], &done, &topics);
+    let hash = day_hash::hash_day(&db.daily_metrics[idx], &done, &topics, &dpps);
     let m = &mut db.daily_metrics[idx];
     m.locked = Some(true);
     m.submitted_at = Some(now_iso());
@@ -229,7 +231,8 @@ pub fn day_is_intact(db: &DbShape, date: &str) -> bool {
     };
     let done = habits_done_on(db, date);
     let topics: Vec<TopicItem> = db.topics.iter().filter(|t| t.date == date).cloned().collect();
-    day_hash::hash_day(m, &done, &topics) == *stamped
+    let dpps: Vec<DppItem> = db.dpps.iter().filter(|d| d.date == date).cloned().collect();
+    day_hash::hash_day(m, &done, &topics, &dpps) == *stamped
 }
 
 // ── Mark logbook ────────────────────────────────────────────────────────────
@@ -310,7 +313,10 @@ pub fn add_task(
     mode: AppMode,
 ) -> Result<()> {
     refuse_if_locked(db)?;
-    db.tasks.insert(0, Task { id: uid(), title, subject, due_date, completed: false, mode });
+    db.tasks.insert(
+        0,
+        Task { id: uid(), title, subject, due_date, completed: false, completed_on: None, mode },
+    );
     Ok(())
 }
 
@@ -318,6 +324,9 @@ pub fn toggle_task_done(db: &mut DbShape, id: &str) -> Result<()> {
     refuse_if_locked(db)?;
     if let Some(t) = db.tasks.iter_mut().find(|t| t.id == id) {
         t.completed = !t.completed;
+        // ticking stamps today; unticking takes the stamp back, so the record
+        // never claims a day for something that is not done
+        t.completed_on = t.completed.then(today_iso);
     }
     Ok(())
 }
@@ -328,11 +337,65 @@ pub fn delete_task(db: &mut DbShape, id: &str) -> Result<()> {
     Ok(())
 }
 
+// ── DPPs ────────────────────────────────────────────────────────────────────
+
+/// Bring today's `dpps_got` / `dpps_complete` in line with today's DPP list.
+///
+/// The score, the charts and Home read those two counters, so they stay the
+/// numbers everything divides — the list is where they come from now. It runs
+/// inside the same mutation as the change that needs it, so the counters can
+/// never disagree with the list a moment later. Only *today* is synced: a past
+/// day's counters are history, and a DPP list only ever changes for today.
+fn sync_dpp_counters(db: &mut DbShape) -> Result<()> {
+    let today = today_iso();
+    let got = db.dpps.iter().filter(|d| d.date == today).count() as f64;
+    let done = db.dpps.iter().filter(|d| d.date == today && d.done).count() as f64;
+    update_today_metric(
+        db,
+        MetricPatch { dpps_got: Some(got), dpps_complete: Some(done), ..Default::default() },
+    )
+}
+
+pub fn add_dpp(db: &mut DbShape, subject: String, topic: String, teacher: String) -> Result<()> {
+    refuse_if_locked(db)?;
+    db.dpps.insert(
+        0,
+        DppItem {
+            id: uid(),
+            date: today_iso(),
+            subject,
+            topic,
+            teacher,
+            done: false,
+            done_on: None,
+        },
+    );
+    sync_dpp_counters(db)
+}
+
+pub fn toggle_dpp_done(db: &mut DbShape, id: &str) -> Result<()> {
+    refuse_if_locked(db)?;
+    if let Some(d) = db.dpps.iter_mut().find(|d| d.id == id) {
+        d.done = !d.done;
+        d.done_on = d.done.then(today_iso);
+    }
+    sync_dpp_counters(db)
+}
+
+pub fn delete_dpp(db: &mut DbShape, id: &str) -> Result<()> {
+    refuse_if_locked(db)?;
+    db.dpps.retain(|d| d.id != id);
+    sync_dpp_counters(db)
+}
+
 // ── Topics ──────────────────────────────────────────────────────────────────
 
 pub fn add_topic(db: &mut DbShape, name: String, kind: TopicType) -> Result<()> {
     refuse_if_locked(db)?;
-    db.topics.insert(0, TopicItem { id: uid(), date: today_iso(), name, kind, done: false });
+    db.topics.insert(
+        0,
+        TopicItem { id: uid(), date: today_iso(), name, kind, done: false, done_on: None },
+    );
     Ok(())
 }
 
@@ -340,6 +403,7 @@ pub fn toggle_topic_done(db: &mut DbShape, id: &str) -> Result<()> {
     refuse_if_locked(db)?;
     if let Some(t) = db.topics.iter_mut().find(|t| t.id == id) {
         t.done = !t.done;
+        t.done_on = t.done.then(today_iso);
     }
     Ok(())
 }
@@ -495,6 +559,111 @@ mod tests {
         // Exactly what tampering with the vault file would look like.
         db.daily_metrics.iter_mut().find(|m| m.date == today_iso()).unwrap().water_count = 99.0;
         assert!(!day_is_intact(&db, &today_iso()));
+    }
+
+    #[test]
+    fn dpp_list_drives_the_days_counters() {
+        let mut db = db_with_today();
+        let counters = |db: &DbShape| {
+            let m = db.daily_metrics.iter().find(|m| m.date == today_iso()).unwrap();
+            (m.dpps_got, m.dpps_complete)
+        };
+
+        add_dpp(&mut db, "Physics".into(), "Kinematics".into(), "Rao".into()).unwrap();
+        add_dpp(&mut db, "Maths".into(), "Integration".into(), "Iyer".into()).unwrap();
+        assert_eq!(counters(&db), (2.0, 0.0));
+
+        let id = db.dpps[0].id.clone();
+        toggle_dpp_done(&mut db, &id).unwrap();
+        assert_eq!(counters(&db), (2.0, 1.0));
+        assert_eq!(db.dpps[0].done_on.as_deref(), Some(today_iso().as_str()));
+
+        toggle_dpp_done(&mut db, &id).unwrap();
+        assert_eq!(counters(&db), (2.0, 0.0));
+        assert_eq!(db.dpps[0].done_on, None);
+
+        delete_dpp(&mut db, &id).unwrap();
+        assert_eq!(counters(&db), (1.0, 0.0));
+    }
+
+    #[test]
+    fn dpp_details_are_kept() {
+        let mut db = db_with_today();
+        add_dpp(&mut db, "Chemistry".into(), "Mole concept".into(), "Sharma".into()).unwrap();
+        let d = &db.dpps[0];
+        assert_eq!((d.subject.as_str(), d.topic.as_str(), d.teacher.as_str()),
+                   ("Chemistry", "Mole concept", "Sharma"));
+    }
+
+    #[test]
+    fn a_locked_day_refuses_dpp_changes() {
+        let mut db = db_with_today();
+        add_dpp(&mut db, "Physics".into(), "Optics".into(), "Rao".into()).unwrap();
+        lock_today(&mut db).unwrap();
+        assert!(add_dpp(&mut db, "x".into(), "y".into(), "z".into()).is_err());
+        let id = db.dpps[0].id.clone();
+        assert!(toggle_dpp_done(&mut db, &id).is_err());
+        assert!(delete_dpp(&mut db, &id).is_err());
+    }
+
+    #[test]
+    fn a_day_locked_with_dpps_notices_a_changed_teacher() {
+        let mut db = db_with_today();
+        add_dpp(&mut db, "Physics".into(), "Optics".into(), "Rao".into()).unwrap();
+        lock_today(&mut db).unwrap();
+        assert!(day_is_intact(&db, &today_iso()));
+        db.dpps[0].teacher = "Someone else".into();
+        assert!(!day_is_intact(&db, &today_iso()));
+    }
+
+    #[test]
+    fn a_vault_from_before_dpp_lists_still_loads() {
+        let dpp: DppItem = serde_json::from_str(r#"{"id":"d","date":"2026-01-01","done":false}"#).unwrap();
+        assert_eq!((dpp.subject.as_str(), dpp.topic.as_str(), dpp.teacher.as_str()), ("", "", ""));
+    }
+
+    #[test]
+    fn ticking_a_task_stamps_today_and_unticking_takes_it_back() {
+        let mut db = db_with_today();
+        add_task(&mut db, "Finish DPP".into(), String::new(), String::new(), AppMode::Academic)
+            .unwrap();
+        let id = db.tasks[0].id.clone();
+
+        toggle_task_done(&mut db, &id).unwrap();
+        assert!(db.tasks[0].completed);
+        assert_eq!(db.tasks[0].completed_on.as_deref(), Some(today_iso().as_str()));
+
+        toggle_task_done(&mut db, &id).unwrap();
+        assert!(!db.tasks[0].completed);
+        assert_eq!(db.tasks[0].completed_on, None, "an undone task must not claim a day");
+    }
+
+    #[test]
+    fn ticking_a_topic_stamps_today_and_unticking_takes_it_back() {
+        let mut db = db_with_today();
+        add_topic(&mut db, "Work & Energy".into(), TopicType::Revise).unwrap();
+        let id = db.topics[0].id.clone();
+
+        toggle_topic_done(&mut db, &id).unwrap();
+        assert_eq!(db.topics[0].done_on.as_deref(), Some(today_iso().as_str()));
+
+        toggle_topic_done(&mut db, &id).unwrap();
+        assert_eq!(db.topics[0].done_on, None);
+    }
+
+    #[test]
+    fn a_vault_from_before_completion_dates_still_loads() {
+        // saved with neither field — both must default rather than fail the load
+        let task: Task = serde_json::from_str(
+            r#"{"id":"t","title":"x","completed":true}"#,
+        )
+        .unwrap();
+        assert_eq!(task.completed_on, None);
+        let topic: TopicItem = serde_json::from_str(
+            r#"{"id":"p","date":"2026-01-01","name":"x","type":"revise","done":true}"#,
+        )
+        .unwrap();
+        assert_eq!(topic.done_on, None);
     }
 
     #[test]

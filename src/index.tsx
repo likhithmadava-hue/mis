@@ -1,7 +1,11 @@
 /**
  * Where the app starts.
  *
- * The database is loaded *before* anything renders. That ordering is the point:
+ * Which screen comes first is decided by Rust (`auth_status`): the onboarding
+ * wizard when no account exists yet, the sign-in screen when one does, the app
+ * itself otherwise. See `core/auth`.
+ *
+ * The database is loaded *before* the app renders. That ordering is the point:
  * every screen in MIS is a view of stored data, and a component that mounts
  * against an empty database draws an empty state for a fraction of a second —
  * "no papers yet", "0 h studied" — over data that exists. The old app flickered
@@ -14,20 +18,53 @@
  * exists and says so in a message box.)
  */
 
+import { Match, onMount, Switch } from 'solid-js';
 import { render } from 'solid-js/web';
 
 import App from './App';
-import { boot } from './core/db';
-import { errorMessage } from './core/db/api';
+import { failure, screen, start } from './core/auth';
+import { initTheme } from './core/ui';
+import { Onboarding, SignIn } from './modules/auth';
 
 import './index.css';
 
+// public/theme-boot.js already applied the saved theme before first paint; this
+// makes the same values the source of truth for the running app.
+initTheme();
+
 const root = document.getElementById('root')!;
 
-boot().then(
-  () => render(() => <App />, root),
-  (e: unknown) => render(() => <BootFailure detail={errorMessage(e)} />, root),
-);
+render(() => <Root />, root);
+
+/**
+ * One screen at a time, chosen by `core/auth`. Nothing but `app` ever mounts
+ * `<App />`, so no tab can render — or read the store — while the app is locked.
+ */
+function Root() {
+  onMount(() => void start());
+
+  return (
+    <Switch fallback={<Checking />}>
+      <Match when={screen() === 'app'}>
+        <App />
+      </Match>
+      <Match when={screen() === 'setup'}>
+        <Onboarding />
+      </Match>
+      <Match when={screen() === 'locked'}>
+        <SignIn />
+      </Match>
+      <Match when={screen() === 'failed'}>
+        <BootFailure detail={failure()} />
+      </Match>
+    </Switch>
+  );
+}
+
+/** The instant between the window opening and Rust answering. Deliberately blank. */
+function Checking() {
+  return <div class="min-h-dvh" aria-busy="true" />;
+}
 
 /**
  * The one screen that is not a view of the database, because there isn't one.

@@ -22,7 +22,7 @@
 
 use sha2::{Digest, Sha256};
 
-use super::types::{DailyMetric, TopicItem};
+use super::types::{DailyMetric, DppItem, TopicItem};
 
 /// Format an `f64` the way `JSON.stringify` would.
 ///
@@ -76,7 +76,12 @@ fn js_bool(b: bool) -> &'static str {
 
 /// The exact string the old browser code hashed. Key order is the insertion
 /// order of the TS object literal and must not be rearranged.
-fn canonical_day(metric: &DailyMetric, habit_ids_done: &[String], topics: &[TopicItem]) -> String {
+fn canonical_day(
+    metric: &DailyMetric,
+    habit_ids_done: &[String],
+    topics: &[TopicItem],
+    dpps: &[DppItem],
+) -> String {
     // Deliberately excludes locked / submitted_at / submit_hash — the
     // fingerprint is of the *data*, not of the lock state wrapped around it.
     let m = format!(
@@ -126,13 +131,44 @@ fn canonical_day(metric: &DailyMetric, habit_ids_done: &[String], topics: &[Topi
             .join(",")
     );
 
-    format!("{{\"m\":{},\"h\":{},\"t\":{}}}", m, h, t)
+    // The DPP details join the fingerprint only when the day has any. A day with
+    // none — every day locked before DPPs carried a topic and a teacher — must
+    // produce the exact string it always did, or it would come back reading as
+    // tampered with.
+    let d = if dpps.is_empty() {
+        String::new()
+    } else {
+        let mut sorted: Vec<&DppItem> = dpps.iter().collect();
+        sorted.sort_by(|a, b| a.id.cmp(&b.id));
+        format!(
+            ",\"d\":[{}]",
+            sorted
+                .iter()
+                .map(|x| format!(
+                    "{{\"id\":{},\"subject\":{},\"topic\":{},\"teacher\":{},\"done\":{}}}",
+                    js_string(&x.id),
+                    js_string(&x.subject),
+                    js_string(&x.topic),
+                    js_string(&x.teacher),
+                    js_bool(x.done)
+                ))
+                .collect::<Vec<_>>()
+                .join(",")
+        )
+    };
+
+    format!("{{\"m\":{},\"h\":{},\"t\":{}{}}}", m, h, t, d)
 }
 
 /// SHA-256 of the day, lowercase hex — the same encoding the browser produced.
-pub fn hash_day(metric: &DailyMetric, habit_ids_done: &[String], topics: &[TopicItem]) -> String {
+pub fn hash_day(
+    metric: &DailyMetric,
+    habit_ids_done: &[String],
+    topics: &[TopicItem],
+    dpps: &[DppItem],
+) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(canonical_day(metric, habit_ids_done, topics).as_bytes());
+    hasher.update(canonical_day(metric, habit_ids_done, topics, dpps).as_bytes());
     hasher
         .finalize()
         .iter()
@@ -163,7 +199,7 @@ mod tests {
 
     #[test]
     fn canonical_form_matches_the_browsers_json_stringify() {
-        let s = canonical_day(&metric(), &[], &[]);
+        let s = canonical_day(&metric(), &[], &[], &[]);
         assert!(s.starts_with(r#"{"m":{"date":"2026-08-03","study_hours":5,"dpps_got":4"#));
         assert!(s.contains(r#""mood_score":7.5"#));
         assert!(s.ends_with(r#""h":[],"t":[]}"#));
@@ -172,13 +208,13 @@ mod tests {
     #[test]
     fn habit_and_topic_order_does_not_change_the_hash() {
         let topics = vec![
-            TopicItem { id: "b".into(), date: "2026-08-03".into(), name: "Two".into(), kind: TopicType::Revise, done: false },
-            TopicItem { id: "a".into(), date: "2026-08-03".into(), name: "One".into(), kind: TopicType::Taught, done: true },
+            TopicItem { id: "b".into(), date: "2026-08-03".into(), name: "Two".into(), kind: TopicType::Revise, done: false, done_on: None },
+            TopicItem { id: "a".into(), date: "2026-08-03".into(), name: "One".into(), kind: TopicType::Taught, done: true, done_on: None },
         ];
         let reversed: Vec<TopicItem> = topics.iter().rev().cloned().collect();
 
-        let one = hash_day(&metric(), &["z".into(), "a".into()], &topics);
-        let two = hash_day(&metric(), &["a".into(), "z".into()], &reversed);
+        let one = hash_day(&metric(), &["z".into(), "a".into()], &topics, &[]);
+        let two = hash_day(&metric(), &["a".into(), "z".into()], &reversed, &[]);
         assert_eq!(one, two);
     }
 
@@ -186,7 +222,7 @@ mod tests {
     fn changing_the_data_changes_the_hash() {
         let mut edited = metric();
         edited.water_count = 8.0;
-        assert_ne!(hash_day(&metric(), &[], &[]), hash_day(&edited, &[], &[]));
+        assert_ne!(hash_day(&metric(), &[], &[], &[]), hash_day(&edited, &[], &[], &[]));
     }
 
     #[test]
@@ -195,6 +231,45 @@ mod tests {
         locked.locked = Some(true);
         locked.submitted_at = Some("2026-08-03T21:00:00+05:30".into());
         locked.submit_hash = Some("deadbeef".into());
-        assert_eq!(hash_day(&metric(), &[], &[]), hash_day(&locked, &[], &[]));
+        assert_eq!(hash_day(&metric(), &[], &[], &[]), hash_day(&locked, &[], &[], &[]));
+    }
+
+    fn dpp(id: &str, topic: &str, teacher: &str) -> DppItem {
+        DppItem {
+            id: id.into(),
+            date: "2026-08-03".into(),
+            subject: "Physics".into(),
+            topic: topic.into(),
+            teacher: teacher.into(),
+            done: false,
+            done_on: None,
+        }
+    }
+
+    #[test]
+    fn a_day_with_no_dpp_details_hashes_exactly_as_it_always_did() {
+        // every day locked before DPPs carried details must still verify
+        let s = canonical_day(&metric(), &[], &[], &[]);
+        assert!(!s.contains("\"d\""));
+        assert!(s.ends_with(r#""h":[],"t":[]}"#));
+    }
+
+    #[test]
+    fn dpp_details_are_part_of_the_fingerprint() {
+        let one = vec![dpp("a", "Kinematics", "Rao")];
+        let other_teacher = vec![dpp("a", "Kinematics", "Iyer")];
+        assert_ne!(
+            hash_day(&metric(), &[], &[], &one),
+            hash_day(&metric(), &[], &[], &other_teacher),
+            "changing who set a DPP after submitting must be detectable"
+        );
+        assert_ne!(hash_day(&metric(), &[], &[], &[]), hash_day(&metric(), &[], &[], &one));
+    }
+
+    #[test]
+    fn dpp_order_does_not_change_the_hash() {
+        let a = vec![dpp("a", "One", "X"), dpp("b", "Two", "Y")];
+        let b = vec![dpp("b", "Two", "Y"), dpp("a", "One", "X")];
+        assert_eq!(hash_day(&metric(), &[], &[], &a), hash_day(&metric(), &[], &[], &b));
     }
 }

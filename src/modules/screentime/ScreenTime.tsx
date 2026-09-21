@@ -1,4 +1,3 @@
-import { confirm } from '@tauri-apps/plugin-dialog';
 import {
   AlertTriangle,
   ChevronLeft,
@@ -7,8 +6,6 @@ import {
   Layers,
   Loader2,
   MonitorPlay,
-  Pause,
-  Play,
   Repeat,
   Trash2,
 } from 'lucide-solid';
@@ -16,7 +13,7 @@ import { createMemo, createResource, createSignal, For, onCleanup, Show } from '
 
 import { isoDaysAgo, todayIso } from '../../core/dates';
 import { api, errorMessage, type CompactDay, type TrackerStatus } from '../../core/db';
-import { Card, Donut, EmptyChart } from '../../core/ui';
+import { Card, confirmDialog, Donut, EmptyChart, messageDialog } from '../../core/ui';
 import AppList from './AppList';
 import Timeline from './Timeline';
 import { asCategory, CATEGORIES, CATEGORY_COLOR, clockOf, humanise } from './format';
@@ -84,7 +81,35 @@ export default function ScreenTime() {
   onCleanup(() => clearInterval(poller));
 
   const total = () => summary()?.total_seconds ?? 0;
-  const paused = () => status()?.paused ?? false;
+  const background = () => status()?.background ?? false;
+  const [switching, setSwitching] = createSignal(false);
+
+  const toggleBackground = async () => {
+    const enable = !background();
+    if (enable) {
+      const yes = await confirmDialog({
+        title: 'Track in the background?',
+        body: 'MIS will start with Windows and keep recording screen time after you close its window, from an icon in the notification area. That icon shows it is recording and its menu quits MIS. Everything stays encrypted on this computer. You can switch this off here at any time.',
+        tone: 'info',
+        confirmLabel: 'Turn on',
+      });
+      if (!yes) return;
+    }
+    setSwitching(true);
+    try {
+      await api.stSetBackground(enable);
+    } catch (e) {
+      await messageDialog({
+        title: 'Could not change background tracking',
+        body: errorMessage(e),
+        tone: 'danger',
+      });
+    } finally {
+      setSwitching(false);
+      void refetchStatus();
+      refresh();
+    }
+  };
 
   const categoryOf = (app: string) =>
     asCategory(summary()?.by_app.find((r) => r.app === app)?.category);
@@ -170,17 +195,21 @@ export default function ScreenTime() {
                 <div class="flex items-center gap-2">
                   <StatusPill status={status()} />
                   <button
-                    onClick={async () => {
-                      await api.stSetPaused(!paused());
-                      void refetchStatus();
-                      refresh();
-                    }}
-                    class="h-9 px-3 rounded-xl bg-muted border border-border text-xs font-semibold font-space flex items-center gap-2 hover:border-primary/40 transition-colors"
+                    role="switch"
+                    aria-checked={background()}
+                    disabled={switching()}
+                    onClick={() => void toggleBackground()}
+                    title="Keep recording after MIS is closed, and start with Windows"
+                    class="h-9 px-3 rounded-xl bg-muted border border-border text-xs font-semibold font-space flex items-center gap-2.5 hover:border-primary/40 transition-colors disabled:opacity-60"
                   >
-                    <Show when={paused()} fallback={<Pause size={13} />}>
-                      <Play size={13} />
-                    </Show>
-                    {paused() ? 'Resume' : 'Pause'}
+                    Track in background
+                    <span
+                      class={`w-8 h-[1.125rem] rounded-full p-0.5 flex transition-colors ${
+                        background() ? 'bg-primary justify-end' : 'bg-border justify-start'
+                      }`}
+                    >
+                      <span class="w-3.5 h-3.5 rounded-full bg-background" />
+                    </span>
                   </button>
                 </div>
               </div>
@@ -193,8 +222,10 @@ export default function ScreenTime() {
                   <EmptyChart
                     message={
                       onToday()
-                        ? 'Nothing yet today. Anything you do while MIS is open will appear here.'
-                        : 'No screen time was recorded on this day — MIS was closed, or the tracker was paused.'
+                        ? background()
+                          ? 'Nothing yet today. Anything you do will appear here, even with MIS closed.'
+                          : 'Nothing yet today. Anything you do while MIS is open will appear here. Turn on “Track in background” to record while it is closed.'
+                        : 'No screen time was recorded on this day — MIS was closed and background tracking was off.'
                     }
                   />
                 </Card>
@@ -262,7 +293,7 @@ export default function ScreenTime() {
 
               <Card
                 title="The day, end to end"
-                subtitle="gaps are idle, or MIS closed"
+                subtitle="gaps are idle, or nothing was recording"
                 icon={Clock}
               >
                 <Timeline blocks={summary()?.timeline ?? []} categoryOf={categoryOf} />
@@ -273,7 +304,7 @@ export default function ScreenTime() {
               <WeekBars days={week() ?? []} onPick={setDay} selected={day()} />
             </Card>
 
-            <Privacy day={day()} onDone={refresh} />
+            <Privacy day={day()} background={background()} onDone={refresh} />
           </div>
         </Show>
       </Show>
@@ -375,7 +406,7 @@ function WeekBars(props: { days: CompactDay[]; selected: string; onPick: (day: s
         <div class="flex gap-1.5 mt-2">
           <For each={props.days}>
             {(d) => (
-              <span class="text-[0.5625rem] text-muted-foreground font-mono flex-1 text-center truncate">
+              <span class="text-[0.625rem] text-muted-foreground font-mono flex-1 text-center truncate">
                 {d.day.slice(5)}
               </span>
             )}
@@ -393,11 +424,17 @@ function WeekBars(props: { days: CompactDay[]; selected: string; onPick: (day: s
  * they want it kept, so the way out is on the same screen as the data — not
  * buried in a settings page where you would have to already know it existed.
  */
-function Privacy(props: { day: string; onDone: () => void }) {
+function Privacy(props: { day: string; background: boolean; onDone: () => void }) {
   const [busy, setBusy] = createSignal(false);
 
   const run = async (title: string, question: string, fn: () => Promise<unknown>) => {
-    if (!(await confirm(question, { title, kind: 'warning' }))) return;
+    const yes = await confirmDialog({
+      title,
+      body: question,
+      tone: 'danger',
+      confirmLabel: 'Forget',
+    });
+    if (!yes) return;
     setBusy(true);
     try {
       await fn();
@@ -410,8 +447,10 @@ function Privacy(props: { day: string; onDone: () => void }) {
   return (
     <div class="bg-card rounded-2xl border border-border card-shadow p-5 flex flex-wrap items-center justify-between gap-4">
       <p class="text-xs text-muted-foreground leading-relaxed max-w-xl">
-        Screen time is recorded only while MIS is open, kept encrypted on this computer, and never
-        sent anywhere.
+        {props.background
+          ? 'Screen time is recorded in the background, even with MIS closed, '
+          : 'Screen time is recorded only while MIS is open, '}
+        kept encrypted on this computer and never sent anywhere.
       </p>
       <div class="flex gap-2 flex-shrink-0">
         <button

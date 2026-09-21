@@ -9,6 +9,24 @@
 
 export { default as Card } from './Card';
 export { default as Select, type SelectOption } from './Select';
+export { confirmDialog, DialogHost, messageDialog } from './dialog';
+export { default as Workspace } from './Workspace';
+export { default as EmptyState, type EmptyAction } from './EmptyState';
+export { default as ComingSoon } from './ComingSoon';
+export { default as Toggle } from './Toggle';
+export { navigateTo, registerNavigator } from './navigate';
+export { subViewLabel, useSubViewLabel, viewState } from './viewState';
+export {
+  DEFAULT_THEME,
+  initTheme,
+  resetTheme,
+  themeConfig,
+  THEMES,
+  THEME_KEY,
+  updateTheme,
+  type ThemeConfig,
+  type ThemeId,
+} from './theme';
 export { PanelTile, PanelZoom, SeriesLabel, type PanelDef, type PanelView } from './Panel';
 export {
   BarChart,
@@ -23,7 +41,6 @@ export {
 } from './charts';
 export { createRailTooltip, type RailTooltip } from './railTooltip';
 export { useFullscreen } from './useFullscreen';
-export { editingLayout, setEditingLayout } from './layoutEdit';
 export { TOPIC_ACTION, TOPIC_COLUMNS } from './labels';
 export {
   DIFFICULTY_BADGE,

@@ -1,6 +1,5 @@
 import confetti from 'canvas-confetti';
-import { createEffect, createMemo, createResource, createSignal, onCleanup } from 'solid-js';
-import { createStore, reconcile } from 'solid-js/store';
+import { createMemo, createResource, createSignal, onCleanup } from 'solid-js';
 
 import { todayIso } from '../../core/dates';
 import {
@@ -18,10 +17,8 @@ import {
   type TrackId,
   type TrackScores,
   type UserConfig,
-  type WidgetPlacement,
 } from '../../core/db';
 import { tracksIn } from '../../core/scoring';
-import { reconcileLayout } from './layout';
 
 /**
  * The Daily Log's state and every write it makes.
@@ -64,7 +61,7 @@ export function createDailyLog(mode: () => AppMode) {
         id: 'unsaved',
         date,
         study_hours: 0,
-        dpps_got: 4,
+        dpps_got: 0,
         dpps_complete: 0,
         reading_habit: false,
         revision_habit: false,
@@ -80,6 +77,7 @@ export function createDailyLog(mode: () => AppMode) {
   const doneIds = createMemo(() =>
     db.habit_log.filter((h) => h.date === todayIso()).map((h) => h.habit_id),
   );
+  const todayDpps = createMemo(() => db.dpps.filter((d) => d.date === todayIso()));
   const todayTopics = createMemo(() => db.topics.filter((t) => t.date === todayIso()));
   const tasks = createMemo(() => db.tasks.filter((t) => t.mode === mode()));
 
@@ -183,32 +181,15 @@ export function createDailyLog(mode: () => AppMode) {
     return run(api.addTask(trimmed, subject.trim(), dueDate, mode()));
   };
 
+  const addDpp = (subject: string, topic: string, teacher: string) => {
+    if (!topic.trim()) return;
+    return run(api.addDpp(subject.trim(), topic.trim(), teacher.trim()));
+  };
+  const toggleDpp = (id: string) => run(api.toggleDpp(id));
+  const deleteDpp = (id: string) => run(api.deleteDpp(id));
+
   const toggleTask = (id: string) => run(api.toggleTask(id));
   const deleteTask = (id: string) => run(api.deleteTask(id));
-
-  /**
-   * The track cards' default placement — priority order, one column wide,
-   * except Habits, which needs the full row for its add-habit field. This is
-   * also what a fresh layout (nobody has dragged anything yet) resolves to.
-   */
-  const layoutDefaults = createMemo<WidgetPlacement[]>(() =>
-    tracksIn(mode(), db.track_priorities).map((id) => ({
-      id,
-      size: id === 'habits' ? 'lg' : 'sm',
-    })),
-  );
-
-  // Reconciled into a keyed store, not a plain memo, so a placement whose id
-  // and size did not change keeps its exact object identity across a
-  // recompute — otherwise raising one card's priority would remount every
-  // card in the grid, `<For>` diffs objects by reference, and this array is
-  // rebuilt from scratch on every dependency change.
-  const [layout, setLayoutStore] = createStore<WidgetPlacement[]>([]);
-  createEffect(() => {
-    setLayoutStore(reconcile(reconcileLayout(db.daily_log_layout[mode()], layoutDefaults()), { key: 'id' }));
-  });
-
-  const setLayout = (next: WidgetPlacement[]) => run(api.setDailyLogLayout(mode(), next));
 
   /**
    * Finalise today: lock it and stamp the submitted data's fingerprint.
@@ -249,6 +230,9 @@ export function createDailyLog(mode: () => AppMode) {
     priorities: () => db.track_priorities,
     topics: () => db.topics,
     todayTopics,
+    todayDpps,
+    /** every DPP on record, newest first — for suggesting subjects and teachers */
+    dpps: () => db.dpps,
     nudge,
     scores,
     locked,
@@ -256,8 +240,6 @@ export function createDailyLog(mode: () => AppMode) {
     submittedAt: () => today().submitted_at,
     /** only this mode's tracks are editable here; the other mode owns the rest */
     ordered: createMemo(() => tracksIn(mode(), db.track_priorities)),
-    layout,
-    setLayout,
     dayScore,
     submitLog,
     unlockLog,
@@ -274,6 +256,9 @@ export function createDailyLog(mode: () => AppMode) {
     toggleTopic,
     deleteTopic,
     tasks,
+    addDpp,
+    toggleDpp,
+    deleteDpp,
     addTask,
     toggleTask,
     deleteTask,

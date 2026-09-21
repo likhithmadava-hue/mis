@@ -43,13 +43,18 @@ export default function TimerFace(props: TimerFaceProps) {
     <Show
       when={props.design === 'flip'}
       fallback={
-        /* The ring caps at 280px but shrinks with the window — the viewBox keeps
-           the geometry identical at every size, so the arc maths is untouched.
-           A fixed 280×280 used to overflow its card in a narrow window. */
+        /* The ring fills the space its card actually has. `cqw` / `cqh` are the
+           width and height of the timer's container (the size-contained slot in
+           FocusTimer), so the ring is whatever is left after the pill, tag box
+           and buttons, plus room for the round-finished banner (about 16rem of them) — never a guess from the window
+           height. That is what stops a card stretched by the taller right-hand
+           column from leaving a band of empty space around a small clock.
+           `--ring` is also what the digits and the tree scale from, so the whole
+           face grows together. The viewBox keeps the geometry identical at every
+           size, so the arc maths is untouched. */
         <div
-          class={`relative flex items-center justify-center transition-transform w-[min(17.5rem,70vw)] aspect-square ${
-            props.isFullscreen ? 'scale-125 my-8' : ''
-          }`}
+          style={{ '--ring': 'clamp(12rem, min(100cqw, calc(100cqh - 16rem)), 40rem)' }}
+          class="relative flex items-center justify-center w-[var(--ring)] aspect-square"
         >
           <svg viewBox="0 0 280 280" class="w-full h-full -rotate-90">
             <circle
@@ -76,16 +81,19 @@ export default function TimerFace(props: TimerFaceProps) {
             />
           </svg>
           <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <span class="text-4xl sm:text-5xl mb-1" title="Your tree grows as you focus">
+            <span
+              class="text-[length:calc(var(--ring)*0.13)] leading-none mb-1"
+              title="Your tree grows as you focus"
+            >
               {props.isFocus ? treeStage() : '☕'}
             </span>
-            <span class="text-4xl sm:text-5xl font-bold font-mono tracking-tight tabular-nums">
+            <span class="text-[length:calc(var(--ring)*0.19)] leading-none font-bold font-mono tracking-tight tabular-nums">
               {props.mm}:{props.ss}
             </span>
             <span class="text-[0.625rem] sm:text-xs uppercase tracking-widest font-bold text-muted-foreground mt-1 font-space">
               {caption()}
             </span>
-            <span class="text-[0.625rem] text-muted-foreground/60 font-mono tabular-nums mt-0.5">
+            <span class="text-[0.625rem] text-subtle-foreground font-mono tabular-nums mt-0.5">
               {clock()}
             </span>
           </div>
@@ -94,7 +102,7 @@ export default function TimerFace(props: TimerFaceProps) {
     >
       <div class="flex flex-col items-center gap-4 py-2">
         <span
-          class={props.isFullscreen ? 'text-6xl' : 'text-5xl'}
+          class="text-[length:clamp(2.5rem,min(9cqw,10cqh),6rem)] leading-none"
           title="Your tree grows as you focus"
         >
           {props.isFocus ? treeStage() : '☕'}
@@ -109,12 +117,12 @@ export default function TimerFace(props: TimerFaceProps) {
           // width within a size) looked frozen while resizing. Every tile
           // dimension in .flip-digit is in em off this one font-size, so a
           // clamp() here scales the whole clock continuously with the window.
-          size={props.isFullscreen ? 'text-[clamp(2rem,6.5vw,4.5rem)]' : 'text-[clamp(1.25rem,4vw,2.75rem)]'}
+          size="text-[length:clamp(1.25rem,min(8.5cqw,calc((100cqh-20rem)/1.5)),6rem)]"
         />
         <span class="text-xs uppercase tracking-widest font-bold text-muted-foreground font-space">
           {caption()}
         </span>
-        <span class="text-[0.625rem] text-muted-foreground/60 font-mono tabular-nums -mt-2.5">
+        <span class="text-[0.625rem] text-subtle-foreground font-mono tabular-nums -mt-2.5">
           {clock()}
         </span>
       </div>

@@ -67,6 +67,10 @@ struct DayFile {
 pub struct Settings {
     #[serde(default)]
     pub paused: bool,
+    /// Opt-in: keep recording after the window is closed, and start with
+    /// Windows. Off until the user turns it on.
+    #[serde(default)]
+    pub background: bool,
     /// The user's own app→category assignments, which beat the defaults.
     #[serde(default)]
     pub categories: BTreeMap<String, String>,

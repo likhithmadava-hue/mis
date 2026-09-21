@@ -18,13 +18,13 @@
 //! to gain by being clever about it and a day's log to lose.
 
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::db::{self, types::*, MetricPatch, EntryPatch, NewEntry};
 use crate::error::{MisError, Result};
 use crate::scoring::{self, ScoredDay, Streak};
 use crate::screentime::{self, store::Settings as StSettings, summary, tracker::TrackerStatus};
-use crate::state::AppState;
+use crate::state::{AppState, AuthStatus};
 
 // ── Database ────────────────────────────────────────────────────────────────
 
@@ -173,6 +173,26 @@ pub fn db_add_task(
 }
 
 #[tauri::command]
+pub fn db_add_dpp(
+    state: State<AppState>,
+    subject: String,
+    topic: String,
+    teacher: String,
+) -> Result<()> {
+    state.mutate(|db| db::add_dpp(db, subject, topic, teacher))
+}
+
+#[tauri::command]
+pub fn db_toggle_dpp(state: State<AppState>, id: String) -> Result<()> {
+    state.mutate(|db| db::toggle_dpp_done(db, &id))
+}
+
+#[tauri::command]
+pub fn db_delete_dpp(state: State<AppState>, id: String) -> Result<()> {
+    state.mutate(|db| db::delete_dpp(db, &id))
+}
+
+#[tauri::command]
 pub fn db_toggle_task(state: State<AppState>, id: String) -> Result<()> {
     state.mutate(|db| db::toggle_task_done(db, &id))
 }
@@ -283,9 +303,67 @@ pub fn db_set_daily_log_layout(
 pub fn db_reset(state: State<AppState>, demo: bool) -> Result<DbShape> {
     let fresh = if demo { crate::db::seed::demo_db() } else { crate::db::seed::fresh_db() };
     state.mutate(|db| {
+        // Resetting the *data* must not reset *who you are*. The profile is the
+        // account's identity — wiping it would leave a locked vault whose
+        // password recovery has no username to recover into.
+        let profile = db.profile.take();
         *db = fresh;
+        db.profile = profile;
         Ok(db.clone())
     })
+}
+
+// ── Account ─────────────────────────────────────────────────────────────────
+//
+// These are the only commands that work while the app is locked — that is what
+// they are for. Everything above and below goes through `state.read` /
+// `state.mutate`, which refuse with `locked` until `auth_login` succeeds.
+//
+// The ones that stretch a password are `async` so Argon2's few hundred
+// milliseconds run off the main thread; a synchronous command would freeze the
+// window while it worked.
+
+#[tauri::command]
+pub fn auth_status(state: State<AppState>) -> Result<AuthStatus> {
+    Ok(state.auth_status())
+}
+
+/// Finish onboarding. Resolves with the recovery code — the only time it is ever
+/// shown.
+#[tauri::command]
+pub async fn auth_setup(state: State<'_, AppState>, profile: Profile, password: String) -> Result<String> {
+    state.setup_account(profile, &password)
+}
+
+#[tauri::command]
+pub async fn auth_login(state: State<'_, AppState>, username: String, password: String) -> Result<()> {
+    state.login(&username, &password)
+}
+
+#[tauri::command]
+pub fn auth_lock(state: State<AppState>) -> Result<()> {
+    state.lock_app()
+}
+
+/// Forgotten password: the recovery code plus a new password. Resolves with the
+/// replacement recovery code.
+#[tauri::command]
+pub async fn auth_recover(state: State<'_, AppState>, code: String, new_password: String) -> Result<String> {
+    state.recover(&code, &new_password)
+}
+
+#[tauri::command]
+pub async fn auth_change_password(
+    state: State<'_, AppState>,
+    current: String,
+    new_password: String,
+) -> Result<()> {
+    state.change_password(&current, &new_password)
+}
+
+#[tauri::command]
+pub async fn auth_new_recovery_code(state: State<'_, AppState>, current: String) -> Result<String> {
+    state.new_recovery_code(&current)
 }
 
 // ── Scoring ─────────────────────────────────────────────────────────────────
@@ -373,6 +451,25 @@ pub fn st_range(state: State<AppState>, days: i64) -> Vec<summary::CompactDay> {
 pub fn st_set_paused(state: State<AppState>, paused: bool) -> TrackerStatus {
     state.tracker.set_paused(paused);
     state.tracker.status()
+}
+
+/// Turn background tracking on or off.
+///
+/// On: register the per-user login entry, then remember the choice and show the
+/// tray icon. The entry comes first so a failure to write it leaves the feature
+/// visibly off rather than saved-as-on and doing nothing. Off is the reverse:
+/// the entry and the icon go, and the process ends when the window does.
+#[tauri::command]
+pub fn st_set_background(
+    app: AppHandle,
+    state: State<AppState>,
+    enabled: bool,
+) -> Result<TrackerStatus> {
+    screentime::autostart::set(enabled).map_err(MisError::ScreenTime)?;
+    state.tracker.set_background(enabled);
+    crate::sync_tray(&app, enabled);
+    state.log_event("screentime-background", [("enabled", if enabled { "on" } else { "off" })]);
+    Ok(state.tracker.status())
 }
 
 #[tauri::command]
