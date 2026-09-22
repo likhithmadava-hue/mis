@@ -1,6 +1,6 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import confetti from 'canvas-confetti';
-import { createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
+import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
 
 import { todayIso } from '../../core/dates';
 import { act, api, db, type FocusSettings, type TimerDesign } from '../../core/db';
@@ -138,11 +138,17 @@ export function createFocusTimer() {
    * window is minimised and timers get throttled — a 25-minute round could ring
    * several minutes late. Reading the wall clock every tick means the display
    * can lag but the *end time* cannot.
+   *
+   * `secondsLeft()` is read through `untrack` so this effect depends only on
+   * `isRunning()`. Without it, every `setSecondsLeft` call inside the tick below
+   * re-ran this effect, which recomputed `endAt` from the just-rounded seconds
+   * instead of the original target — each recompute shaved up to half a second
+   * off the true end time, and the round ran roughly a third too fast.
    */
   createEffect(() => {
     if (!isRunning()) return;
 
-    const endAt = Date.now() + secondsLeft() * 1000;
+    const endAt = Date.now() + untrack(secondsLeft) * 1000;
     const tick = setInterval(() => {
       const remaining = Math.max(0, Math.round((endAt - Date.now()) / 1000));
       setSecondsLeft(remaining);

@@ -21,6 +21,12 @@ pub fn default_focus_settings() -> FocusSettings {
         long_break: 15.0,
         rounds_before_long: 4.0,
         timer_design: TimerDesign::Ring,
+        focus_music: FocusMusic::Off,
+        music_volume: 0.5,
+        ambient_sound: AmbientSound::Off,
+        ambient_volume: 0.5,
+        brainwave: Brainwave::Off,
+        brainwave_volume: 0.5,
     }
 }
 
@@ -85,6 +91,8 @@ pub fn fresh_db() -> DbShape {
         habit_log: vec![],
         track_priorities: TrackPriorities::default(),
         app_mode: AppMode::Academic,
+        daily_log_layout: DailyLogLayout::default(),
+        profile: None,
     }
 }
 
@@ -191,9 +199,12 @@ pub fn demo_db() -> DbShape {
     ];
 
     db.tasks = vec![
-        Task { id: uid(), title: "Finish Kinematics DPP sheet".into(), subject: "Physics".into(), due_date: iso_days_ago(0), completed: false },
-        Task { id: uid(), title: "Revise periodic table trends".into(), subject: "Chemistry".into(), due_date: iso_days_ago(0), completed: true },
-        Task { id: uid(), title: "Solve 10 integration problems".into(), subject: "Maths".into(), due_date: iso_days_ago(-1), completed: false },
+        Task { id: uid(), title: "Finish Kinematics DPP sheet".into(), subject: "Physics".into(), due_date: iso_days_ago(0), completed: false, mode: AppMode::Academic },
+        Task { id: uid(), title: "Revise periodic table trends".into(), subject: "Chemistry".into(), due_date: iso_days_ago(0), completed: true, mode: AppMode::Academic },
+        Task { id: uid(), title: "Solve 10 integration problems".into(), subject: "Maths".into(), due_date: iso_days_ago(-1), completed: false, mode: AppMode::Academic },
+        Task { id: uid(), title: "Book a dentist appointment".into(), subject: "Health".into(), due_date: iso_days_ago(-2), completed: false, mode: AppMode::Life },
+        Task { id: uid(), title: "Call mom".into(), subject: "".into(), due_date: iso_days_ago(0), completed: true, mode: AppMode::Life },
+        Task { id: uid(), title: "Laundry".into(), subject: "Chores".into(), due_date: iso_days_ago(1), completed: false, mode: AppMode::Life },
     ];
 
     db.topics = vec![

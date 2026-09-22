@@ -14,6 +14,7 @@
 pub mod day_hash;
 pub mod dev_mirror;
 pub mod migrations;
+pub mod profile;
 pub mod seed;
 pub mod types;
 
@@ -300,6 +301,34 @@ pub fn save_focus_settings(db: &mut DbShape, settings: FocusSettings) {
     db.focus_settings = settings;
 }
 
+// ── Tasks ───────────────────────────────────────────────────────────────────
+
+pub fn add_task(
+    db: &mut DbShape,
+    title: String,
+    subject: String,
+    due_date: String,
+    mode: AppMode,
+) -> Result<()> {
+    refuse_if_locked(db)?;
+    db.tasks.insert(0, Task { id: uid(), title, subject, due_date, completed: false, mode });
+    Ok(())
+}
+
+pub fn toggle_task_done(db: &mut DbShape, id: &str) -> Result<()> {
+    refuse_if_locked(db)?;
+    if let Some(t) = db.tasks.iter_mut().find(|t| t.id == id) {
+        t.completed = !t.completed;
+    }
+    Ok(())
+}
+
+pub fn delete_task(db: &mut DbShape, id: &str) -> Result<()> {
+    refuse_if_locked(db)?;
+    db.tasks.retain(|t| t.id != id);
+    Ok(())
+}
+
 // ── Topics ──────────────────────────────────────────────────────────────────
 
 pub fn add_topic(db: &mut DbShape, name: String, kind: TopicType) -> Result<()> {
@@ -385,6 +414,10 @@ pub fn set_track_priority(db: &mut DbShape, id: TrackId, priority: Priority) {
 
 pub fn set_app_mode(db: &mut DbShape, mode: AppMode) {
     db.app_mode = mode;
+}
+
+pub fn set_daily_log_layout(db: &mut DbShape, mode: AppMode, layout: Vec<WidgetPlacement>) {
+    db.daily_log_layout.set(mode, layout);
 }
 
 #[cfg(test)]

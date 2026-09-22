@@ -1,5 +1,5 @@
-import { ClipboardList } from 'lucide-solid';
-import { For, Show } from 'solid-js';
+import { ChevronDown, ClipboardList } from 'lucide-solid';
+import { createSignal, For, Show, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 
 import type { RemainingItem } from './todayProgress';
@@ -7,10 +7,28 @@ import type { RemainingItem } from './todayProgress';
 interface LeftTodayPanelProps {
   remaining: RemainingItem[];
   allClear: boolean;
+  /**
+   * The editable body for a row, if it has one. Rows with a detail get a
+   * disclosure arrow and can be worked on here; rows without stay a read-only
+   * tally owned by the Daily Log.
+   *
+   * A render prop rather than a field on `RemainingItem` so `todayProgress`
+   * stays numbers — the panel decides what a row *looks* like, including
+   * whether it opens.
+   */
+  detail?: (key: string) => JSX.Element | undefined;
 }
 
-/** what's still outstanding — read-only; the Daily Log owns every number here */
+/**
+ * What's still outstanding today. Mostly a read-out — the Daily Log owns these
+ * numbers — except for the rows that hand back a `detail`, which can be worked
+ * on without leaving the clock.
+ */
 export default function LeftTodayPanel(props: LeftTodayPanelProps) {
+  // One row open at a time: the panel sits beside the clock and a second open
+  // list would push the rest of the day off-screen.
+  const [openKey, setOpenKey] = createSignal<string | null>(null);
+
   return (
     <div class="bg-card rounded-2xl border border-border card-shadow p-6 space-y-4">
       <div class="flex items-center justify-between gap-2">
@@ -40,15 +58,30 @@ export default function LeftTodayPanel(props: LeftTodayPanelProps) {
               if (live <= 0 || item.total <= 0) return 0;
               return Math.min((live / item.total) * 100, 100 - pct());
             };
+            const detail = () => props.detail?.(item.key);
+            const open = () => openKey() === item.key;
             return (
               <div class="space-y-1.5">
-                <div class="flex items-center gap-2">
+                <div
+                  class={`flex items-center gap-2 ${
+                    detail() ? 'cursor-pointer select-none' : ''
+                  }`}
+                  onClick={() => detail() && setOpenKey(open() ? null : item.key)}
+                >
                   <Dynamic
                     component={item.icon}
                     size={14}
                     class={cleared() && !nothingSet() ? 'text-success' : 'text-muted-foreground'}
                   />
                   <span class="text-xs flex-1 min-w-0 truncate">{item.label}</span>
+                  <Show when={detail()}>
+                    <ChevronDown
+                      size={13}
+                      class={`flex-shrink-0 text-muted-foreground transition-transform ${
+                        open() ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </Show>
                   <span
                     class={`text-sm font-bold font-mono flex-shrink-0 ${
                       nothingSet()
@@ -79,6 +112,7 @@ export default function LeftTodayPanel(props: LeftTodayPanelProps) {
                 <Show when={!nothingSet() && item.note?.()}>
                   {(note) => <p class="text-[0.625rem] text-primary font-mono">{note()}</p>}
                 </Show>
+                <Show when={open()}>{detail()}</Show>
               </div>
             );
           }}
@@ -86,7 +120,7 @@ export default function LeftTodayPanel(props: LeftTodayPanelProps) {
       </div>
 
       <p class="text-[0.625rem] text-muted-foreground border-t border-border pt-3">
-        Read-only — change any of these in the Daily Log.
+        Rows with an arrow can be edited here; the rest live in the Daily Log.
       </p>
     </div>
   );

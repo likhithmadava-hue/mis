@@ -1,4 +1,4 @@
-import { Show } from 'solid-js';
+import { createSignal, onCleanup, Show } from 'solid-js';
 
 import type { TimerDesign } from '../../core/db';
 import FlipClock from './FlipClock';
@@ -31,6 +31,13 @@ export default function TimerFace(props: TimerFaceProps) {
   const treeStage = () =>
     TREE_STAGES[Math.min(TREE_STAGES.length - 1, Math.floor(props.progress * TREE_STAGES.length))];
   const caption = () => `${MODE_LABEL[props.mode]} · Round ${props.round}`;
+
+  // The wall clock, not the countdown — the one thing fullscreen focus mode
+  // otherwise hides is what time it actually is.
+  const [now, setNow] = createSignal(new Date());
+  const clockTimer = setInterval(() => setNow(new Date()), 1000);
+  onCleanup(() => clearInterval(clockTimer));
+  const clock = () => now().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   return (
     <Show
@@ -78,6 +85,9 @@ export default function TimerFace(props: TimerFaceProps) {
             <span class="text-[0.625rem] sm:text-xs uppercase tracking-widest font-bold text-muted-foreground mt-1 font-space">
               {caption()}
             </span>
+            <span class="text-[0.625rem] text-muted-foreground/60 font-mono tabular-nums mt-0.5">
+              {clock()}
+            </span>
           </div>
         </div>
       }
@@ -89,14 +99,23 @@ export default function TimerFace(props: TimerFaceProps) {
         >
           {props.isFocus ? treeStage() : '☕'}
         </span>
+        {/* HH:MM:SS off the raw countdown — six tiles need a smaller step than
+            the old four, and hours mean a 180-minute round no longer overflows
+            the minutes pair */}
         <FlipClock
-          minutes={Math.floor(props.secondsLeft / 60)}
-          seconds={props.secondsLeft % 60}
-          sizeClass={props.isFullscreen ? 'text-5xl sm:text-7xl' : 'text-3xl sm:text-5xl'}
-          colorClass={props.isFocus ? 'text-primary' : 'text-success'}
+          totalSeconds={props.secondsLeft}
+          // fluid, not a breakpoint jump: a fixed text-4xl/text-6xl pair only
+          // swaps once at 640px, so every window width in between (and every
+          // width within a size) looked frozen while resizing. Every tile
+          // dimension in .flip-digit is in em off this one font-size, so a
+          // clamp() here scales the whole clock continuously with the window.
+          size={props.isFullscreen ? 'text-[clamp(2rem,6.5vw,4.5rem)]' : 'text-[clamp(1.25rem,4vw,2.75rem)]'}
         />
         <span class="text-xs uppercase tracking-widest font-bold text-muted-foreground font-space">
           {caption()}
+        </span>
+        <span class="text-[0.625rem] text-muted-foreground/60 font-mono tabular-nums -mt-2.5">
+          {clock()}
         </span>
       </div>
     </Show>

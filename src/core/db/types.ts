@@ -34,7 +34,16 @@ export const PRIORITY_WEIGHT: Record<Priority, number> = {
 };
 
 /** the things the Daily Log scores, one column-group each in the old sheet */
-export const TRACK_IDS = ['studies', 'dpps', 'well_spent', 'mood', 'habits', 'wellness'] as const;
+export const TRACK_IDS = [
+  'studies',
+  'dpps',
+  'well_spent',
+  'mood',
+  'habits',
+  'wellness',
+  'academic_tasks',
+  'life_tasks',
+] as const;
 export type TrackId = (typeof TRACK_IDS)[number];
 
 /** the nine kinds of mistake a paper can be tagged with */
@@ -60,6 +69,15 @@ export type TopicType = (typeof TOPIC_TYPES)[number];
 /** which clock face the Focus Timer draws */
 export type TimerDesign = 'ring' | 'flip';
 
+/** which background music loop plays behind the Focus Timer, if any */
+export type FocusMusic = 'off' | 'jazz' | 'lofi';
+
+/** ambient noise layer behind the Focus Timer, if any — independent of `FocusMusic` */
+export type AmbientSound = 'off' | 'white' | 'pink' | 'brown' | 'rain' | 'ocean';
+
+/** binaural-beat brainwave tone behind the Focus Timer, if any */
+export type Brainwave = 'off' | 'delta' | 'theta' | 'alpha' | 'beta' | 'gamma';
+
 // ── Records ─────────────────────────────────────────────────────────────────
 
 export interface UserConfig {
@@ -73,6 +91,55 @@ export interface UserConfig {
   /** sleep window, merged in from the old Wellness tab */
   sleep_bedtime: string;
   sleep_wake: string;
+}
+
+/** One subject as described at onboarding. Mirrors `ProfileSubject` in `types.rs`. */
+export interface ProfileSubject {
+  name: string;
+  /** 1 (shaky) to 5 (confident). A starting guess, before MIS has any data. */
+  confidence: number;
+  /** Free text — "B+", "72%". */
+  last_result: string;
+}
+
+export const PRODUCTIVE_TIMES = ['morning', 'afternoon', 'evening', 'night'] as const;
+export type ProductiveTime = (typeof PRODUCTIVE_TIMES)[number];
+
+/**
+ * The onboarding answers plus the account identifiers. Mirrors `Profile` in
+ * `types.rs`; Rust validates it (`db/profile.rs`), so the wizard's checks are a
+ * courtesy and not the guard. **No secret is in here** — see the Rust docs.
+ */
+export interface Profile {
+  username: string;
+  email: string;
+  full_name: string;
+  age: number;
+  grade: string;
+  program: string;
+  goals: string[];
+  target_exam: string;
+  /** `YYYY-MM-DD`, or empty when there is no fixed date. */
+  exam_date: string;
+  target_score: string;
+  subjects: ProfileSubject[];
+  daily_study_hours: number;
+  focus_span_minutes: number;
+  productive_time: ProductiveTime;
+  /** `HH:MM`; both empty when school hours don't apply. */
+  school_start: string;
+  school_end: string;
+  sleep_bedtime: string;
+  sleep_wake: string;
+  preferences: string[];
+  created_at: string;
+}
+
+/** Which screen the app should show. Mirrors `Stage` in `state.rs`. */
+export type AuthStage = 'setup' | 'locked' | 'unlocked';
+
+export interface AuthStatus {
+  stage: AuthStage;
 }
 
 export interface DailyMetric {
@@ -138,6 +205,8 @@ export interface Task {
   subject: string;
   due_date: string;
   completed: boolean;
+  /** which mode's to-do list this belongs to */
+  mode: AppMode;
 }
 
 export interface TopicItem {
@@ -154,6 +223,12 @@ export interface FocusSettings {
   long_break: number;
   rounds_before_long: number;
   timer_design: TimerDesign;
+  focus_music: FocusMusic;
+  music_volume: number;
+  ambient_sound: AmbientSound;
+  ambient_volume: number;
+  brainwave: Brainwave;
+  brainwave_volume: number;
 }
 
 export interface Habit {
@@ -171,6 +246,26 @@ export interface HabitLogEntry {
   habit_id: string;
 }
 
+/** a Daily Log card's snapped width in the two-column grid */
+export const WIDGET_SIZES = ['sm', 'lg'] as const;
+export type WidgetSize = (typeof WIDGET_SIZES)[number];
+
+/** one track card's place in a hand-arranged Daily Log layout */
+export interface WidgetPlacement {
+  id: TrackId;
+  size: WidgetSize;
+}
+
+/**
+ * A user's hand-arranged Daily Log card order, kept per mode since each mode
+ * shows a different set of cards. Empty until the user actually drags
+ * something — see `reconcileLayout` in `modules/log/layout.ts`.
+ */
+export interface DailyLogLayout {
+  academic: WidgetPlacement[];
+  life: WidgetPlacement[];
+}
+
 /** the whole database, as Rust hands it over */
 export interface DbShape {
   user: UserConfig;
@@ -184,6 +279,9 @@ export interface DbShape {
   habit_log: HabitLogEntry[];
   track_priorities: Record<TrackId, Priority>;
   app_mode: AppMode;
+  daily_log_layout: DailyLogLayout;
+  /** `null` until onboarding has been completed. */
+  profile: Profile | null;
 }
 
 // ── Patches ─────────────────────────────────────────────────────────────────

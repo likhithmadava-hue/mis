@@ -34,6 +34,29 @@ pub enum MisError {
     #[error("today's log is submitted and locked; unlock it to make changes")]
     DayLocked,
 
+    /// The vault is password-protected and nobody has signed in yet. Enforced in
+    /// `state.rs`, not in the UI: the lock screen explains this refusal, it is
+    /// not the thing that produces it.
+    #[error("MIS is locked — sign in to continue")]
+    Locked,
+
+    /// Deliberately one message for a wrong username *and* a wrong password. The
+    /// username is bound into the key derivation, so the two are genuinely
+    /// indistinguishable to this code — and to anyone watching the screen.
+    #[error("That username and password don't match")]
+    BadCredentials,
+
+    #[error("That recovery code isn't right")]
+    BadRecoveryCode,
+
+    /// Too many failed sign-ins in a row. Carries the seconds left to wait.
+    #[error("Too many attempts — try again in {0} seconds")]
+    Throttled(u64),
+
+    /// A form the user can fix: a password that is too short, a malformed email.
+    #[error("{0}")]
+    Invalid(String),
+
     #[error("audit log: {0}")]
     Audit(String),
 
@@ -67,6 +90,11 @@ impl MisError {
             MisError::Corrupt(_) => "corrupt",
             MisError::NotFound(_) => "not-found",
             MisError::DayLocked => "day-locked",
+            MisError::Locked => "locked",
+            MisError::BadCredentials => "bad-credentials",
+            MisError::BadRecoveryCode => "bad-recovery-code",
+            MisError::Throttled(_) => "throttled",
+            MisError::Invalid(_) => "invalid",
             MisError::Audit(_) => "audit",
             MisError::ScreenTime(_) => "screen-time",
             MisError::Io(_) => "io",

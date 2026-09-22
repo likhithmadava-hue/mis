@@ -1,6 +1,6 @@
 import { createMemo, createResource, createSignal, onCleanup } from 'solid-js';
 
-import { todayIso } from '../../core/dates';
+import { longDate, shortDate, todayIso, weekdayShort } from '../../core/dates';
 import {
   api,
   db,
@@ -8,10 +8,12 @@ import {
   marksLost,
   revision,
   type AppMode,
+  type TopicType,
   type TrackId,
 } from '../../core/db';
 import { POSTURE_TARGET, TRACK_META, WELL_SPENT_TARGET } from '../../core/scoring';
-import type { Icon } from '../../core/ui';
+import { TOPIC_ACTION, type Icon } from '../../core/ui';
+import type { WeekDay } from './widgets';
 import { createGrowthData } from './growthData';
 
 /**
@@ -92,17 +94,40 @@ export type ScreenState =
       topApp: string | null;
     };
 
+/**
+ * The one thing on the board that proposes an action instead of reporting a
+ * number — see [`ContinueCard`].
+ *
+ * Every field is read out of the vault as it already stands. There is no
+ * "currently studying" record in MIS and this deliberately does not invent one:
+ * it points at the oldest thing you wrote down and have not ticked, which is a
+ * fact the app can actually defend.
+ */
+export interface ContinuePick {
+  kicker: string;
+  title: string;
+  /** 0–100 */
+  pct: number;
+  meterLabel: string;
+  footnote: string;
+  cta: string;
+  /** which tab finishes this off */
+  goes: 'log' | 'report' | 'focus';
+}
+
 export function createHomeData(mode: () => AppMode) {
   const growth = createGrowthData(mode, () => 7);
 
   const metric = () => growth.today()?.metric ?? null;
   const scores = () => growth.today()?.scores ?? null;
 
-  /** how many habits are ticked today, straight off the store the Log writes to */
-  const habitsDone = createMemo(() => {
+  /** which habits are ticked today, straight off the store the Log writes to */
+  const doneHabitIds = createMemo(() => {
     const date = todayIso();
-    return db.habit_log.filter((h) => h.date === date).length;
+    return new Set(db.habit_log.filter((h) => h.date === date).map((h) => h.habit_id));
   });
+
+  const habitsDone = () => doneHabitIds().size;
 
   // ── the mode's tracks, each with the fact behind its score ─────────────────
 
@@ -157,6 +182,18 @@ export function createHomeData(mode: () => AppMode) {
           pct: ((waterPct + posturePct) / 2) * 100,
         };
       }
+      case 'academic_tasks':
+      case 'life_tasks': {
+        const wantMode: AppMode = id === 'academic_tasks' ? 'academic' : 'life';
+        const date = todayIso();
+        const due = db.tasks.filter((t) => t.mode === wantMode && t.due_date === date);
+        const done = due.filter((t) => t.completed).length;
+        // Nothing due is not the same as everything done — same reasoning as DPPs above.
+        return {
+          detail: due.length > 0 ? `${done} of ${due.length} done` : 'nothing due today',
+          pct: due.length > 0 ? (done / due.length) * 100 : 0,
+        };
+      }
     }
   };
 
@@ -183,10 +220,23 @@ export function createHomeData(mode: () => AppMode) {
     };
   });
 
-  const topics = createMemo(() => ({
-    left: db.topics.filter((t) => !t.done).length,
-    total: db.topics.length,
-  }));
+  /**
+   * The three topic buckets, each counted the way it actually means something.
+   *
+   * `taught` is a **record of what school has covered** — a tally that only goes
+   * up, with nothing in it to finish. The other two are backlogs, so the number
+   * worth showing there is what is still unticked. Counting all three together
+   * gave a "topics left" that grew every time a lesson happened.
+   */
+  const topics = createMemo(() => {
+    const rows = db.topics;
+    const left = (type: TopicType) => rows.filter((t) => t.type === type && !t.done).length;
+    return {
+      taught: rows.filter((t) => t.type === 'taught').length,
+      revise: left('revise'),
+      solve: left('solve'),
+    };
+  });
 
   /**
    * How much of the damage is avoidable.
@@ -242,6 +292,153 @@ export function createHomeData(mode: () => AppMode) {
     };
   });
 
+  // ── What to do next ───────────────────────────────────────────────────────
+
+  /**
+   * The week, named.
+   *
+   * `growth.days()` is the last seven days ending today rather than a
+   * Monday–Sunday calendar week, which is why each column carries its own
+   * weekday label instead of the chart assuming one. A calendar week would have
+   * to draw empty future days every day but Sunday.
+   *
+   * **A day with no log stays `null`** — the chart draws a gap, not a zero.
+   */
+  const week = createMemo<WeekDay[]>(() => {
+    const today = todayIso();
+    return growth.days().map((d) => ({
+      label: weekdayShort(d.date),
+      full: longDate(d.date),
+      value: d.by_mode?.[mode()] ?? null,
+      isToday: d.date === today,
+    }));
+  });
+
+  /** `added today` reads better than the date when the date is today */
+  const added = (date: string) => (date === todayIso() ? 'added today' : `added ${shortDate(date)}`);
+
+  /**
+   * The next thing worth picking up, or null when there genuinely isn't one.
+   *
+   * Academic looks at the topic list first — it is the only place in MIS where
+   * you write down what you meant to study — and falls back to the chapter
+   * bleeding the most marks, which is the logbook's answer to the same question.
+   * Life asks what is still unticked today.
+   *
+   * **Only the revise and solve buckets can be picked.** `taught` records what
+   * school has already covered; it has no tick, so every row in it is forever
+   * `done: false` and it would otherwise monopolise this card with work that is
+   * not yours to do.
+   *
+   * The order inside each mode is "oldest first": the thing that has been
+   * waiting longest is the thing most likely to be quietly abandoned.
+   */
+  const continuePick = createMemo<ContinuePick | null>(() => {
+    const backlog = db.topics.filter((t) => t.type !== 'taught');
+    const total = backlog.length;
+    const done = backlog.filter((t) => t.done).length;
+
+    if (mode() === 'academic') {
+      // `db.topics` is newest-first (Rust inserts at 0), so reversing before the
+      // stable date sort puts the oldest row of a given day first.
+      const next = [...backlog]
+        .reverse()
+        .filter((t) => !t.done)
+        .sort((a, b) => a.date.localeCompare(b.date))[0];
+
+      if (next) {
+        return {
+          kicker: TOPIC_ACTION[next.type],
+          title: next.name,
+          pct: total > 0 ? (done / total) * 100 : 0,
+          meterLabel: `${done} of ${total} topic${total === 1 ? '' : 's'} done`,
+          footnote: added(next.date),
+          cta: 'Continue',
+          goes: 'focus',
+        };
+      }
+
+      // Nothing on the list — the logbook still knows where the marks are going.
+      const worst = growth.papers().chapterBars[0];
+      if (worst) {
+        const subject = worst.label.split(' — ')[0];
+        const subjectRow = growth.papers().subjectBars.find((s) => s.label === subject);
+        return {
+          kicker: 'Costliest chapter',
+          title: worst.label,
+          pct: subjectRow?.pct ?? 0,
+          meterLabel: subjectRow ? `${subject} average` : 'no scored papers yet',
+          footnote: `${worst.value} mark${worst.value === 1 ? '' : 's'} lost here`,
+          cta: 'Revise',
+          goes: 'report',
+        };
+      }
+
+      return null;
+    }
+
+    // Life: whatever is still outstanding today.
+    const ticked = doneHabitIds();
+    const nextHabit = db.habits.find((h) => !ticked.has(h.id));
+    if (nextHabit) {
+      return {
+        kicker: 'Habit not yet ticked',
+        title: nextHabit.name,
+        pct: db.habits.length > 0 ? (ticked.size / db.habits.length) * 100 : 0,
+        meterLabel: `${ticked.size} of ${db.habits.length} ticked today`,
+        footnote: `${nextHabit.priority} priority`,
+        cta: 'Tick it off',
+        goes: 'log',
+      };
+    }
+
+    const water = metric()?.water_count ?? 0;
+    const target = db.user.water_target;
+    if (target > 0 && water < target) {
+      return {
+        kicker: 'Wellness',
+        title: 'Water',
+        pct: (water / target) * 100,
+        meterLabel: `${water} of ${target} cups`,
+        footnote: `${target - water} to go`,
+        cta: 'Log a glass',
+        goes: 'log',
+      };
+    }
+
+    const posture = metric()?.posture_count ?? 0;
+    if (posture < POSTURE_TARGET) {
+      return {
+        kicker: 'Wellness',
+        title: 'Posture check',
+        pct: (posture / POSTURE_TARGET) * 100,
+        meterLabel: `${posture} of ${POSTURE_TARGET} checks`,
+        footnote: `${POSTURE_TARGET - posture} to go`,
+        cta: 'Log a check',
+        goes: 'log',
+      };
+    }
+
+    return null;
+  });
+
+  /**
+   * What the continue card says when there is no pick — and the two cases are
+   * opposites. Nothing set up at all is an invitation; everything finished is a
+   * result, and telling someone who has cleared the day that their list is
+   * empty would read as a rebuke.
+   */
+  const continueEmptyLine = () => {
+    if (mode() === 'academic') {
+      return db.topics.some((t) => t.type !== 'taught')
+        ? 'Everything on your revise and solve lists is ticked, and the logbook has no marks lost to point at. Add what’s next in the Daily Log.'
+        : 'Nothing queued yet. Put what you have to revise or solve on the list in the Daily Log and the next one shows up here.';
+    }
+    return db.habits.length > 0
+      ? 'Everything on today’s list is ticked and your targets are met. Nothing left to pick up.'
+      : 'No habits set up yet. Add the ones you want to keep in the Daily Log and the next one shows up here.';
+  };
+
   // ── Today's screen time ───────────────────────────────────────────────────
 
   const [tick, setTick] = createSignal(0);
@@ -295,6 +492,9 @@ export function createHomeData(mode: () => AppMode) {
     submitted: () => metric()?.locked === true,
     tracks,
     sparks,
+    week,
+    continuePick,
+    continueEmptyLine,
     focusToday,
     topics,
     careless,

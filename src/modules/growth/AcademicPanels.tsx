@@ -41,6 +41,7 @@ import type { GrowthData, Range } from './growthData';
 
 export const ACADEMIC_GROUPS = [
   { value: 'overview', label: 'Overview' },
+  { value: 'analytics', label: 'Mistake Analytics' },
   { value: 'papers', label: 'Papers & Marks' },
   { value: 'all', label: 'Everything' },
 ];
@@ -311,6 +312,107 @@ export function academicPanels(data: GrowthData, range: Range): PanelDef[] {
           />
         </Show>
       ),
+    },
+
+    {
+      id: 'carelessness',
+      title: 'Carelessness Index',
+      subtitle: 'Avoidable mistakes ÷ total mistakes (Careless, Reading, Unit, Sign).',
+      icon: ShieldAlert,
+      group: 'papers',
+      render: (view) => {
+        const full = view === 'full';
+        const papers = () => data.papers();
+        const avoidableCount = () =>
+          papers()
+            .reasonBars.filter((r) => ['Careless', 'Reading', 'Unit', 'Sign'].includes(r.label))
+            .reduce((sum, r) => sum + r.value, 0);
+        const ratio = () =>
+          papers().totalEntries > 0 ? avoidableCount() / papers().totalEntries : 0;
+        const tone = () =>
+          ratio() >= 0.6
+            ? 'text-destructive'
+            : ratio() >= 0.3
+              ? 'text-warning'
+              : 'text-success';
+        const barColor = () =>
+          ratio() >= 0.6
+            ? 'bg-destructive'
+            : ratio() >= 0.3
+              ? 'bg-warning'
+              : 'bg-success';
+        const label = () =>
+          ratio() >= 0.6
+            ? 'High carelessness'
+            : ratio() >= 0.3
+              ? 'Moderate avoidable loss'
+              : 'Excellent control';
+
+        return (
+          <div class={full ? 'space-y-6 max-w-md mx-auto py-4' : 'space-y-3'}>
+            <div class="flex items-baseline justify-between">
+              <span class={`font-display font-semibold ${full ? 'text-5xl' : 'text-2xl'} ${tone()}`}>
+                {ratio().toFixed(2)}
+              </span>
+              <span class="text-xs font-medium text-foreground">{label()}</span>
+            </div>
+            <div class="h-2.5 rounded-full bg-secondary overflow-hidden">
+              <div
+                class={`h-full rounded-full transition-all duration-500 ${barColor()}`}
+                style={{ width: `${Math.min(100, ratio() * 100)}%` }}
+              />
+            </div>
+            <div class="flex justify-between text-[10px] text-muted-foreground font-mono">
+              <span>0.0 · Excellent</span>
+              <span>0.3 · Moderate</span>
+              <span>0.6+ · High</span>
+            </div>
+          </div>
+        );
+      },
+    },
+
+    {
+      id: 'revision-engine',
+      title: 'Revision Priorities',
+      subtitle: 'Chapters ranked by damage, frequency, and difficulty.',
+      icon: Target,
+      group: 'papers',
+      render: (view) => {
+        const full = view === 'full';
+        const priorities = () => data.papers().revisionPriorities;
+        return (
+          <div class="space-y-2">
+            <Show
+              when={priorities().length > 0}
+              fallback={<p class="text-xs text-muted-foreground">No mistakes logged yet.</p>}
+            >
+              <For each={full ? priorities() : priorities().slice(0, 3)}>
+                {(item, idx) => (
+                  <div class="p-2.5 rounded-lg bg-secondary/40 space-y-1.5 text-xs">
+                    <div class="flex items-center justify-between">
+                      <span class="font-medium truncate text-foreground">
+                        <span class="font-mono text-primary mr-1">#{idx() + 1}</span>
+                        {item.chapter}{' '}
+                        <span class="text-muted-foreground font-normal">· {item.subject}</span>
+                      </span>
+                      <span class="font-mono font-bold text-primary ml-2">
+                        {item.score.toFixed(0)}
+                      </span>
+                    </div>
+                    <div class="h-1 rounded-full bg-background overflow-hidden">
+                      <div
+                        class="h-full bg-primary/70 rounded-full"
+                        style={{ width: `${item.relativePct}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </For>
+            </Show>
+          </div>
+        );
+      },
     },
   ];
 }

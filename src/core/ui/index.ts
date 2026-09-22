@@ -23,7 +23,8 @@ export {
 } from './charts';
 export { createRailTooltip, type RailTooltip } from './railTooltip';
 export { useFullscreen } from './useFullscreen';
-export { TOPIC_COLUMNS } from './labels';
+export { editingLayout, setEditingLayout } from './layoutEdit';
+export { TOPIC_ACTION, TOPIC_COLUMNS } from './labels';
 export {
   DIFFICULTY_BADGE,
   DIFFICULTY_COLOR,

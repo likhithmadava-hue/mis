@@ -7,8 +7,9 @@ export const MODE_LABEL: Record<TimerMode, string> = {
   long: 'Long Break',
 };
 
-/** the tree grows as the focus session progresses (Arbor = tree) */
-export const TREE_STAGES = ['🌱', '🌿', '🪴', '🌳'];
+/** the tree grows as the focus session progresses (Arbor = tree); the last
+ *  stage is a bloom, not another tree — a small payoff for finishing */
+export const TREE_STAGES = ['🌰', '🌱', '🌿', '🍀', '🪴', '🌲', '🌳', '🌻'];
 
 export const RING_RADIUS = 120;
 export const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;

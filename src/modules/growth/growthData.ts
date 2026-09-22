@@ -9,6 +9,7 @@ import {
   marksLost,
   revision,
   type AppMode,
+  type Difficulty,
   type MarkLogbookEntry,
   type ScoredDay,
   type Streak,
@@ -146,6 +147,38 @@ function paperAnalytics(logbook: MarkLogbookEntry[]) {
       value: e.max_score > 0 ? Math.round((e.score / e.max_score) * 100) : null,
     }));
 
+  const diffWeights: Record<Difficulty, number> = { Easy: 1, Medium: 2, Hard: 3 };
+  const revMap = new Map<
+    string,
+    { subject: string; chapter: string; marks: number; freq: number; diff: number }
+  >();
+  for (const e of logbook) {
+    const key = `${e.subject} › ${e.chapter || 'General'}`;
+    const cur = revMap.get(key) ?? {
+      subject: e.subject,
+      chapter: e.chapter || 'General',
+      marks: 0,
+      freq: 0,
+      diff: 0,
+    };
+    cur.marks += marksLost(e);
+    cur.freq += 1;
+    cur.diff += diffWeights[e.difficulty] ?? 1;
+    revMap.set(key, cur);
+  }
+  const revItems = [...revMap.entries()]
+    .map(([key, item]) => ({
+      key,
+      ...item,
+      score: item.marks + item.freq * 2 + item.diff,
+    }))
+    .sort((a, b) => b.score - a.score);
+  const topRevScore = revItems[0]?.score || 1;
+  const revisionPriorities = revItems.map((item) => ({
+    ...item,
+    relativePct: Math.min(100, (item.score / topRevScore) * 100),
+  }));
+
   return {
     totalEntries,
     totalMarksLost: logbook.reduce((sum, e) => sum + marksLost(e), 0),
@@ -160,6 +193,7 @@ function paperAnalytics(logbook: MarkLogbookEntry[]) {
     subjectBars,
     chapterBars,
     markTrend,
+    revisionPriorities,
   };
 }
 

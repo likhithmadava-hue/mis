@@ -4,19 +4,22 @@ import {
   Database,
   Dices,
   House,
+  LayoutGrid,
   MonitorPlay,
   PanelLeftClose,
   PanelLeftOpen,
   Quote,
   Sprout,
   Timer,
+  UserRound,
 } from 'lucide-solid';
 import { createEffect, createSignal, For, Match, Show, Switch } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 
 import { db, MODES, setMode, type AppMode } from './core/db';
 import { MODE_META } from './core/scoring';
-import { createRailTooltip, type Icon } from './core/ui';
+import { createRailTooltip, editingLayout, setEditingLayout, type Icon } from './core/ui';
+import { AccountDialog } from './modules/auth';
 import { DatabaseExplorer } from './modules/database';
 import { FocusTimer } from './modules/focus';
 import { Home, Report } from './modules/growth';
@@ -92,13 +95,13 @@ const greeting = () => {
 /**
  * The shell: the rail, the heading, and whichever tab is open.
  *
- * There is no auth gate and no loading state. The old `App` had both — a spinner
- * while a session was worked out, then either a login screen or the workspace,
- * with a large commented-out block explaining how to switch accounts back on.
- * MIS is device-only: the vault is sealed to this Windows account and nothing
- * leaves the machine. If accounts ever come back they will be a new decision
- * with a new design, not a block waiting to be uncommented — so the dead code is
- * gone rather than carried.
+ * There is no auth gate in here and no loading state. The old `App` had both — a
+ * spinner while a session was worked out, then either a login screen or the
+ * workspace, with a large commented-out block for switching accounts back on.
+ * That is gone. Accounts are now local and gated a level up: `index.tsx` mounts
+ * this component only once `core/auth` says the vault is open, so by the time
+ * anything here runs the database is loaded. The account button in the rail is
+ * the way back out (`AccountDialog`).
  *
  * There is also no `triggerUpdate` counter. Every tab used to take one and
  * re-read the database when it changed; now they all read the same reactive
@@ -108,6 +111,7 @@ const greeting = () => {
 export default function App() {
   const [activeTab, setActiveTab] = createSignal<TabId>('home');
   const [navCollapsed, setNavCollapsed] = createSignal(false);
+  const [accountOpen, setAccountOpen] = createSignal(false);
   const [quoteIndex, setQuoteIndex] = createSignal(dayOfYear % QUOTES.length);
 
   // Collapsed, every rail button is a bare icon — this is what says which is
@@ -169,8 +173,8 @@ export default function App() {
                 <Sprout class="text-primary" size={20} />
               </div>
               <div class={navCollapsed() ? 'sm:hidden' : ''}>
-                <h1 class="text-lg font-bold font-space tracking-tight leading-tight">MIS</h1>
-                <p class="text-[0.625rem] text-muted-foreground font-medium">
+                <h1 class="text-xl font-bold font-space tracking-tight leading-none">MIS</h1>
+                <p class="text-[0.6875rem] text-subtle-foreground font-medium mt-1">
                   {MODE_META[mode()].tagline}
                 </p>
               </div>
@@ -211,6 +215,10 @@ export default function App() {
           {/* the tab strip scrolls sideways in a narrow window instead of
               squeezing every label into one row; from sm up it is the rail */}
           <nav class="flex sm:flex-col gap-1 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0">
+            {/* The active item is a translucent wash of the mode accent, not a
+                solid block — and the border is on both states, transparent
+                when inactive, so activating a tab cannot shift its label by a
+                pixel. */}
             <For each={visibleTabs()}>
               {(tab) => (
                 <button
@@ -218,31 +226,97 @@ export default function App() {
                   aria-label={tab.label}
                   aria-current={activeTab() === tab.id ? 'page' : undefined}
                   {...railTip.trigger(tab.label)}
-                  class={`py-2.5 rounded-xl text-sm font-medium flex flex-shrink-0 items-center gap-2.5 whitespace-nowrap transition-colors text-left ${
+                  class={`py-2.5 rounded-xl text-[0.9375rem] font-medium flex flex-shrink-0 items-center gap-3 whitespace-nowrap border transition-colors text-left ${
                     navCollapsed() ? 'px-3 sm:px-0 sm:justify-center' : 'px-3'
                   } ${
                     activeTab() === tab.id
-                      ? 'bg-accent text-primary'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent'
+                      ? 'bg-primary/[0.12] border-primary/20 text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent'
                   }`}
                 >
-                  <Dynamic component={tab.icon} size={16} class="flex-shrink-0" />
+                  <Dynamic component={tab.icon} size={17} class="flex-shrink-0" />
                   <span class={navCollapsed() ? 'sm:hidden' : ''}>{tab.label}</span>
                 </button>
               )}
             </For>
 
-            {/* sits directly under the last tab so it reads as part of the rail
-                — hidden in a narrow window, where the bar is horizontal and
-                never collapses */}
+          </nav>
+        </div>
+
+        {/* The foot of the rail: what the mode means, and the one control that
+            is not a destination. Wide-window only — in the stacked header there
+            is no column to sit at the bottom of, the tagline under the logo
+            already says the same thing, and the bar never collapses there. */}
+        <div class="flex-shrink-0 hidden sm:block">
+          <Show when={!navCollapsed()}>
+            <p class="text-[0.6875rem] text-subtle-foreground italic leading-relaxed mb-3">
+              {MODE_META[mode()].blurb}
+            </p>
+          </Show>
+
+          {/* Collapse used to sit directly under the last tab, which made it
+              read as a sixth place to go. It is a utility, so it lives down
+              here behind a rule, quieter than a nav item. Rearrange joins it
+              here rather than on the Daily Log page itself, because it needs
+              to stay on while you switch cards' focus around the page —a
+              button living inside the grid it controls would be the first
+              thing covered by a dragged card. */}
+          <div class="border-t border-border pt-3">
+            <Show when={activeTab() === 'log'}>
+              <button
+                onClick={() => setEditingLayout((v) => !v)}
+                title={
+                  navCollapsed()
+                    ? undefined
+                    : editingLayout()
+                      ? 'Turn off rearranging'
+                      : 'Drag and resize the cards below'
+                }
+                aria-label={editingLayout() ? 'Done rearranging cards' : 'Rearrange Daily Log cards'}
+                aria-pressed={editingLayout()}
+                {...railTip.trigger('Rearrange Daily Log cards')}
+                class={`w-full mb-1 py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left ${
+                  navCollapsed() ? 'px-0 justify-center' : 'px-3'
+                } ${
+                  editingLayout()
+                    ? 'text-primary bg-primary/10'
+                    : 'text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent'
+                }`}
+              >
+                <LayoutGrid size={16} class="flex-shrink-0" />
+                <span class={navCollapsed() ? 'hidden' : ''}>
+                  {editingLayout() ? 'Done rearranging' : 'Rearrange cards'}
+                </span>
+              </button>
+            </Show>
+            {/* Only once an account exists — before onboarding, and on a build
+                with no account backend, there is nothing to show or lock. */}
+            <Show when={db.profile}>
+              {(profile) => (
+                <button
+                  onClick={() => setAccountOpen(true)}
+                  title={navCollapsed() ? undefined : 'Account, password and lock'}
+                  aria-label="Account"
+                  {...railTip.trigger(`Account — ${profile().full_name}`)}
+                  class={`w-full mb-1 py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent ${
+                    navCollapsed() ? 'px-0 justify-center' : 'px-3'
+                  }`}
+                >
+                  <UserRound size={16} class="flex-shrink-0" />
+                  <span class={`truncate ${navCollapsed() ? 'hidden' : ''}`}>
+                    {profile().full_name}
+                  </span>
+                </button>
+              )}
+            </Show>
             <button
               onClick={() => setNavCollapsed((c) => !c)}
               title={navCollapsed() ? undefined : 'Collapse sidebar'}
               aria-label={navCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-expanded={!navCollapsed()}
               {...railTip.trigger('Expand sidebar')}
-              class={`hidden sm:flex py-2.5 rounded-xl text-sm font-medium items-center gap-2.5 whitespace-nowrap transition-colors text-left text-muted-foreground hover:text-foreground hover:bg-sidebar-accent ${
-                navCollapsed() ? 'px-3 sm:px-0 sm:justify-center' : 'px-3'
+              class={`w-full py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent ${
+                navCollapsed() ? 'px-0 justify-center' : 'px-3'
               }`}
             >
               <Show
@@ -251,20 +325,9 @@ export default function App() {
               >
                 <PanelLeftOpen size={16} class="flex-shrink-0" />
               </Show>
-              <span class={navCollapsed() ? 'sm:hidden' : ''}>Collapse</span>
+              <span class={navCollapsed() ? 'hidden' : ''}>Collapse</span>
             </button>
-          </nav>
-        </div>
-
-        {/* the mode blurb is wide-window only — in the stacked header there is
-            no column to sit at the bottom of, and the tagline under the logo
-            already says the same thing */}
-        <div class="flex-shrink-0 hidden sm:block">
-          <Show when={!navCollapsed()}>
-            <p class="hidden sm:block text-[0.625rem] text-muted-foreground/70 italic leading-relaxed sm:mb-3">
-              {MODE_META[mode()].blurb}
-            </p>
-          </Show>
+          </div>
         </div>
 
         {/* one tooltip for the whole rail — it portals to <body>, so the rail's
@@ -272,22 +335,28 @@ export default function App() {
         <railTip.Tooltip />
       </aside>
 
+      <Show when={accountOpen()}>
+        <AccountDialog onClose={() => setAccountOpen(false)} />
+      </Show>
+
       {/* `main` is the scroll container so the scrollbar sits against the window
           edge rather than halfway across a wide monitor; the column inside it is
           what carries the reading width, and mx-auto centres that column instead
           of pinning it to the left of a 4K window. */}
-      <main class="flex-1 min-w-0 w-full sm:overflow-y-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7">
+      <main class="flex-1 min-w-0 w-full sm:overflow-y-auto px-4 sm:px-8 lg:px-10 py-6 sm:py-9">
         {/* A flex column at least one pane tall, so a tab that wants the whole
             screen can ask for it. Home does: without `min-h-full` here and
             `flex-1` on the tab slot, a short page pinned itself to the top of a
             large monitor and left a third of the window empty. Tabs that are
             taller than the pane simply overflow and `main` scrolls, exactly as
             before. */}
-        <div class="mx-auto w-full max-w-6xl 2xl:max-w-[84rem] min-h-full flex flex-col gap-4 sm:gap-5">
+        <div class="mx-auto w-full max-w-6xl 2xl:max-w-[84rem] min-h-full flex flex-col gap-5 sm:gap-7">
           <header class="flex-shrink-0 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 class="text-2xl font-bold font-space tracking-tight">{activeLabel()}</h2>
-              <p class="text-sm text-muted-foreground mt-0.5">
+              <h2 class="text-[1.875rem] font-bold font-space tracking-tight leading-none">
+                {activeLabel()}
+              </h2>
+              <p class="text-[0.9375rem] text-muted-foreground mt-1.5">
                 {greeting()} —{' '}
                 {new Date().toLocaleDateString([], {
                   weekday: 'long',
@@ -298,28 +367,44 @@ export default function App() {
             </div>
           </header>
 
-          {/* the quote is the home page's own — on a working tab it is one more
-              card between you and the thing you opened the tab to do */}
+          {/* The quote is the home page's own — on a working tab it is one more
+              card between you and the thing you opened the tab to do.
+
+              It is deliberately the most *typographic* thing in the app: an
+              elevated surface, a gradient hairline down the left edge, and one
+              large quotation mark washed back to a few percent opacity. The
+              mark is decoration behind the text rather than an icon in a
+              bubble, which is what stopped it reading as another widget. */}
           <Show when={activeTab() === 'home'}>
-            <div class="flex-shrink-0 animate-rise-in bg-card rounded-2xl border border-border card-shadow p-4 flex items-center gap-3.5 transition-colors hover:border-primary/25">
-              <div class="w-10 h-10 rounded-full bg-accent border border-primary/20 flex items-center justify-center flex-shrink-0">
-                <Quote size={16} class="text-primary" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-base font-medium font-space leading-snug select-text">
+            <figure class="relative flex-shrink-0 overflow-hidden animate-rise-in bg-elevated rounded-2xl border border-border raised-shadow pl-6 pr-4 py-5 sm:pl-8 sm:pr-5 sm:py-6 flex items-center gap-4 transition-colors hover:border-primary/25">
+              <span
+                aria-hidden="true"
+                class="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-primary to-primary-deep"
+              />
+              <Quote
+                aria-hidden="true"
+                size={72}
+                class="pointer-events-none absolute -top-4 left-2 text-primary opacity-[0.06]"
+              />
+
+              <div class="relative flex-1 min-w-0">
+                <blockquote class="text-[1.0625rem] sm:text-lg font-medium font-space leading-relaxed select-text text-balance">
                   “{quote().text}”
-                </p>
-                <p class="text-sm text-muted-foreground mt-0.5">— {quote().author}</p>
+                </blockquote>
+                <figcaption class="mt-2.5 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  {quote().author}
+                </figcaption>
               </div>
+
               <button
                 onClick={shuffleQuote}
                 title="Another quote"
                 aria-label="Another quote"
-                class="flex-shrink-0 p-2.5 rounded-xl bg-muted border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+                class="relative flex-shrink-0 grid place-items-center w-11 h-11 rounded-xl bg-muted border border-border text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-accent transition-colors"
               >
                 <Dices size={18} />
               </button>
-            </div>
+            </figure>
           </Show>
 
           <div class="flex-1 flex flex-col min-h-0">
@@ -328,10 +413,10 @@ export default function App() {
                 <Home mode={mode} onOpen={(tab) => setActiveTab(tab)} />
               </Match>
               <Match when={activeTab() === 'log'}>
-                <DailyLog mode={mode} />
+                <DailyLog mode={mode} onOpen={(tab) => setActiveTab(tab as TabId)} />
               </Match>
               <Match when={activeTab() === 'report'}>
-                <Report mode={mode} />
+                <Report mode={mode} onOpen={(tab) => setActiveTab(tab as TabId)} />
               </Match>
               <Match when={activeTab() === 'db'}>
                 <DatabaseExplorer />

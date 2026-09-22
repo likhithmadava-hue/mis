@@ -19,6 +19,7 @@ import {
   Hourglass,
   Leaf,
   ListChecks,
+  ListTodo,
   Repeat,
   Smile,
 } from 'lucide-solid';
@@ -95,6 +96,8 @@ export const TRACK_META: Record<
   mood:       { label: 'Mood',         icon: Smile,      hint: 'how today actually felt',           mode: 'life' },
   well_spent: { label: 'Well-Spent',   icon: Hourglass,  hint: 'leisure that was worth it',         mode: 'life' },
   wellness:   { label: 'Wellness',     icon: HeartPulse, hint: 'hydration and posture',             mode: 'life' },
+  academic_tasks: { label: 'Tasks', icon: ListTodo, hint: 'today’s to-dos, finished vs due', mode: 'academic' },
+  life_tasks:     { label: 'Tasks', icon: ListTodo, hint: 'today’s to-dos, finished vs due', mode: 'life' },
 };
 
 /** the tracks belonging to a mode, in declaration order */

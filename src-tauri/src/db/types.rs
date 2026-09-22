@@ -65,24 +65,35 @@ pub enum TrackId {
     Mood,
     Habits,
     Wellness,
+    AcademicTasks,
+    LifeTasks,
 }
 
 impl TrackId {
-    pub const ALL: [TrackId; 6] = [
+    pub const ALL: [TrackId; 8] = [
         TrackId::Studies,
         TrackId::Dpps,
         TrackId::WellSpent,
         TrackId::Mood,
         TrackId::Habits,
         TrackId::Wellness,
+        TrackId::AcademicTasks,
+        TrackId::LifeTasks,
     ];
 
     /// Every track belongs to exactly one mode — never both. Academic is the
     /// work that moves marks; Life is what keeps that work sustainable.
+    ///
+    /// The to-do list itself is one shared list split by a task's own `mode`
+    /// field (see `Task`), not two separate lists — but its *score* still has
+    /// to obey this same one-track-one-mode rule, so it is split into
+    /// `AcademicTasks` and `LifeTasks` here, each counting only its own half.
     pub fn mode(self) -> AppMode {
         match self {
-            TrackId::Studies | TrackId::Dpps => AppMode::Academic,
-            TrackId::WellSpent | TrackId::Mood | TrackId::Habits | TrackId::Wellness => AppMode::Life,
+            TrackId::Studies | TrackId::Dpps | TrackId::AcademicTasks => AppMode::Academic,
+            TrackId::WellSpent | TrackId::Mood | TrackId::Habits | TrackId::Wellness | TrackId::LifeTasks => {
+                AppMode::Life
+            }
         }
     }
 }
@@ -138,6 +149,72 @@ impl Default for TimerDesign {
     }
 }
 
+/// Which background music loop plays behind the Focus Timer, if any.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FocusMusic {
+    Off,
+    Jazz,
+    Lofi,
+}
+
+impl Default for FocusMusic {
+    fn default() -> Self {
+        FocusMusic::Off
+    }
+}
+
+fn default_music_volume() -> f64 {
+    0.5
+}
+
+/// Ambient noise layer behind the Focus Timer — synthesised in the frontend
+/// with Web Audio, not shipped as files. Independent of `FocusMusic`: the two
+/// can run at once.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AmbientSound {
+    Off,
+    White,
+    Pink,
+    Brown,
+    Rain,
+    Ocean,
+}
+
+impl Default for AmbientSound {
+    fn default() -> Self {
+        AmbientSound::Off
+    }
+}
+
+fn default_ambient_volume() -> f64 {
+    0.5
+}
+
+/// Binaural-beat brainwave entrainment tone — also synthesised, not a file.
+/// Only audible as intended over headphones (one carrier per ear).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Brainwave {
+    Off,
+    Delta,
+    Theta,
+    Alpha,
+    Beta,
+    Gamma,
+}
+
+impl Default for Brainwave {
+    fn default() -> Self {
+        Brainwave::Off
+    }
+}
+
+fn default_brainwave_volume() -> f64 {
+    0.5
+}
+
 /// The two habits whose state is mirrored into `DailyMetric` for the Growth
 /// Tracker's streak matrix. New habits do not get one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -173,6 +250,70 @@ fn default_bedtime() -> String {
 }
 fn default_wake() -> String {
     "06:30".into()
+}
+
+/// One subject the person is studying, as they described it at onboarding.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ProfileSubject {
+    pub name: String,
+    /// 1 (shaky) to 5 (confident) — how they rate themselves *before* MIS has
+    /// any data. It is a starting guess, and the mistake analytics will
+    /// eventually contradict it, which is the point of keeping it.
+    pub confidence: u8,
+    /// Free text — "B+", "72%", "Grade 7". Not parsed.
+    pub last_result: String,
+}
+
+/// Who the person is and what they are working towards: the answers from the
+/// onboarding questionnaire, plus the account identifiers shown back to them.
+///
+/// **No secret lives here.** The password and the recovery code are turned into
+/// keys in `vault.key` (`vault/passkey.rs`), which has to be readable *before*
+/// the vault can be — so the credential material cannot sit in the vault it
+/// unlocks. This record is what the vault holds *about* the account, not the
+/// means of opening it.
+///
+/// Every field defaults, so a profile written by an older build still loads
+/// after a field is added.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Profile {
+    // account
+    pub username: String,
+    pub email: String,
+
+    // about you
+    pub full_name: String,
+    pub age: u32,
+    /// "Class 11", "Year 12", "Undergraduate"…
+    pub grade: String,
+
+    // what you are working towards
+    /// "CBSE / ICSE", "IGCSE (Cambridge)", "JEE", "NEET"…
+    pub program: String,
+    pub goals: Vec<String>,
+    pub target_exam: String,
+    /// `YYYY-MM-DD`, or empty when there is no fixed date.
+    pub exam_date: String,
+    /// "90%", "A*", "AIR under 1000" — free text.
+    pub target_score: String,
+    pub subjects: Vec<ProfileSubject>,
+
+    // how you work
+    pub daily_study_hours: f64,
+    /// How long you can hold focus before drifting, in minutes.
+    pub focus_span_minutes: f64,
+    /// `morning` | `afternoon` | `evening` | `night`
+    pub productive_time: String,
+    /// School or college hours, `HH:MM`; both empty when not applicable.
+    pub school_start: String,
+    pub school_end: String,
+    pub sleep_bedtime: String,
+    pub sleep_wake: String,
+    pub preferences: Vec<String>,
+
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -311,6 +452,10 @@ pub struct Task {
     #[serde(default)]
     pub due_date: String,
     pub completed: bool,
+    /// which mode's to-do list this belongs to — a vault from before this field
+    /// existed defaults every task to Academic, where the feature started
+    #[serde(default)]
+    pub mode: AppMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -331,6 +476,18 @@ pub struct FocusSettings {
     pub rounds_before_long: f64,
     #[serde(default)]
     pub timer_design: TimerDesign,
+    #[serde(default)]
+    pub focus_music: FocusMusic,
+    #[serde(default = "default_music_volume")]
+    pub music_volume: f64,
+    #[serde(default)]
+    pub ambient_sound: AmbientSound,
+    #[serde(default = "default_ambient_volume")]
+    pub ambient_volume: f64,
+    #[serde(default)]
+    pub brainwave: Brainwave,
+    #[serde(default = "default_brainwave_volume")]
+    pub brainwave_volume: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -369,6 +526,10 @@ pub struct TrackPriorities {
     pub well_spent: Priority,
     #[serde(default = "low")]
     pub wellness: Priority,
+    #[serde(default = "medium")]
+    pub academic_tasks: Priority,
+    #[serde(default = "medium")]
+    pub life_tasks: Priority,
 }
 
 fn high() -> Priority {
@@ -390,6 +551,8 @@ impl TrackPriorities {
             TrackId::Mood => self.mood,
             TrackId::WellSpent => self.well_spent,
             TrackId::Wellness => self.wellness,
+            TrackId::AcademicTasks => self.academic_tasks,
+            TrackId::LifeTasks => self.life_tasks,
         }
     }
 
@@ -401,6 +564,8 @@ impl TrackPriorities {
             TrackId::Mood => self.mood = p,
             TrackId::WellSpent => self.well_spent = p,
             TrackId::Wellness => self.wellness = p,
+            TrackId::AcademicTasks => self.academic_tasks = p,
+            TrackId::LifeTasks => self.life_tasks = p,
         }
     }
 }
@@ -414,6 +579,57 @@ impl Default for TrackPriorities {
             mood: Priority::Medium,
             well_spent: Priority::Low,
             wellness: Priority::Low,
+            academic_tasks: Priority::Medium,
+            life_tasks: Priority::Medium,
+        }
+    }
+}
+
+/// A Daily Log card's snapped width in the two-column grid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WidgetSize {
+    Sm,
+    Lg,
+}
+
+impl Default for WidgetSize {
+    fn default() -> Self {
+        WidgetSize::Sm
+    }
+}
+
+/// One track card's place in a hand-arranged Daily Log layout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WidgetPlacement {
+    pub id: TrackId,
+    #[serde(default)]
+    pub size: WidgetSize,
+}
+
+/// A user's hand-arranged Daily Log card order, kept per mode since each mode
+/// shows a different set of cards. Empty until the user actually drags
+/// something — until then the Daily Log falls back to priority order, exactly
+/// as it always has.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DailyLogLayout {
+    pub academic: Vec<WidgetPlacement>,
+    pub life: Vec<WidgetPlacement>,
+}
+
+impl DailyLogLayout {
+    pub fn get(&self, mode: AppMode) -> &Vec<WidgetPlacement> {
+        match mode {
+            AppMode::Academic => &self.academic,
+            AppMode::Life => &self.life,
+        }
+    }
+
+    pub fn set(&mut self, mode: AppMode, layout: Vec<WidgetPlacement>) {
+        match mode {
+            AppMode::Academic => self.academic = layout,
+            AppMode::Life => self.life = layout,
         }
     }
 }
@@ -441,6 +657,12 @@ pub struct DbShape {
     pub track_priorities: TrackPriorities,
     #[serde(default)]
     pub app_mode: AppMode,
+    #[serde(default)]
+    pub daily_log_layout: DailyLogLayout,
+    /// `None` until onboarding has been completed. That absence is what routes a
+    /// launch to the setup wizard — including for a vault that predates it.
+    #[serde(default)]
+    pub profile: Option<Profile>,
 }
 
 /// A fresh id. The old TS `uid()` produced a random string; anything unique

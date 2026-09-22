@@ -24,7 +24,7 @@ use crate::db::{self, types::*, MetricPatch, EntryPatch, NewEntry};
 use crate::error::{MisError, Result};
 use crate::scoring::{self, ScoredDay, Streak};
 use crate::screentime::{self, store::Settings as StSettings, summary, tracker::TrackerStatus};
-use crate::state::AppState;
+use crate::state::{AppState, AuthStatus};
 
 // ── Database ────────────────────────────────────────────────────────────────
 
@@ -159,6 +159,29 @@ pub fn db_save_focus_settings(state: State<AppState>, settings: FocusSettings) -
     })
 }
 
+// ── Tasks ───────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn db_add_task(
+    state: State<AppState>,
+    title: String,
+    subject: String,
+    due_date: String,
+    mode: AppMode,
+) -> Result<()> {
+    state.mutate(|db| db::add_task(db, title, subject, due_date, mode))
+}
+
+#[tauri::command]
+pub fn db_toggle_task(state: State<AppState>, id: String) -> Result<()> {
+    state.mutate(|db| db::toggle_task_done(db, &id))
+}
+
+#[tauri::command]
+pub fn db_delete_task(state: State<AppState>, id: String) -> Result<()> {
+    state.mutate(|db| db::delete_task(db, &id))
+}
+
 // ── Topics ──────────────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -238,6 +261,18 @@ pub fn db_set_app_mode(state: State<AppState>, mode: AppMode) -> Result<()> {
     })
 }
 
+#[tauri::command]
+pub fn db_set_daily_log_layout(
+    state: State<AppState>,
+    mode: AppMode,
+    layout: Vec<WidgetPlacement>,
+) -> Result<()> {
+    state.mutate(|db| {
+        db::set_daily_log_layout(db, mode, layout);
+        Ok(())
+    })
+}
+
 /// Wipe the database back to a starting state.
 ///
 /// `demo` fills it with two weeks of sample data instead of leaving it empty.
@@ -248,9 +283,67 @@ pub fn db_set_app_mode(state: State<AppState>, mode: AppMode) -> Result<()> {
 pub fn db_reset(state: State<AppState>, demo: bool) -> Result<DbShape> {
     let fresh = if demo { crate::db::seed::demo_db() } else { crate::db::seed::fresh_db() };
     state.mutate(|db| {
+        // Resetting the *data* must not reset *who you are*. The profile is the
+        // account's identity — wiping it would leave a locked vault whose
+        // password recovery has no username to recover into.
+        let profile = db.profile.take();
         *db = fresh;
+        db.profile = profile;
         Ok(db.clone())
     })
+}
+
+// ── Account ─────────────────────────────────────────────────────────────────
+//
+// These are the only commands that work while the app is locked — that is what
+// they are for. Everything above and below goes through `state.read` /
+// `state.mutate`, which refuse with `locked` until `auth_login` succeeds.
+//
+// The ones that stretch a password are `async` so Argon2's few hundred
+// milliseconds run off the main thread; a synchronous command would freeze the
+// window while it worked.
+
+#[tauri::command]
+pub fn auth_status(state: State<AppState>) -> Result<AuthStatus> {
+    Ok(state.auth_status())
+}
+
+/// Finish onboarding. Resolves with the recovery code — the only time it is ever
+/// shown.
+#[tauri::command]
+pub async fn auth_setup(state: State<'_, AppState>, profile: Profile, password: String) -> Result<String> {
+    state.setup_account(profile, &password)
+}
+
+#[tauri::command]
+pub async fn auth_login(state: State<'_, AppState>, username: String, password: String) -> Result<()> {
+    state.login(&username, &password)
+}
+
+#[tauri::command]
+pub fn auth_lock(state: State<AppState>) -> Result<()> {
+    state.lock_app()
+}
+
+/// Forgotten password: the recovery code plus a new password. Resolves with the
+/// replacement recovery code.
+#[tauri::command]
+pub async fn auth_recover(state: State<'_, AppState>, code: String, new_password: String) -> Result<String> {
+    state.recover(&code, &new_password)
+}
+
+#[tauri::command]
+pub async fn auth_change_password(
+    state: State<'_, AppState>,
+    current: String,
+    new_password: String,
+) -> Result<()> {
+    state.change_password(&current, &new_password)
+}
+
+#[tauri::command]
+pub async fn auth_new_recovery_code(state: State<'_, AppState>, current: String) -> Result<String> {
+    state.new_recovery_code(&current)
 }
 
 // ── Scoring ─────────────────────────────────────────────────────────────────

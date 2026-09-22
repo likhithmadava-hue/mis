@@ -1,5 +1,6 @@
 import confetti from 'canvas-confetti';
-import { createMemo, createResource, createSignal, onCleanup } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, onCleanup } from 'solid-js';
+import { createStore, reconcile } from 'solid-js/store';
 
 import { todayIso } from '../../core/dates';
 import {
@@ -17,8 +18,10 @@ import {
   type TrackId,
   type TrackScores,
   type UserConfig,
+  type WidgetPlacement,
 } from '../../core/db';
 import { tracksIn } from '../../core/scoring';
+import { reconcileLayout } from './layout';
 
 /**
  * The Daily Log's state and every write it makes.
@@ -78,6 +81,7 @@ export function createDailyLog(mode: () => AppMode) {
     db.habit_log.filter((h) => h.date === todayIso()).map((h) => h.habit_id),
   );
   const todayTopics = createMemo(() => db.topics.filter((t) => t.date === todayIso()));
+  const tasks = createMemo(() => db.tasks.filter((t) => t.mode === mode()));
 
   // Today's scores, computed in Rust from the same data the day is fingerprinted
   // with. Asking for a one-day range is how the Log gets exactly the numbers the
@@ -95,6 +99,8 @@ export function createDailyLog(mode: () => AppMode) {
     mood: 0,
     habits: 0,
     wellness: 0,
+    academic_tasks: 0,
+    life_tasks: 0,
   };
   const scores = () => scored()?.scores ?? ZERO;
   const dayScore = () => scored()?.by_mode?.[mode()] ?? 0;
@@ -171,6 +177,39 @@ export function createDailyLog(mode: () => AppMode) {
   const toggleTopic = (id: string) => run(api.toggleTopic(id));
   const deleteTopic = (id: string) => run(api.deleteTopic(id));
 
+  const addTask = (title: string, subject: string, dueDate: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    return run(api.addTask(trimmed, subject.trim(), dueDate, mode()));
+  };
+
+  const toggleTask = (id: string) => run(api.toggleTask(id));
+  const deleteTask = (id: string) => run(api.deleteTask(id));
+
+  /**
+   * The track cards' default placement — priority order, one column wide,
+   * except Habits, which needs the full row for its add-habit field. This is
+   * also what a fresh layout (nobody has dragged anything yet) resolves to.
+   */
+  const layoutDefaults = createMemo<WidgetPlacement[]>(() =>
+    tracksIn(mode(), db.track_priorities).map((id) => ({
+      id,
+      size: id === 'habits' ? 'lg' : 'sm',
+    })),
+  );
+
+  // Reconciled into a keyed store, not a plain memo, so a placement whose id
+  // and size did not change keeps its exact object identity across a
+  // recompute — otherwise raising one card's priority would remount every
+  // card in the grid, `<For>` diffs objects by reference, and this array is
+  // rebuilt from scratch on every dependency change.
+  const [layout, setLayoutStore] = createStore<WidgetPlacement[]>([]);
+  createEffect(() => {
+    setLayoutStore(reconcile(reconcileLayout(db.daily_log_layout[mode()], layoutDefaults()), { key: 'id' }));
+  });
+
+  const setLayout = (next: WidgetPlacement[]) => run(api.setDailyLogLayout(mode(), next));
+
   /**
    * Finalise today: lock it and stamp the submitted data's fingerprint.
    *
@@ -196,10 +235,10 @@ export function createDailyLog(mode: () => AppMode) {
   };
 
   /** A logged paper feeds the charts, not this tab — hence no nudge about today. */
-  const addPaper = (entry: Omit<Parameters<typeof api.addMarkEntry>[0], 'date'>) =>
+  const addPaper = (entry: Parameters<typeof api.addMarkEntry>[0]) =>
     run(
-      api.addMarkEntry({ ...entry, date: todayIso() }),
-      '📌 Paper logged — see the Growth Tracker for the updated charts.',
+      api.addMarkEntry({ ...entry, date: entry.date || todayIso() }),
+      '📌 Mistake logged — see the Mistake Analytics for updated charts.',
     );
 
   return {
@@ -217,6 +256,8 @@ export function createDailyLog(mode: () => AppMode) {
     submittedAt: () => today().submitted_at,
     /** only this mode's tracks are editable here; the other mode owns the rest */
     ordered: createMemo(() => tracksIn(mode(), db.track_priorities)),
+    layout,
+    setLayout,
     dayScore,
     submitLog,
     unlockLog,
@@ -232,6 +273,10 @@ export function createDailyLog(mode: () => AppMode) {
     addTopic,
     toggleTopic,
     deleteTopic,
+    tasks,
+    addTask,
+    toggleTask,
+    deleteTask,
     addPaper,
   };
 }

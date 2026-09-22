@@ -23,10 +23,14 @@ import { createSignal } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 
 import * as api from './api';
-import type { AppMode, DbShape } from './types';
+import type { AppMode, DbShape, WidgetPlacement } from './types';
 
 /**
  * The shape the store holds before [`boot`] has run.
+ *
+ * A *function*, not a constant: Solid's `createStore` mutates the object it is
+ * given, so a shared constant would end up holding real data and could no longer
+ * be used to blank the store on lock.
  *
  * It exists so `db` is never null and no component has to guard against a
  * half-loaded database. Nothing renders against it in practice — `main.tsx`
@@ -34,7 +38,7 @@ import type { AppMode, DbShape } from './types';
  * and an *empty* one is the only honest choice. Filling it with plausible
  * numbers would put figures on screen that were never anyone's data.
  */
-const EMPTY: DbShape = {
+const emptyDb = (): DbShape => ({
   user: {
     id: 'user',
     name: '',
@@ -57,6 +61,12 @@ const EMPTY: DbShape = {
     long_break: 15,
     rounds_before_long: 4,
     timer_design: 'ring',
+    focus_music: 'off',
+    music_volume: 0.5,
+    ambient_sound: 'off',
+    ambient_volume: 0.5,
+    brainwave: 'off',
+    brainwave_volume: 0.5,
   },
   habits: [],
   habit_log: [],
@@ -67,11 +77,15 @@ const EMPTY: DbShape = {
     mood: 'medium',
     habits: 'medium',
     wellness: 'low',
+    academic_tasks: 'medium',
+    life_tasks: 'medium',
   },
   app_mode: 'academic',
-};
+  daily_log_layout: { academic: [], life: [] },
+  profile: null,
+});
 
-const [state, setState] = createStore<DbShape>(EMPTY);
+const [state, setState] = createStore<DbShape>(emptyDb());
 
 /** The database. Read it; never assign to it. */
 export const db = state as Readonly<DbShape>;
@@ -106,6 +120,20 @@ export async function boot(): Promise<void> {
 }
 
 /**
+ * Drop everything held in memory, for when the app locks.
+ *
+ * Locking on the Rust side forgets the key and the database; this is the same
+ * promise made on this side of the bridge. Without it the lock screen would sit
+ * over a store still full of the person's marks and mistakes, one devtools
+ * console away from being read.
+ */
+export function clear(): void {
+  setState(reconcile(emptyDb(), { key: 'id', merge: false }));
+  bumpRevision((n) => n + 1);
+  setReady(false);
+}
+
+/**
  * Run a command, then refresh this view from what Rust actually stored.
  *
  * Every mutation in the app goes through here. The refresh is not optimism
@@ -137,3 +165,7 @@ export async function act<T>(command: Promise<T>): Promise<T> {
 export const mode = () => db.app_mode;
 
 export const setMode = (next: AppMode) => act(api.setAppMode(next));
+
+/** Save a hand-arranged Daily Log card order for one mode. */
+export const setDailyLogLayout = (mode: AppMode, layout: WidgetPlacement[]) =>
+  act(api.setDailyLogLayout(mode, layout));

@@ -42,6 +42,32 @@ pub fn migrate(db: &mut Value) -> bool {
             fs.insert("timer_design".into(), Value::String("ring".into()));
             migrated = true;
         }
+        // Settings saved before the focus-music player existed.
+        if !fs.contains_key("focus_music") {
+            fs.insert("focus_music".into(), Value::String("off".into()));
+            migrated = true;
+        }
+        if !fs.contains_key("music_volume") {
+            fs.insert("music_volume".into(), serde_json::json!(0.5));
+            migrated = true;
+        }
+        // Settings saved before ambient noise and brainwave tones existed.
+        if !fs.contains_key("ambient_sound") {
+            fs.insert("ambient_sound".into(), Value::String("off".into()));
+            migrated = true;
+        }
+        if !fs.contains_key("ambient_volume") {
+            fs.insert("ambient_volume".into(), serde_json::json!(0.5));
+            migrated = true;
+        }
+        if !fs.contains_key("brainwave") {
+            fs.insert("brainwave".into(), Value::String("off".into()));
+            migrated = true;
+        }
+        if !fs.contains_key("brainwave_volume") {
+            fs.insert("brainwave_volume".into(), serde_json::json!(0.5));
+            migrated = true;
+        }
     }
 
     // The sleep window used to live in Wellness component state and was never

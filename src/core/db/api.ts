@@ -21,11 +21,12 @@
  * Errors arrive as `{ code, message }` — see [`MisError`] below.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from './bridge';
 
 import type {
   AppMode,
   AuditRecord,
+  AuthStatus,
   Availability,
   CompactDay,
   DailyMetric,
@@ -37,6 +38,7 @@ import type {
   MetricPatch,
   NewEntry,
   Priority,
+  Profile,
   ScoredDay,
   StSettings,
   Streak,
@@ -45,6 +47,7 @@ import type {
   TrackerStatus,
   UserConfig,
   VaultInfo,
+  WidgetPlacement,
 } from './types';
 
 // ── Errors ──────────────────────────────────────────────────────────────────
@@ -57,9 +60,20 @@ export interface MisError {
     | 'corrupt'
     | 'not-found'
     | 'day-locked'
+    /** The vault is password-protected and nobody has signed in. */
+    | 'locked'
+    /** Wrong username or password — deliberately not told apart. */
+    | 'bad-credentials'
+    | 'bad-recovery-code'
+    /** Too many failed sign-ins; the message says how long to wait. */
+    | 'throttled'
+    /** A form problem the user can fix; the message says which. */
+    | 'invalid'
     | 'audit'
     | 'screen-time'
-    | 'io';
+    | 'io'
+    /** Android only: the command has no Kotlin backend implementation this pass (see `MisPlugin.kt`). */
+    | 'not-implemented';
   message: string;
 }
 
@@ -75,9 +89,48 @@ const isMisError = (e: unknown): e is MisError =>
  */
 export const isDayLocked = (e: unknown) => isMisError(e) && e.code === 'day-locked';
 
+/** The stable tag of a rejection, or `undefined` if it wasn't one of ours. */
+export const errorCode = (e: unknown): MisError['code'] | undefined =>
+  isMisError(e) ? e.code : undefined;
+
 /** The sentence to show the user for any rejection, however it arrived. */
 export const errorMessage = (e: unknown) =>
   isMisError(e) ? e.message : e instanceof Error ? e.message : String(e);
+
+// ── Account ─────────────────────────────────────────────────────────────────
+//
+// The only commands that work while the app is locked. Every other command
+// rejects with `locked` until `authLogin` resolves — enforced in Rust, so this
+// list is not the lock, only the way to open it.
+
+export const authStatus = () => invoke<AuthStatus>('auth_status');
+
+/**
+ * Finish onboarding: store the profile and put the vault behind the password.
+ * Resolves with the recovery code — the one and only time it is ever available.
+ */
+export const authSetup = (profile: Profile, password: string) =>
+  invoke<string>('auth_setup', { profile, password });
+
+export const authLogin = (username: string, password: string) =>
+  invoke<void>('auth_login', { username, password });
+
+/** Lock MIS without quitting. */
+export const authLock = () => invoke<void>('auth_lock');
+
+/**
+ * Reset a forgotten password with the recovery code. Signs in, and resolves with
+ * the *replacement* code — the one used is retired.
+ */
+export const authRecover = (code: string, newPassword: string) =>
+  invoke<string>('auth_recover', { code, newPassword });
+
+export const authChangePassword = (current: string, newPassword: string) =>
+  invoke<void>('auth_change_password', { current, newPassword });
+
+/** Retire the current recovery code and get a new one. Needs the password. */
+export const authNewRecoveryCode = (current: string) =>
+  invoke<string>('auth_new_recovery_code', { current });
 
 // ── Database ────────────────────────────────────────────────────────────────
 
@@ -138,6 +191,15 @@ export const addStudyMinutes = (minutes: number) =>
 export const saveFocusSettings = (settings: FocusSettings) =>
   invoke<void>('db_save_focus_settings', { settings });
 
+// ── Tasks ───────────────────────────────────────────────────────────────────
+
+export const addTask = (title: string, subject: string, dueDate: string, mode: AppMode) =>
+  invoke<void>('db_add_task', { title, subject, dueDate, mode });
+
+export const toggleTask = (id: string) => invoke<void>('db_toggle_task', { id });
+
+export const deleteTask = (id: string) => invoke<void>('db_delete_task', { id });
+
 // ── Topics ──────────────────────────────────────────────────────────────────
 
 export const addTopic = (name: string, kind: TopicType) =>
@@ -169,6 +231,9 @@ export const setTrackPriority = (id: TrackId, priority: Priority) =>
   invoke<void>('db_set_track_priority', { id, priority });
 
 export const setAppMode = (mode: AppMode) => invoke<void>('db_set_app_mode', { mode });
+
+export const setDailyLogLayout = (mode: AppMode, layout: WidgetPlacement[]) =>
+  invoke<void>('db_set_daily_log_layout', { mode, layout });
 
 /**
  * Wipe the database back to a starting state.

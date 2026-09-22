@@ -53,7 +53,17 @@ mod imp {
     use super::MIRROR_FILE_NAME;
 
     pub fn write(dir: &Path, db: &DbShape) -> Result<()> {
-        let mut conn = Connection::open(dir.join(MIRROR_FILE_NAME))?;
+        // The schema is only ever created, never migrated — `CREATE TABLE IF
+        // NOT EXISTS` against a file left over from an older debug build
+        // keeps its old columns forever, and a save after a schema change
+        // (like this one adding `focus_music`/`music_volume`) fails outright
+        // instead of staying the harmless no-op the doc comment above
+        // promises. Deleting the file first keeps "rebuilt from scratch" true
+        // of the schema, not just the rows.
+        let path = dir.join(MIRROR_FILE_NAME);
+        let _ = std::fs::remove_file(&path);
+
+        let mut conn = Connection::open(&path)?;
         conn.execute_batch(SCHEMA)?;
 
         let tx = conn.transaction()?;
@@ -155,11 +165,18 @@ mod imp {
 
         {
             let mut stmt = tx.prepare(
-                "INSERT INTO tasks (id, title, subject, due_date, completed)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT INTO tasks (id, title, subject, due_date, completed, mode)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             )?;
             for t in &db.tasks {
-                stmt.execute(params![t.id, t.title, t.subject, t.due_date, t.completed])?;
+                stmt.execute(params![
+                    t.id,
+                    t.title,
+                    t.subject,
+                    t.due_date,
+                    t.completed,
+                    ser_str(&t.mode)
+                ])?;
             }
         }
 
@@ -175,14 +192,21 @@ mod imp {
         let fs = &db.focus_settings;
         tx.execute(
             "INSERT INTO focus_settings
-                (focus_minutes, short_break, long_break, rounds_before_long, timer_design)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+                (focus_minutes, short_break, long_break, rounds_before_long, timer_design, focus_music, music_volume,
+                 ambient_sound, ambient_volume, brainwave, brainwave_volume)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 fs.focus_minutes,
                 fs.short_break,
                 fs.long_break,
                 fs.rounds_before_long,
                 ser_str(&fs.timer_design),
+                ser_str(&fs.focus_music),
+                fs.music_volume,
+                ser_str(&fs.ambient_sound),
+                fs.ambient_volume,
+                ser_str(&fs.brainwave),
+                fs.brainwave_volume,
             ],
         )?;
 
@@ -219,6 +243,8 @@ mod imp {
                 ("mood", tp.mood),
                 ("well_spent", tp.well_spent),
                 ("wellness", tp.wellness),
+                ("academic_tasks", tp.academic_tasks),
+                ("life_tasks", tp.life_tasks),
             ] {
                 stmt.execute(params![track, ser_str(&priority)])?;
             }
@@ -300,7 +326,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     title TEXT NOT NULL,
     subject TEXT NOT NULL,
     due_date TEXT NOT NULL,
-    completed INTEGER NOT NULL
+    completed INTEGER NOT NULL,
+    mode TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS topics (
@@ -316,7 +343,13 @@ CREATE TABLE IF NOT EXISTS focus_settings (
     short_break REAL NOT NULL,
     long_break REAL NOT NULL,
     rounds_before_long REAL NOT NULL,
-    timer_design TEXT NOT NULL
+    timer_design TEXT NOT NULL,
+    focus_music TEXT NOT NULL,
+    music_volume REAL NOT NULL,
+    ambient_sound TEXT NOT NULL,
+    ambient_volume REAL NOT NULL,
+    brainwave TEXT NOT NULL,
+    brainwave_volume REAL NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS habits (

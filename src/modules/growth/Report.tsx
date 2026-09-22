@@ -7,6 +7,7 @@ import { PanelTile, PanelZoom, Select } from '../../core/ui';
 import { ACADEMIC_GROUPS, academicPanels } from './AcademicPanels';
 import { LIFE_GROUPS, lifePanels } from './LifePanels';
 import { createGrowthData, RANGES, type Range } from './growthData';
+import MistakeAnalytics from './MistakeAnalytics';
 
 /**
  * The Report tab: every chart MIS can draw, all on one screen.
@@ -20,7 +21,7 @@ import { createGrowthData, RANGES, type Range } from './growthData';
  *
  * Read-only, like the whole tracker. Everything here comes from the Daily Log.
  */
-export default function Report(props: { mode: () => AppMode }) {
+export default function Report(props: { mode: () => AppMode; onOpen?: (tab: string) => void }) {
   const [range, setRange] = createSignal<Range>(7);
   const [group, setGroup] = createSignal('overview');
   const [openId, setOpenId] = createSignal<string | null>(null);
@@ -104,29 +105,41 @@ export default function Report(props: { mode: () => AppMode }) {
         </div>
       </section>
 
-      <p class="text-xs text-muted-foreground flex items-center gap-2">
-        <MousePointerClick size={13} class="text-primary flex-shrink-0" />
-        Hover any point to see the day and the time it was logged · double-click a chart to zoom.
-      </p>
+      <Show
+        when={props.mode() === 'academic' && group() === 'analytics'}
+        fallback={
+          <>
+            <p class="text-xs text-muted-foreground flex items-center gap-2">
+              <MousePointerClick size={13} class="text-primary flex-shrink-0" />
+              Hover any point to see the day and the time it was logged · double-click a chart to zoom.
+            </p>
 
-      {/* a fourth column from 2xl up — on a wide monitor three columns left the
-          tiles stretched and the deck still ran off the bottom of the screen */}
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
-        <For each={visible()}>
-          {(panel) => <PanelTile panel={panel} onOpen={() => setOpenId(panel.id)} />}
-        </For>
-      </div>
+            {/* a fourth column from 2xl up — on a wide monitor three columns left the
+                tiles stretched and the deck still ran off the bottom of the screen */}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+              <For each={visible()}>
+                {(panel) => <PanelTile panel={panel} onOpen={() => setOpenId(panel.id)} />}
+              </For>
+            </div>
 
-      <Show when={openPanel()}>
-        {(panel) => (
-          <PanelZoom
-            panel={panel()}
-            position={openIndex() + 1}
-            total={visible().length}
-            onClose={() => setOpenId(null)}
-            onStep={step}
-          />
-        )}
+            <Show when={openPanel()}>
+              {(panel) => (
+                <PanelZoom
+                  panel={panel()}
+                  position={openIndex() + 1}
+                  total={visible().length}
+                  onClose={() => setOpenId(null)}
+                  onStep={step}
+                />
+              )}
+            </Show>
+          </>
+        }
+      >
+        <MistakeAnalytics
+          onOpenLog={() => props.onOpen?.('log')}
+          onOpenDb={() => props.onOpen?.('db')}
+        />
       </Show>
     </div>
   );
