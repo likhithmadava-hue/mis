@@ -351,6 +351,10 @@ export interface WrapInput {
   pyq?: PyqResult | null;
   /** level 1 — tasks to mark done */
   done_task_ids?: string[];
+  /** level 1 — today's DPPs finished in this session */
+  done_dpp_ids?: string[];
+  /** level 1 — Left to revise / Left to solve topics finished in this session */
+  done_topic_ids?: string[];
   /** level 2 — doubts left */
   doubts?: WrapDoubt[];
   /** level 3 — tasks for the next session */

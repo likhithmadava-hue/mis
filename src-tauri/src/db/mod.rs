@@ -506,6 +506,10 @@ pub struct WrapInput {
     pub pyq: Option<PyqResult>,
     /// level 1 — tasks to mark done
     pub done_task_ids: Vec<String>,
+    /// level 1 — today's DPPs finished in this session
+    pub done_dpp_ids: Vec<String>,
+    /// level 1 — Left to revise / Left to solve topics finished in this session
+    pub done_topic_ids: Vec<String>,
     /// level 2 — doubts left, each landing in Left to revise or Left to solve
     pub doubts: Vec<WrapDoubt>,
     /// level 3 — tasks for the next session
@@ -527,6 +531,17 @@ pub struct WrapOutcome {
 
 fn invalid(msg: &str) -> MisError {
     MisError::Invalid(msg.into())
+}
+
+/// The ids in order, each once — so a double-sent tick counts once.
+fn unique(ids: &[String]) -> Vec<&str> {
+    let mut out: Vec<&str> = Vec::new();
+    for id in ids {
+        if !out.contains(&id.as_str()) {
+            out.push(id);
+        }
+    }
+    out
 }
 
 /// Wrap up a study session: tick what got done, record the doubts left, plan the
@@ -559,17 +574,32 @@ pub fn session_wrap(db: &mut DbShape, input: WrapInput) -> Result<WrapOutcome> {
         return Err(invalid("a planned task needs a title"));
     }
 
-    let mut done_ids: Vec<&str> = Vec::new();
-    for id in &input.done_task_ids {
-        if !done_ids.contains(&id.as_str()) {
-            done_ids.push(id);
-        }
-    }
+    let done_ids = unique(&input.done_task_ids);
     for id in &done_ids {
         if !db.tasks.iter().any(|t| t.id == *id) {
             return Err(MisError::NotFound(format!("no task with id {id}")));
         }
     }
+    let done_dpp_ids = unique(&input.done_dpp_ids);
+    for id in &done_dpp_ids {
+        if !db.dpps.iter().any(|d| d.id == *id) {
+            return Err(MisError::NotFound(format!("no DPP with id {id}")));
+        }
+    }
+    let done_topic_ids = unique(&input.done_topic_ids);
+    for id in &done_topic_ids {
+        match db.topics.iter().find(|t| t.id == *id) {
+            None => return Err(MisError::NotFound(format!("no topic with id {id}"))),
+            // "Taught in school" is a record of lessons that happened, so there
+            // is nothing in it to finish — the checklist never offers a tick
+            Some(t) if t.kind == TopicType::Taught => {
+                return Err(invalid("a taught topic cannot be ticked off"));
+            }
+            Some(_) => {}
+        }
+    }
+    let ticks_today =
+        !done_ids.is_empty() || !done_dpp_ids.is_empty() || !done_topic_ids.is_empty();
 
     let mut planned_due = Vec::with_capacity(input.next_plan.len());
     for p in &input.next_plan {
@@ -582,13 +612,13 @@ pub fn session_wrap(db: &mut DbShape, input: WrapInput) -> Result<WrapOutcome> {
         planned_due.push(due);
     }
 
-    if !done_ids.is_empty() || !input.doubts.is_empty() {
+    if ticks_today || !input.doubts.is_empty() {
         refuse_if_locked(db)?;
     }
 
     let has_content = input.minutes > 0.0
         || input.pyq.is_some()
-        || !done_ids.is_empty()
+        || ticks_today
         || !input.doubts.is_empty()
         || !input.next_plan.is_empty()
         || !input.mistakes.is_empty()
@@ -597,10 +627,14 @@ pub fn session_wrap(db: &mut DbShape, input: WrapInput) -> Result<WrapOutcome> {
         return Err(invalid("there is nothing to log for this session"));
     }
 
-    // ── write (nothing below can fail) ──────────────────────────────────────
+    // ── write ───────────────────────────────────────────────────────────────
+    // Nothing below can be refused: every check above has passed, and the one
+    // fallible call (`sync_dpp_counters`) can only fail on a locked day, which
+    // was ruled out above whenever a DPP is ticked.
     let today = today_iso();
 
-    let mut tasks_done = Vec::with_capacity(done_ids.len());
+    let mut tasks_done =
+        Vec::with_capacity(done_ids.len() + done_dpp_ids.len() + done_topic_ids.len());
     let mut ticked = 0;
     for id in &done_ids {
         if let Some(t) = db.tasks.iter_mut().find(|t| t.id == *id) {
@@ -613,6 +647,40 @@ pub fn session_wrap(db: &mut DbShape, input: WrapInput) -> Result<WrapOutcome> {
                 ticked += 1;
             }
         }
+    }
+    for id in &done_dpp_ids {
+        if let Some(d) = db.dpps.iter_mut().find(|d| d.id == *id) {
+            tasks_done.push(JournalTask {
+                title: if d.topic.is_empty() { "DPP".into() } else { d.topic.clone() },
+                kind: "DPP".into(),
+            });
+            if !d.done {
+                d.done = true;
+                d.done_on = Some(today.clone());
+                ticked += 1;
+            }
+        }
+    }
+    for id in &done_topic_ids {
+        if let Some(t) = db.topics.iter_mut().find(|t| t.id == *id) {
+            tasks_done.push(JournalTask {
+                title: t.name.clone(),
+                kind: match t.kind {
+                    TopicType::Solve => "Solve",
+                    _ => "Revise",
+                }
+                .into(),
+            });
+            if !t.done {
+                t.done = true;
+                t.done_on = Some(today.clone());
+                ticked += 1;
+            }
+        }
+    }
+    if !done_dpp_ids.is_empty() {
+        // the DPP score reads the day's two counters, so they move in this write
+        sync_dpp_counters(db)?;
     }
 
     let mut doubts = Vec::with_capacity(input.doubts.len());
@@ -1305,5 +1373,92 @@ mod tests {
         assert_eq!(db.tasks[0].problems, 0);
         assert_eq!(db.topics[0].chapter, "");
         assert_eq!(db.topics[0].kind, TopicType::Revise);
+    }
+
+    fn topic(db: &mut DbShape, name: &str, kind: TopicType) -> String {
+        add_topic(db, name.into(), kind, TopicDetails::default()).unwrap();
+        db.topics[0].id.clone()
+    }
+
+    fn dpp(db: &mut DbShape, name: &str) -> String {
+        add_dpp(db, "Physics".into(), name.into(), "Sir".into()).unwrap();
+        db.dpps[0].id.clone()
+    }
+
+    #[test]
+    fn a_wrap_up_ticks_dpps_and_topics_and_moves_the_dpp_counters() {
+        let mut db = seed::fresh_db();
+        let d1 = dpp(&mut db, "Kinematics DPP 3");
+        dpp(&mut db, "Kinematics DPP 4");
+        let revise = topic(&mut db, "Relative velocity", TopicType::Revise);
+        let solve = topic(&mut db, "Projectile Q12", TopicType::Solve);
+
+        let out = session_wrap(
+            &mut db,
+            WrapInput {
+                done_dpp_ids: vec![d1.clone(), d1.clone()],
+                done_topic_ids: vec![revise.clone(), solve.clone()],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(out.ticked, 3, "the repeated DPP id counts once");
+        let d = db.dpps.iter().find(|d| d.id == d1).unwrap();
+        assert!(d.done);
+        assert_eq!(d.done_on.as_deref(), Some(today_iso().as_str()));
+        assert!(db.topics.iter().find(|t| t.id == revise).unwrap().done);
+        assert!(db.topics.iter().find(|t| t.id == solve).unwrap().done);
+
+        // the score reads these, so they must move in the same write
+        let m = today_metric(&db);
+        assert_eq!((m.dpps_got, m.dpps_complete), (2.0, 1.0));
+
+        let kinds: Vec<&str> = db.journal[0].tasks_done.iter().map(|t| t.kind.as_str()).collect();
+        assert_eq!(kinds, ["DPP", "Revise", "Solve"]);
+        assert_eq!(db.journal[0].tasks_done[0].title, "Kinematics DPP 3");
+    }
+
+    #[test]
+    fn a_taught_topic_or_an_unknown_dpp_cannot_be_ticked_and_nothing_is_written() {
+        let mut db = seed::fresh_db();
+        let taught = topic(&mut db, "Newton's laws", TopicType::Taught);
+        let task = task_with_kind(&mut db, "A", "Practice PYQ", &today_iso());
+        let before = snapshot(&db);
+
+        assert!(matches!(
+            session_wrap(&mut db, WrapInput {
+                done_task_ids: vec![task.clone()],
+                done_topic_ids: vec![taught],
+                ..Default::default()
+            }),
+            Err(MisError::Invalid(_))
+        ));
+        assert!(matches!(
+            session_wrap(&mut db, WrapInput {
+                done_task_ids: vec![task],
+                done_dpp_ids: vec!["no-such-dpp".into()],
+                ..Default::default()
+            }),
+            Err(MisError::NotFound(_))
+        ));
+        assert_eq!(snapshot(&db), before);
+    }
+
+    #[test]
+    fn on_a_locked_day_the_wrap_up_refuses_dpp_and_topic_ticks() {
+        let mut db = db_with_today();
+        let d = dpp(&mut db, "DPP");
+        let t = topic(&mut db, "T", TopicType::Solve);
+        lock_today(&mut db).unwrap();
+        let before = snapshot(&db);
+
+        for input in [
+            WrapInput { done_dpp_ids: vec![d.clone()], ..Default::default() },
+            WrapInput { done_topic_ids: vec![t.clone()], ..Default::default() },
+        ] {
+            assert!(matches!(session_wrap(&mut db, input), Err(MisError::DayLocked)));
+        }
+        assert_eq!(snapshot(&db), before);
     }
 }

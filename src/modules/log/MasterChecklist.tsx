@@ -14,9 +14,11 @@ import { createSignal, For, Show } from 'solid-js';
 
 import { shortDate, todayIso } from '../../core/dates';
 import type { AppMode, DppItem, Task, TopicItem, TrackId } from '../../core/db';
+import { Combobox } from '../../core/ui';
 import ChecklistSection, { CheckRow } from './ChecklistSection';
 import type { Checklist } from './checklist';
 import type { DailyLogState } from './createDailyLog';
+import { isReferenceKind } from './kindOptions';
 import PriorityPicker from './PriorityPicker';
 
 interface MasterChecklistProps {
@@ -397,6 +399,22 @@ function HabitRows(props: { log: DailyLogState }) {
   );
 }
 
+/** a small grey badge — subject, chapter, kind */
+function Chip(props: { text?: string; tone?: 'primary'; title?: string }) {
+  return (
+    <Show when={props.text}>
+      <span
+        title={props.title}
+        class={`text-[0.625rem] px-1.5 py-0.5 rounded max-w-[10rem] truncate ${
+          props.tone === 'primary' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+        }`}
+      >
+        {props.text}
+      </span>
+    </Show>
+  );
+}
+
 function TopicRows(props: { items: TopicItem[]; onToggle: (id: string) => void; empty: string }) {
   return (
     <>
@@ -406,12 +424,17 @@ function TopicRows(props: { items: TopicItem[]; onToggle: (id: string) => void; 
             checked={t.done}
             onToggle={() => props.onToggle(t.id)}
             label={t.name}
+            detail={t.note}
             chips={
-              <Show when={t.date !== todayIso()}>
-                <span class="text-[0.625rem] font-mono text-muted-foreground">
-                  added {shortDate(t.date)}
-                </span>
-              </Show>
+              <>
+                <Chip text={t.subject} />
+                <Chip text={t.chapter} title={t.chapter} />
+                <Show when={t.date !== todayIso()}>
+                  <span class="text-[0.625rem] font-mono text-muted-foreground">
+                    added {shortDate(t.date)}
+                  </span>
+                </Show>
+              </>
             }
           />
         )}
@@ -424,18 +447,47 @@ function TopicRows(props: { items: TopicItem[]; onToggle: (id: string) => void; 
 }
 
 function TaskRows(props: { log: DailyLogState; tasks: Task[]; mode: AppMode }) {
+  const academic = () => props.mode === 'academic';
   const [title, setTitle] = createSignal('');
   const [subject, setSubject] = createSignal('');
   const [due, setDue] = createSignal('');
+  const [kind, setKind] = createSignal('');
+  const [chapter, setChapter] = createSignal('');
+  const [reference, setReference] = createSignal('');
+  const [problems, setProblems] = createSignal('');
+
+  /** the reference fields only mean something for a reference task */
+  const referenceOn = () => isReferenceKind(kind());
 
   const submit = (e: Event) => {
     e.preventDefault();
     if (!title().trim()) return;
-    void props.log.addTask(title(), subject(), due());
+    const count = Math.max(0, Math.floor(Number(problems()) || 0));
+    void props.log.addTask(
+      title(),
+      subject(),
+      due(),
+      academic()
+        ? {
+            kind: kind(),
+            chapter: chapter(),
+            reference: referenceOn() ? reference() : '',
+            problems: referenceOn() ? count : 0,
+          }
+        : undefined,
+    );
     setTitle('');
     setSubject('');
     setDue('');
+    setChapter('');
+    setReference('');
+    setProblems('');
+    // the kind stays: several tasks of the same kind in a row is the usual case
   };
+
+  /** "HC Verma · 20 problems", or whichever half is there */
+  const referenceLine = (t: Task) =>
+    [t.reference, t.problems ? `${t.problems} problems` : ''].filter(Boolean).join(' · ');
 
   const overdue = (t: Task) => !t.completed && t.due_date !== '' && t.due_date < todayIso();
   const dueChip = (t: Task) => (
@@ -460,16 +512,15 @@ function TaskRows(props: { log: DailyLogState; tasks: Task[]; mode: AppMode }) {
             checked={t.completed}
             onToggle={() => void props.log.toggleTask(t.id)}
             label={t.title}
+            detail={referenceLine(t) || undefined}
             tone={overdue(t) ? 'overdue' : undefined}
             onDelete={() => void props.log.deleteTask(t.id)}
             deleteLabel={`Remove task: ${t.title}`}
             chips={
               <>
-                <Show when={t.subject}>
-                  <span class="text-[0.625rem] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                    {t.subject}
-                  </span>
-                </Show>
+                <Chip text={t.kind} tone="primary" />
+                <Chip text={t.subject} />
+                <Chip text={t.chapter} title={t.chapter} />
                 <Show when={t.due_date}>{dueChip(t)}</Show>
               </>
             }
@@ -510,6 +561,52 @@ function TaskRows(props: { log: DailyLogState; tasks: Task[]; mode: AppMode }) {
         >
           <PlusCircle size={14} /> Add
         </button>
+
+        {/* Session detail — Academic only. The reference fields are always drawn
+            and only switched on for a reference task, so choosing a kind never
+            makes the card grow. */}
+        <Show when={academic()}>
+          <div class="basis-full flex flex-wrap gap-2">
+            <Combobox
+              ariaLabel="Kind of task"
+              placeholder="Kind (e.g. Practice PYQ)"
+              value={kind()}
+              onInput={setKind}
+              options={props.log.kindOptions()}
+              class="w-48"
+            />
+            <input
+              type="text"
+              placeholder="Chapter"
+              aria-label="Chapter"
+              value={chapter()}
+              onInput={(e) => setChapter(e.currentTarget.value)}
+              class="flex-1 min-w-[8rem] h-9 px-3 bg-background border border-border rounded-lg text-xs"
+            />
+            <input
+              type="text"
+              placeholder="Reference (e.g. HC Verma)"
+              aria-label="Reference book or sheet"
+              title={referenceOn() ? undefined : 'For Reference problems tasks'}
+              disabled={!referenceOn()}
+              value={reference()}
+              onInput={(e) => setReference(e.currentTarget.value)}
+              class="w-44 h-9 px-3 bg-background border border-border rounded-lg text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <input
+              type="number"
+              min="0"
+              step="1"
+              placeholder="Problems"
+              aria-label="Number of problems"
+              title={referenceOn() ? undefined : 'For Reference problems tasks'}
+              disabled={!referenceOn()}
+              value={problems()}
+              onInput={(e) => setProblems(e.currentTarget.value)}
+              class="w-24 h-9 px-3 bg-background border border-border rounded-lg text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          </div>
+        </Show>
       </form>
     </>
   );

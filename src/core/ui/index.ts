@@ -9,6 +9,7 @@
 
 export { default as Card } from './Card';
 export { default as Select, type SelectOption } from './Select';
+export { default as Combobox } from './Combobox';
 export { confirmDialog, DialogHost, messageDialog } from './dialog';
 export { default as Workspace } from './Workspace';
 export { default as EmptyState, type EmptyAction } from './EmptyState';
