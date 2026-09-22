@@ -325,7 +325,7 @@ export default function App() {
           <div class="flex-1 flex flex-col min-h-0">
             <Switch>
               <Match when={activeTab() === 'home'}>
-                <Home mode={mode} onOpenReport={() => setActiveTab('report')} />
+                <Home mode={mode} onOpen={(tab) => setActiveTab(tab)} />
               </Match>
               <Match when={activeTab() === 'log'}>
                 <DailyLog mode={mode} />
