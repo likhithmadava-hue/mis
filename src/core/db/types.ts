@@ -209,6 +209,26 @@ export interface Task {
   completed_on?: string;
   /** which mode's to-do list this belongs to */
   mode: AppMode;
+  /**
+   * What sort of session this is — "Practice PYQ", "Reference problems", or anything
+   * the student typed. Free text on purpose: presets and reused kinds are suggested,
+   * never enforced. Empty on a plain to-do, and absent on a vault older than this.
+   */
+  kind?: string;
+  /** the syllabus chapter the task is about, free text */
+  chapter?: string;
+  /** the book or sheet a reference task draws from */
+  reference?: string;
+  /** how many problems it sets; `0`/absent when it does not count them */
+  problems?: number;
+}
+
+/** The optional session fields of a new task. Every one may be left out. */
+export interface TaskDetails {
+  kind?: string;
+  chapter?: string;
+  reference?: string;
+  problems?: number;
 }
 
 /**
@@ -235,6 +255,118 @@ export interface TopicItem {
   done: boolean;
   /** the day it was ticked off — see `Task.completed_on` */
   done_on?: string;
+  /** which subject and chapter a doubt belongs to, and what is unclear — all free text */
+  subject?: string;
+  chapter?: string;
+  note?: string;
+}
+
+/** The optional detail of a new topic. Every field may be left out. */
+export interface TopicDetails {
+  subject?: string;
+  chapter?: string;
+  note?: string;
+}
+
+/** Which "left to" list a doubt lands in. */
+export type DoubtList = 'revise' | 'solve';
+
+/** How a Practice PYQ session went. The misses are in the mistake log; this is the session. */
+export interface PyqResult {
+  correct: number;
+  wrong: number;
+  skipped: number;
+  /** marks earned, after negative marking */
+  marks: number;
+  max_marks: number;
+}
+
+/** A task, doubt or planned task as the journal remembers it — a snapshot, not a link. */
+export interface JournalTask {
+  title: string;
+  kind: string;
+}
+
+export interface JournalDoubt {
+  title: string;
+  subject: string;
+  chapter: string;
+  note: string;
+  list: DoubtList;
+}
+
+export interface JournalPlanned {
+  title: string;
+  kind: string;
+  due_date: string;
+}
+
+/**
+ * One wrapped-up study session: what got done, what is still a doubt, what comes
+ * next, and a free-text note. Newest first in `DbShape.journal`.
+ */
+export interface JournalEntry {
+  id: string;
+  /** the day the session happened, `YYYY-MM-DD` */
+  date: string;
+  /** when the wrap-up was confirmed, ISO-8601 */
+  created_at: string;
+  subject: string;
+  chapter: string;
+  kind: string;
+  minutes: number;
+  pyq: PyqResult | null;
+  tasks_done: JournalTask[];
+  doubts: JournalDoubt[];
+  next_plan: JournalPlanned[];
+  note: string;
+}
+
+/** A doubt as the wrap-up panel sends it. */
+export interface WrapDoubt {
+  title: string;
+  subject?: string;
+  chapter?: string;
+  note?: string;
+  list: DoubtList;
+}
+
+/** A next-session task as the wrap-up panel sends it. `due_date` defaults to tomorrow. */
+export interface WrapPlanned {
+  title: string;
+  subject?: string;
+  kind?: string;
+  chapter?: string;
+  reference?: string;
+  problems?: number;
+  due_date?: string;
+}
+
+/** Everything the wrap-up panel sends. Mirrors `db::WrapInput`. */
+export interface WrapInput {
+  subject?: string;
+  chapter?: string;
+  kind?: string;
+  minutes?: number;
+  pyq?: PyqResult | null;
+  /** level 1 — tasks to mark done */
+  done_task_ids?: string[];
+  /** level 2 — doubts left */
+  doubts?: WrapDoubt[];
+  /** level 3 — tasks for the next session */
+  next_plan?: WrapPlanned[];
+  /** one logbook row per wrong PYQ */
+  mistakes?: NewEntry[];
+  note?: string;
+}
+
+/** What a wrap-up wrote. */
+export interface WrapOutcome {
+  journal_id: string;
+  ticked: number;
+  doubts_added: number;
+  planned: number;
+  mistakes_added: number;
 }
 
 export interface FocusSettings {
@@ -303,6 +435,8 @@ export interface DbShape {
   daily_log_layout: DailyLogLayout;
   /** `null` until onboarding has been completed. */
   profile: Profile | null;
+  /** one entry per wrapped-up study session, newest first */
+  journal: JournalEntry[];
 }
 
 // ── Patches ─────────────────────────────────────────────────────────────────

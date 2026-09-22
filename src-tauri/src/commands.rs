@@ -168,8 +168,11 @@ pub fn db_add_task(
     subject: String,
     due_date: String,
     mode: AppMode,
+    details: Option<TaskDetails>,
 ) -> Result<()> {
-    state.mutate(|db| db::add_task(db, title, subject, due_date, mode))
+    state.mutate(|db| {
+        db::add_task(db, title, subject, due_date, mode, details.unwrap_or_default())
+    })
 }
 
 #[tauri::command]
@@ -205,8 +208,34 @@ pub fn db_delete_task(state: State<AppState>, id: String) -> Result<()> {
 // ── Topics ──────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn db_add_topic(state: State<AppState>, name: String, kind: TopicType) -> Result<()> {
-    state.mutate(|db| db::add_topic(db, name, kind))
+pub fn db_add_topic(
+    state: State<AppState>,
+    name: String,
+    kind: TopicType,
+    details: Option<TopicDetails>,
+) -> Result<()> {
+    state.mutate(|db| db::add_topic(db, name, kind, details.unwrap_or_default()))
+}
+
+// ── Session wrap-up and the journal ─────────────────────────────────────────
+
+/// Wrap up a study session in one all-or-nothing write. See `db::session_wrap`.
+#[tauri::command]
+pub fn db_session_wrap(state: State<AppState>, input: db::WrapInput) -> Result<db::WrapOutcome> {
+    state.mutate(|db| db::session_wrap(db, input))
+}
+
+#[tauri::command]
+pub fn db_update_journal_note(state: State<AppState>, id: String, note: String) -> Result<()> {
+    state.mutate(|db| db::update_journal_note(db, &id, note))
+}
+
+#[tauri::command]
+pub fn db_delete_journal_entry(state: State<AppState>, id: String) -> Result<()> {
+    state.mutate(|db| {
+        db::delete_journal_entry(db, &id);
+        Ok(())
+    })
 }
 
 #[tauri::command]

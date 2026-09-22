@@ -42,12 +42,16 @@ import type {
   ScoredDay,
   StSettings,
   Streak,
+  TaskDetails,
+  TopicDetails,
   TopicType,
   TrackId,
   TrackerStatus,
   UserConfig,
   VaultInfo,
   WidgetPlacement,
+  WrapInput,
+  WrapOutcome,
 } from './types';
 
 // ── Errors ──────────────────────────────────────────────────────────────────
@@ -193,8 +197,13 @@ export const saveFocusSettings = (settings: FocusSettings) =>
 
 // ── Tasks ───────────────────────────────────────────────────────────────────
 
-export const addTask = (title: string, subject: string, dueDate: string, mode: AppMode) =>
-  invoke<void>('db_add_task', { title, subject, dueDate, mode });
+export const addTask = (
+  title: string,
+  subject: string,
+  dueDate: string,
+  mode: AppMode,
+  details?: TaskDetails,
+) => invoke<void>('db_add_task', { title, subject, dueDate, mode, details: details ?? null });
 
 export const toggleTask = (id: string) => invoke<void>('db_toggle_task', { id });
 
@@ -211,12 +220,29 @@ export const deleteDpp = (id: string) => invoke<void>('db_delete_dpp', { id });
 
 // ── Topics ──────────────────────────────────────────────────────────────────
 
-export const addTopic = (name: string, kind: TopicType) =>
-  invoke<void>('db_add_topic', { name, kind });
+export const addTopic = (name: string, kind: TopicType, details?: TopicDetails) =>
+  invoke<void>('db_add_topic', { name, kind, details: details ?? null });
 
 export const toggleTopic = (id: string) => invoke<void>('db_toggle_topic', { id });
 
 export const deleteTopic = (id: string) => invoke<void>('db_delete_topic', { id });
+
+// ── Session wrap-up and the journal ─────────────────────────────────────────
+
+/**
+ * Wrap up a study session in one all-or-nothing write: tick the tasks, record the
+ * doubts, plan the next session, log the misses and write the journal entry. If
+ * it rejects, nothing was written. On a locked day, ticks and doubts are refused
+ * (`isDayLocked`) while next-session tasks due after today still go through.
+ */
+export const sessionWrap = (input: WrapInput) =>
+  invoke<WrapOutcome>('db_session_wrap', { input });
+
+export const updateJournalNote = (id: string, note: string) =>
+  invoke<void>('db_update_journal_note', { id, note });
+
+export const deleteJournalEntry = (id: string) =>
+  invoke<void>('db_delete_journal_entry', { id });
 
 // ── Habits ──────────────────────────────────────────────────────────────────
 

@@ -347,6 +347,7 @@ mod tests {
             completed,
             completed_on: None,
             mode,
+            ..Default::default()
         }
     }
 

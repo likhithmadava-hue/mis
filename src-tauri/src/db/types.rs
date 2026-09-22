@@ -127,9 +127,10 @@ impl Default for Difficulty {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TopicType {
+    #[default]
     Taught,
     Revise,
     Solve,
@@ -443,7 +444,7 @@ pub struct FocusSession {
     pub completed: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Task {
     pub id: String,
     pub title: String,
@@ -461,6 +462,32 @@ pub struct Task {
     /// existed defaults every task to Academic, where the feature started
     #[serde(default)]
     pub mode: AppMode,
+    /// What sort of session this is — "Practice PYQ", "Reference problems", or
+    /// anything the student typed. **Free text on purpose**: the app offers
+    /// presets and the kinds the student keeps reusing, but never restricts them
+    /// to a list. Empty on a plain to-do.
+    #[serde(default)]
+    pub kind: String,
+    /// The syllabus chapter the task is about, free text.
+    #[serde(default)]
+    pub chapter: String,
+    /// The book or sheet a reference task draws from ("HC Verma").
+    #[serde(default)]
+    pub reference: String,
+    /// How many problems the task sets, `0` when it does not count them.
+    #[serde(default)]
+    pub problems: u32,
+}
+
+/// The optional session fields of a task, as the frontend sends them. Every one
+/// defaults, so a plain to-do is still `add_task` with nothing extra.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct TaskDetails {
+    pub kind: String,
+    pub chapter: String,
+    pub reference: String,
+    pub problems: u32,
 }
 
 /// One DPP (daily practice problem sheet) set for a day: what it covers, who
@@ -486,7 +513,7 @@ pub struct DppItem {
     pub done_on: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TopicItem {
     pub id: String,
     pub date: String,
@@ -497,6 +524,110 @@ pub struct TopicItem {
     /// The day it was ticked off — see `Task::completed_on`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub done_on: Option<String>,
+    /// Which subject and chapter a doubt belongs to, and a short note on what
+    /// is unclear. All free text, all empty on a topic added the old way.
+    #[serde(default)]
+    pub subject: String,
+    #[serde(default)]
+    pub chapter: String,
+    #[serde(default)]
+    pub note: String,
+}
+
+/// The optional detail of a topic, as the frontend sends it.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct TopicDetails {
+    pub subject: String,
+    pub chapter: String,
+    pub note: String,
+}
+
+/// Which "left to" list a doubt lands in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DoubtList {
+    Revise,
+    Solve,
+}
+
+impl DoubtList {
+    pub fn topic_type(self) -> TopicType {
+        match self {
+            DoubtList::Revise => TopicType::Revise,
+            DoubtList::Solve => TopicType::Solve,
+        }
+    }
+}
+
+/// How a Practice PYQ session went. Kept on the journal entry rather than in the
+/// mistake log: the log holds the *misses*, this holds the session.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PyqResult {
+    pub correct: u32,
+    pub wrong: u32,
+    pub skipped: u32,
+    /// marks earned, after negative marking
+    pub marks: f64,
+    pub max_marks: f64,
+}
+
+/// A task as the journal remembers it. A snapshot, not a link: the journal must
+/// still read correctly after the task is deleted.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JournalTask {
+    pub title: String,
+    pub kind: String,
+}
+
+/// A doubt as the journal remembers it (see [`JournalTask`]).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JournalDoubt {
+    pub title: String,
+    #[serde(default)]
+    pub subject: String,
+    #[serde(default)]
+    pub chapter: String,
+    #[serde(default)]
+    pub note: String,
+    pub list: DoubtList,
+}
+
+/// A planned next-session task as the journal remembers it.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JournalPlanned {
+    pub title: String,
+    pub kind: String,
+    pub due_date: String,
+}
+
+/// One study session, written when the student wraps it up. It records the
+/// session on three levels — what got done, what is still a doubt, and what
+/// comes next — plus a free-text note.
+///
+/// Every list is a snapshot, so deleting the task or doubt it came from later
+/// does not rewrite the history.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JournalEntry {
+    pub id: String,
+    /// the day the session happened, `YYYY-MM-DD`
+    pub date: String,
+    /// when the wrap-up was confirmed, ISO-8601
+    pub created_at: String,
+    pub subject: String,
+    pub chapter: String,
+    /// the kind of session, free text like `Task::kind`
+    pub kind: String,
+    pub minutes: f64,
+    pub pyq: Option<PyqResult>,
+    pub tasks_done: Vec<JournalTask>,
+    pub doubts: Vec<JournalDoubt>,
+    pub next_plan: Vec<JournalPlanned>,
+    pub note: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -696,6 +827,9 @@ pub struct DbShape {
     /// launch to the setup wizard — including for a vault that predates it.
     #[serde(default)]
     pub profile: Option<Profile>,
+    /// One entry per wrapped-up study session, newest first.
+    #[serde(default)]
+    pub journal: Vec<JournalEntry>,
 }
 
 /// A fresh id. The old TS `uid()` produced a random string; anything unique

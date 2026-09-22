@@ -18,7 +18,7 @@ pub mod profile;
 pub mod seed;
 pub mod types;
 
-use crate::dates::{now_iso, today_iso};
+use crate::dates::{is_after_today, now_iso, parse_iso, today_iso, tomorrow_iso};
 use crate::error::{MisError, Result};
 use types::*;
 
@@ -305,18 +305,52 @@ pub fn save_focus_settings(db: &mut DbShape, settings: FocusSettings) {
 
 // ── Tasks ───────────────────────────────────────────────────────────────────
 
+/// The guard for adding a task. **A task due after today may be added even when
+/// today is locked**: the lock protects today's record, and tomorrow's work is
+/// not part of it. That is what lets a student plan the next session after
+/// submitting the day. A task due today, or with no valid due date, is still
+/// refused — an undated task is treated as today's, the safe side of the lock.
+fn refuse_task_if_locked(db: &DbShape, due_date: &str) -> Result<()> {
+    if is_after_today(due_date) {
+        return Ok(());
+    }
+    refuse_if_locked(db)
+}
+
+fn new_task(
+    title: String,
+    subject: String,
+    due_date: String,
+    mode: AppMode,
+    details: TaskDetails,
+) -> Task {
+    Task {
+        id: uid(),
+        title,
+        subject,
+        due_date,
+        completed: false,
+        completed_on: None,
+        mode,
+        // trimmed here so "Practice PYQ " and "Practice PYQ" are one kind when
+        // the frontend counts how often each has been used
+        kind: details.kind.trim().to_string(),
+        chapter: details.chapter.trim().to_string(),
+        reference: details.reference.trim().to_string(),
+        problems: details.problems,
+    }
+}
+
 pub fn add_task(
     db: &mut DbShape,
     title: String,
     subject: String,
     due_date: String,
     mode: AppMode,
+    details: TaskDetails,
 ) -> Result<()> {
-    refuse_if_locked(db)?;
-    db.tasks.insert(
-        0,
-        Task { id: uid(), title, subject, due_date, completed: false, completed_on: None, mode },
-    );
+    refuse_task_if_locked(db, &due_date)?;
+    db.tasks.insert(0, new_task(title, subject, due_date, mode, details));
     Ok(())
 }
 
@@ -390,12 +424,28 @@ pub fn delete_dpp(db: &mut DbShape, id: &str) -> Result<()> {
 
 // ── Topics ──────────────────────────────────────────────────────────────────
 
-pub fn add_topic(db: &mut DbShape, name: String, kind: TopicType) -> Result<()> {
+fn new_topic(name: String, kind: TopicType, details: TopicDetails) -> TopicItem {
+    TopicItem {
+        id: uid(),
+        date: today_iso(),
+        name,
+        kind,
+        done: false,
+        done_on: None,
+        subject: details.subject.trim().to_string(),
+        chapter: details.chapter.trim().to_string(),
+        note: details.note.trim().to_string(),
+    }
+}
+
+pub fn add_topic(
+    db: &mut DbShape,
+    name: String,
+    kind: TopicType,
+    details: TopicDetails,
+) -> Result<()> {
     refuse_if_locked(db)?;
-    db.topics.insert(
-        0,
-        TopicItem { id: uid(), date: today_iso(), name, kind, done: false, done_on: None },
-    );
+    db.topics.insert(0, new_topic(name, kind, details));
     Ok(())
 }
 
@@ -412,6 +462,249 @@ pub fn delete_topic(db: &mut DbShape, id: &str) -> Result<()> {
     refuse_if_locked(db)?;
     db.topics.retain(|t| t.id != id);
     Ok(())
+}
+
+// ── Session wrap-up and the journal ─────────────────────────────────────────
+
+/// A doubt the student is leaving behind, as it arrives from the wrap-up.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct WrapDoubt {
+    pub title: String,
+    #[serde(default)]
+    pub subject: String,
+    #[serde(default)]
+    pub chapter: String,
+    #[serde(default)]
+    pub note: String,
+    /// which "left to" list it lands in
+    pub list: DoubtList,
+}
+
+/// A task planned for the next session. `due_date` is optional and defaults to
+/// tomorrow.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default)]
+pub struct WrapPlanned {
+    pub title: String,
+    pub subject: String,
+    pub kind: String,
+    pub chapter: String,
+    pub reference: String,
+    pub problems: u32,
+    pub due_date: Option<String>,
+}
+
+/// Everything the wrap-up panel sends: the three levels, the misses a practice
+/// session produced, and the note.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default)]
+pub struct WrapInput {
+    pub subject: String,
+    pub chapter: String,
+    pub kind: String,
+    pub minutes: f64,
+    pub pyq: Option<PyqResult>,
+    /// level 1 — tasks to mark done
+    pub done_task_ids: Vec<String>,
+    /// level 2 — doubts left, each landing in Left to revise or Left to solve
+    pub doubts: Vec<WrapDoubt>,
+    /// level 3 — tasks for the next session
+    pub next_plan: Vec<WrapPlanned>,
+    /// one logbook row per wrong PYQ
+    pub mistakes: Vec<NewEntry>,
+    pub note: String,
+}
+
+/// What a wrap-up wrote, for the confirmation the panel shows.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WrapOutcome {
+    pub journal_id: String,
+    pub ticked: usize,
+    pub doubts_added: usize,
+    pub planned: usize,
+    pub mistakes_added: usize,
+}
+
+fn invalid(msg: &str) -> MisError {
+    MisError::Invalid(msg.into())
+}
+
+/// Wrap up a study session: tick what got done, record the doubts left, plan the
+/// next session, log the misses, and write the journal entry.
+///
+/// **Everything is validated before anything is written**, so a refusal part of
+/// the way through leaves the database exactly as it was. (`AppState::mutate`
+/// also works on a copy, but this function must not rely on that — it is called
+/// directly by the tests, and it should be atomic on its own terms.)
+///
+/// Ticking tasks and adding doubts touch *today's* record, so they are refused
+/// on a locked day like every other write to it. A next-session task is refused
+/// only if it is due today or earlier — see [`refuse_task_if_locked`]. The
+/// journal and the logbook are not day-locked, the same as the logbook has
+/// always been.
+pub fn session_wrap(db: &mut DbShape, input: WrapInput) -> Result<WrapOutcome> {
+    // ── validate ────────────────────────────────────────────────────────────
+    if !input.minutes.is_finite() || input.minutes < 0.0 {
+        return Err(invalid("minutes must be zero or more"));
+    }
+    if let Some(p) = &input.pyq {
+        if !p.marks.is_finite() || !p.max_marks.is_finite() || p.max_marks < 0.0 {
+            return Err(invalid("the PYQ marks are not valid numbers"));
+        }
+    }
+    if input.doubts.iter().any(|d| d.title.trim().is_empty()) {
+        return Err(invalid("a doubt needs a title"));
+    }
+    if input.next_plan.iter().any(|p| p.title.trim().is_empty()) {
+        return Err(invalid("a planned task needs a title"));
+    }
+
+    let mut done_ids: Vec<&str> = Vec::new();
+    for id in &input.done_task_ids {
+        if !done_ids.contains(&id.as_str()) {
+            done_ids.push(id);
+        }
+    }
+    for id in &done_ids {
+        if !db.tasks.iter().any(|t| t.id == *id) {
+            return Err(MisError::NotFound(format!("no task with id {id}")));
+        }
+    }
+
+    let mut planned_due = Vec::with_capacity(input.next_plan.len());
+    for p in &input.next_plan {
+        let due = match p.due_date.as_deref().map(str::trim).filter(|d| !d.is_empty()) {
+            Some(d) if parse_iso(d).is_some() => d.to_string(),
+            Some(_) => return Err(invalid("a due date must look like 2026-09-21")),
+            None => tomorrow_iso(),
+        };
+        refuse_task_if_locked(db, &due)?;
+        planned_due.push(due);
+    }
+
+    if !done_ids.is_empty() || !input.doubts.is_empty() {
+        refuse_if_locked(db)?;
+    }
+
+    let has_content = input.minutes > 0.0
+        || input.pyq.is_some()
+        || !done_ids.is_empty()
+        || !input.doubts.is_empty()
+        || !input.next_plan.is_empty()
+        || !input.mistakes.is_empty()
+        || !input.note.trim().is_empty();
+    if !has_content {
+        return Err(invalid("there is nothing to log for this session"));
+    }
+
+    // ── write (nothing below can fail) ──────────────────────────────────────
+    let today = today_iso();
+
+    let mut tasks_done = Vec::with_capacity(done_ids.len());
+    let mut ticked = 0;
+    for id in &done_ids {
+        if let Some(t) = db.tasks.iter_mut().find(|t| t.id == *id) {
+            tasks_done.push(JournalTask { title: t.title.clone(), kind: t.kind.clone() });
+            // idempotent, not a toggle: a task already done stays done, on the
+            // day it was really finished
+            if !t.completed {
+                t.completed = true;
+                t.completed_on = Some(today.clone());
+                ticked += 1;
+            }
+        }
+    }
+
+    let mut doubts = Vec::with_capacity(input.doubts.len());
+    for d in &input.doubts {
+        doubts.push(JournalDoubt {
+            title: d.title.trim().to_string(),
+            subject: d.subject.trim().to_string(),
+            chapter: d.chapter.trim().to_string(),
+            note: d.note.trim().to_string(),
+            list: d.list,
+        });
+        db.topics.insert(
+            0,
+            new_topic(
+                d.title.trim().to_string(),
+                d.list.topic_type(),
+                TopicDetails {
+                    subject: d.subject.clone(),
+                    chapter: d.chapter.clone(),
+                    note: d.note.clone(),
+                },
+            ),
+        );
+    }
+
+    let mut next_plan = Vec::with_capacity(input.next_plan.len());
+    for (p, due) in input.next_plan.iter().zip(planned_due) {
+        next_plan.push(JournalPlanned {
+            title: p.title.trim().to_string(),
+            kind: p.kind.trim().to_string(),
+            due_date: due.clone(),
+        });
+        db.tasks.insert(
+            0,
+            new_task(
+                p.title.trim().to_string(),
+                p.subject.trim().to_string(),
+                due,
+                AppMode::Academic,
+                TaskDetails {
+                    kind: p.kind.clone(),
+                    chapter: p.chapter.clone(),
+                    reference: p.reference.clone(),
+                    problems: p.problems,
+                },
+            ),
+        );
+    }
+
+    let mistakes_added = add_mark_entries(db, input.mistakes);
+
+    let journal_id = uid();
+    db.journal.insert(
+        0,
+        JournalEntry {
+            id: journal_id.clone(),
+            date: today,
+            created_at: now_iso(),
+            subject: input.subject.trim().to_string(),
+            chapter: input.chapter.trim().to_string(),
+            kind: input.kind.trim().to_string(),
+            minutes: input.minutes,
+            pyq: input.pyq,
+            tasks_done,
+            doubts: doubts.clone(),
+            next_plan: next_plan.clone(),
+            note: input.note.trim().to_string(),
+        },
+    );
+
+    Ok(WrapOutcome {
+        journal_id,
+        ticked,
+        doubts_added: doubts.len(),
+        planned: next_plan.len(),
+        mistakes_added,
+    })
+}
+
+/// Edit a journal entry's free-text note — the one part of an entry that is
+/// meant to be rewritten. The structured levels are a record and stay as
+/// written. Not day-locked, like the logbook.
+pub fn update_journal_note(db: &mut DbShape, id: &str, note: String) -> Result<()> {
+    let Some(e) = db.journal.iter_mut().find(|e| e.id == id) else {
+        return Err(MisError::NotFound(format!("no journal entry with id {id}")));
+    };
+    e.note = note.trim().to_string();
+    Ok(())
+}
+
+pub fn delete_journal_entry(db: &mut DbShape, id: &str) {
+    db.journal.retain(|e| e.id != id);
 }
 
 // ── Habits ──────────────────────────────────────────────────────────────────
@@ -535,7 +828,7 @@ mod tests {
             Err(MisError::DayLocked)
         ));
         assert!(matches!(toggle_habit_today(&mut db, &habit), Err(MisError::DayLocked)));
-        assert!(matches!(add_topic(&mut db, "x".into(), TopicType::Taught), Err(MisError::DayLocked)));
+        assert!(matches!(add_topic(&mut db, "x".into(), TopicType::Taught, TopicDetails::default()), Err(MisError::DayLocked)));
     }
 
     #[test]
@@ -625,7 +918,7 @@ mod tests {
     #[test]
     fn ticking_a_task_stamps_today_and_unticking_takes_it_back() {
         let mut db = db_with_today();
-        add_task(&mut db, "Finish DPP".into(), String::new(), String::new(), AppMode::Academic)
+        add_task(&mut db, "Finish DPP".into(), String::new(), String::new(), AppMode::Academic, TaskDetails::default())
             .unwrap();
         let id = db.tasks[0].id.clone();
 
@@ -641,7 +934,7 @@ mod tests {
     #[test]
     fn ticking_a_topic_stamps_today_and_unticking_takes_it_back() {
         let mut db = db_with_today();
-        add_topic(&mut db, "Work & Energy".into(), TopicType::Revise).unwrap();
+        add_topic(&mut db, "Work & Energy".into(), TopicType::Revise, TopicDetails::default()).unwrap();
         let id = db.topics[0].id.clone();
 
         toggle_topic_done(&mut db, &id).unwrap();
@@ -705,5 +998,312 @@ mod tests {
 
         update_today_metric(&mut db, MetricPatch { dpps_complete: Some(4.0), ..Default::default() }).unwrap();
         assert!(db.user.free_time_unlocked);
+    }
+
+    // ── session wrap-up and the journal ─────────────────────────────────────
+
+    fn task_with_kind(db: &mut DbShape, title: &str, kind: &str, due: &str) -> String {
+        add_task(
+            db,
+            title.into(),
+            "Physics".into(),
+            due.into(),
+            AppMode::Academic,
+            TaskDetails { kind: kind.into(), ..Default::default() },
+        )
+        .unwrap();
+        db.tasks[0].id.clone()
+    }
+
+    fn miss(chapter: &str) -> NewEntry {
+        NewEntry {
+            date: today_iso(),
+            subject: "Physics".into(),
+            chapter: chapter.into(),
+            grade: String::new(),
+            score: 0.0,
+            max_score: 4.0,
+            difficulty: Difficulty::Hard,
+            time_spent: 3.0,
+            mistake_reason: MistakeReason::Conceptual,
+            notes: "PYQ phy4-q7".into(),
+        }
+    }
+
+    fn doubt(title: &str, list: DoubtList) -> WrapDoubt {
+        WrapDoubt {
+            title: title.into(),
+            subject: "Physics".into(),
+            chapter: "Rotational Motion".into(),
+            note: "why does torque flip".into(),
+            list,
+        }
+    }
+
+    fn snapshot(db: &DbShape) -> String {
+        serde_json::to_string(db).unwrap()
+    }
+
+    #[test]
+    fn a_task_keeps_its_kind_and_the_kind_is_trimmed() {
+        let mut db = seed::fresh_db();
+        add_task(
+            &mut db,
+            "Ch 5".into(),
+            "Physics".into(),
+            String::new(),
+            AppMode::Academic,
+            TaskDetails {
+                kind: "  Reference problems ".into(),
+                reference: " HC Verma ".into(),
+                problems: 20,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let t = &db.tasks[0];
+        assert_eq!(t.kind, "Reference problems");
+        assert_eq!(t.reference, "HC Verma");
+        assert_eq!(t.problems, 20);
+    }
+
+    #[test]
+    fn a_locked_day_still_accepts_a_task_due_after_today() {
+        let mut db = db_with_today();
+        lock_today(&mut db).unwrap();
+
+        assert!(add_task(
+            &mut db, "Tomorrow".into(), String::new(), tomorrow_iso(), AppMode::Academic,
+            TaskDetails::default(),
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn a_locked_day_still_refuses_a_task_due_today_or_undated() {
+        let mut db = db_with_today();
+        lock_today(&mut db).unwrap();
+
+        for due in [today_iso(), String::new(), "garbage".into()] {
+            assert!(
+                matches!(
+                    add_task(&mut db, "x".into(), String::new(), due, AppMode::Academic, TaskDetails::default()),
+                    Err(MisError::DayLocked)
+                ),
+                "a task that is not clearly in the future belongs to today's record"
+            );
+        }
+        // and everything else about today stays refused
+        let id = task_with_kind_unlocked(&mut db);
+        assert!(matches!(toggle_task_done(&mut db, &id), Err(MisError::DayLocked)));
+    }
+
+    /// Adds a task straight into the list, bypassing the lock, so a locked-day
+    /// test has something to try to tick.
+    fn task_with_kind_unlocked(db: &mut DbShape) -> String {
+        db.tasks.insert(0, Task { id: "t-locked".into(), title: "x".into(), ..Default::default() });
+        "t-locked".into()
+    }
+
+    #[test]
+    fn a_wrap_up_writes_all_three_levels_the_misses_and_the_journal() {
+        let mut db = seed::fresh_db();
+        let a = task_with_kind(&mut db, "Practice rotation PYQs", "Practice PYQ", &today_iso());
+        let b = task_with_kind(&mut db, "HC Verma ch 5", "Reference problems", &today_iso());
+
+        let out = session_wrap(
+            &mut db,
+            WrapInput {
+                subject: "Physics".into(),
+                chapter: "Rotational Motion".into(),
+                kind: "Practice PYQ".into(),
+                minutes: 45.0,
+                pyq: Some(PyqResult { correct: 7, wrong: 2, skipped: 1, marks: 26.0, max_marks: 40.0 }),
+                done_task_ids: vec![a.clone(), a.clone()],
+                doubts: vec![doubt("Torque direction", DoubtList::Solve), doubt("Moment of inertia", DoubtList::Revise)],
+                next_plan: vec![WrapPlanned { title: "Redo rotation misses".into(), kind: "Practice PYQ".into(), ..Default::default() }],
+                mistakes: vec![miss("Rotational Motion"), miss("Rotational Motion")],
+                note: "  felt slow on the last five  ".into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        // level 1: the task is done, once, stamped today; the other is untouched
+        assert_eq!(out.ticked, 1);
+        assert!(db.tasks.iter().find(|t| t.id == a).unwrap().completed);
+        assert_eq!(db.tasks.iter().find(|t| t.id == a).unwrap().completed_on.as_deref(), Some(today_iso().as_str()));
+        assert!(!db.tasks.iter().find(|t| t.id == b).unwrap().completed);
+
+        // level 2: each doubt is a topic in the right list, with its detail
+        assert_eq!(out.doubts_added, 2);
+        let solve = db.topics.iter().find(|t| t.name == "Torque direction").unwrap();
+        assert_eq!(solve.kind, TopicType::Solve);
+        assert_eq!(solve.chapter, "Rotational Motion");
+        assert_eq!(solve.note, "why does torque flip");
+        assert_eq!(db.topics.iter().find(|t| t.name == "Moment of inertia").unwrap().kind, TopicType::Revise);
+
+        // level 3: the next-session task is due tomorrow by default
+        assert_eq!(out.planned, 1);
+        let next = db.tasks.iter().find(|t| t.title == "Redo rotation misses").unwrap();
+        assert_eq!(next.due_date, tomorrow_iso());
+        assert_eq!(next.kind, "Practice PYQ");
+        assert!(!next.completed);
+
+        // the misses went to the mistake log, one row each
+        assert_eq!(out.mistakes_added, 2);
+        assert_eq!(db.mark_logbook.len(), 2);
+
+        // and the journal has one entry holding the session
+        assert_eq!(db.journal.len(), 1);
+        let j = &db.journal[0];
+        assert_eq!(j.id, out.journal_id);
+        assert_eq!(j.date, today_iso());
+        assert_eq!(j.minutes, 45.0);
+        assert_eq!(j.pyq.as_ref().unwrap().correct, 7);
+        assert_eq!(j.tasks_done.len(), 1);
+        assert_eq!(j.doubts.len(), 2);
+        assert_eq!(j.next_plan[0].due_date, tomorrow_iso());
+        assert_eq!(j.note, "felt slow on the last five");
+    }
+
+    #[test]
+    fn a_wrap_up_that_fails_validation_writes_nothing() {
+        let mut db = seed::fresh_db();
+        let a = task_with_kind(&mut db, "A", "Practice PYQ", &today_iso());
+        let before = snapshot(&db);
+
+        // a good tick and a good doubt, then one task id that does not exist
+        let err = session_wrap(
+            &mut db,
+            WrapInput {
+                done_task_ids: vec![a, "no-such-task".into()],
+                doubts: vec![doubt("D", DoubtList::Solve)],
+                mistakes: vec![miss("X")],
+                ..Default::default()
+            },
+        );
+        assert!(matches!(err, Err(MisError::NotFound(_))));
+        assert_eq!(snapshot(&db), before, "a refused wrap-up must leave nothing behind");
+
+        // the same for a blank doubt title and a malformed due date
+        for input in [
+            WrapInput { minutes: 10.0, doubts: vec![doubt("  ", DoubtList::Revise)], ..Default::default() },
+            WrapInput {
+                minutes: 10.0,
+                next_plan: vec![WrapPlanned { title: "x".into(), due_date: Some("tomorrow".into()), ..Default::default() }],
+                ..Default::default()
+            },
+        ] {
+            assert!(matches!(session_wrap(&mut db, input), Err(MisError::Invalid(_))));
+            assert_eq!(snapshot(&db), before);
+        }
+    }
+
+    #[test]
+    fn an_empty_wrap_up_is_refused() {
+        let mut db = seed::fresh_db();
+        assert!(matches!(session_wrap(&mut db, WrapInput::default()), Err(MisError::Invalid(_))));
+        assert!(db.journal.is_empty());
+    }
+
+    #[test]
+    fn a_task_finished_earlier_keeps_its_original_day() {
+        let mut db = seed::fresh_db();
+        let id = task_with_kind(&mut db, "Old", "Practice PYQ", &today_iso());
+        db.tasks[0].completed = true;
+        db.tasks[0].completed_on = Some("2026-01-05".into());
+
+        let out = session_wrap(&mut db, WrapInput { done_task_ids: vec![id], ..Default::default() }).unwrap();
+        assert_eq!(out.ticked, 0, "it was already done, so nothing changed");
+        assert_eq!(db.tasks[0].completed_on.as_deref(), Some("2026-01-05"));
+        // it is still part of the story of this session
+        assert_eq!(db.journal[0].tasks_done.len(), 1);
+    }
+
+    #[test]
+    fn on_a_locked_day_the_wrap_up_refuses_ticks_and_doubts_but_can_still_plan() {
+        let mut db = db_with_today();
+        let id = task_with_kind(&mut db, "Today's", "Practice PYQ", &today_iso());
+        lock_today(&mut db).unwrap();
+        let before = snapshot(&db);
+
+        assert!(matches!(
+            session_wrap(&mut db, WrapInput { done_task_ids: vec![id], ..Default::default() }),
+            Err(MisError::DayLocked)
+        ));
+        assert!(matches!(
+            session_wrap(&mut db, WrapInput { doubts: vec![doubt("D", DoubtList::Solve)], ..Default::default() }),
+            Err(MisError::DayLocked)
+        ));
+        // a next-session task due today is still today's record
+        assert!(matches!(
+            session_wrap(&mut db, WrapInput {
+                next_plan: vec![WrapPlanned { title: "x".into(), due_date: Some(today_iso()), ..Default::default() }],
+                ..Default::default()
+            }),
+            Err(MisError::DayLocked)
+        ));
+        assert_eq!(snapshot(&db), before, "every refusal above must have written nothing");
+
+        // but planning tomorrow, logging the misses and writing the journal all work
+        let out = session_wrap(
+            &mut db,
+            WrapInput {
+                minutes: 30.0,
+                next_plan: vec![WrapPlanned { title: "Tomorrow's set".into(), ..Default::default() }],
+                mistakes: vec![miss("Optics")],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!((out.planned, out.mistakes_added, out.ticked, out.doubts_added), (1, 1, 0, 0));
+        assert_eq!(db.journal.len(), 1);
+    }
+
+    #[test]
+    fn the_journal_still_reads_after_the_task_it_came_from_is_deleted() {
+        let mut db = seed::fresh_db();
+        let id = task_with_kind(&mut db, "Rotation PYQs", "Practice PYQ", &today_iso());
+        session_wrap(&mut db, WrapInput { done_task_ids: vec![id.clone()], ..Default::default() }).unwrap();
+
+        delete_task(&mut db, &id).unwrap();
+        assert!(db.tasks.is_empty());
+        assert_eq!(db.journal[0].tasks_done[0].title, "Rotation PYQs");
+        assert_eq!(db.journal[0].tasks_done[0].kind, "Practice PYQ");
+    }
+
+    #[test]
+    fn a_journal_note_can_be_edited_and_an_entry_deleted() {
+        let mut db = seed::fresh_db();
+        let out = session_wrap(&mut db, WrapInput { minutes: 20.0, ..Default::default() }).unwrap();
+
+        update_journal_note(&mut db, &out.journal_id, "  better than yesterday ".into()).unwrap();
+        assert_eq!(db.journal[0].note, "better than yesterday");
+        assert!(matches!(update_journal_note(&mut db, "nope", String::new()), Err(MisError::NotFound(_))));
+
+        delete_journal_entry(&mut db, &out.journal_id);
+        assert!(db.journal.is_empty());
+    }
+
+    #[test]
+    fn a_vault_from_before_the_journal_still_loads() {
+        // Exactly what an old vault looks like: no `journal`, and tasks and
+        // topics without any of the new fields.
+        let mut v = serde_json::to_value(seed::fresh_db()).unwrap();
+        v.as_object_mut().unwrap().remove("journal");
+        v["tasks"] = serde_json::json!([
+            { "id": "t", "title": "Old task", "completed": false }
+        ]);
+        v["topics"] = serde_json::json!([
+            { "id": "p", "date": "2026-08-01", "name": "Old topic", "type": "revise", "done": false }
+        ]);
+
+        let db: DbShape = serde_json::from_value(v).unwrap();
+        assert!(db.journal.is_empty());
+        assert_eq!(db.tasks[0].kind, "");
+        assert_eq!(db.tasks[0].problems, 0);
+        assert_eq!(db.topics[0].chapter, "");
+        assert_eq!(db.topics[0].kind, TopicType::Revise);
     }
 }

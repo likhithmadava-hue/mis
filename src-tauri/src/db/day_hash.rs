@@ -208,8 +208,8 @@ mod tests {
     #[test]
     fn habit_and_topic_order_does_not_change_the_hash() {
         let topics = vec![
-            TopicItem { id: "b".into(), date: "2026-08-03".into(), name: "Two".into(), kind: TopicType::Revise, done: false, done_on: None },
-            TopicItem { id: "a".into(), date: "2026-08-03".into(), name: "One".into(), kind: TopicType::Taught, done: true, done_on: None },
+            TopicItem { id: "b".into(), date: "2026-08-03".into(), name: "Two".into(), kind: TopicType::Revise, done: false, done_on: None, ..Default::default() },
+            TopicItem { id: "a".into(), date: "2026-08-03".into(), name: "One".into(), kind: TopicType::Taught, done: true, done_on: None, ..Default::default() },
         ];
         let reversed: Vec<TopicItem> = topics.iter().rev().cloned().collect();
 
