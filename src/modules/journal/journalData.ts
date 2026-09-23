@@ -1,4 +1,4 @@
-import type { JournalEntry } from '../../core/db';
+import type { AppMode, JournalEntry } from '../../core/db';
 
 /**
  * The Journal's arithmetic, kept out of the component: which subjects and kinds
@@ -7,6 +7,28 @@ import type { JournalEntry } from '../../core/db';
 
 /** the filter value meaning "don't filter on this" */
 export const ALL = '__all__';
+
+/**
+ * The entries belonging to one journal. An entry written before the diary
+ * existed has no mode and is a study session, so it reads as Academic — the
+ * same default Rust applies.
+ */
+export const entriesFor = (entries: readonly JournalEntry[], mode: AppMode) =>
+  entries.filter((e) => (e.mode ?? 'academic') === mode);
+
+/** whether an entry was produced by a session wrap-up rather than written */
+export const isSession = (entry: JournalEntry) =>
+  entry.pyq !== null ||
+  entry.tasks_done.length > 0 ||
+  entry.doubts.length > 0 ||
+  entry.next_plan.length > 0;
+
+/** the heading to show for an entry, whichever of its fields carry it */
+export const headingOf = (entry: JournalEntry) =>
+  entry.title?.trim() ||
+  [entry.subject, entry.chapter].filter(Boolean).join(' · ') ||
+  entry.kind ||
+  'Untitled entry';
 
 const distinct = (values: string[]) =>
   [...new Set(values.map((v) => v.trim()).filter(Boolean))].sort((a, b) =>

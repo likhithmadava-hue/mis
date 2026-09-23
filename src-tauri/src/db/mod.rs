@@ -739,6 +739,9 @@ pub fn session_wrap(db: &mut DbShape, input: WrapInput) -> Result<WrapOutcome> {
             id: journal_id.clone(),
             date: today,
             created_at: now_iso(),
+            // a wrapped-up study session belongs to the Academic logbook
+            mode: AppMode::Academic,
+            title: String::new(),
             subject: input.subject.trim().to_string(),
             chapter: input.chapter.trim().to_string(),
             kind: input.kind.trim().to_string(),
@@ -760,14 +763,114 @@ pub fn session_wrap(db: &mut DbShape, input: WrapInput) -> Result<WrapOutcome> {
     })
 }
 
-/// Edit a journal entry's free-text note — the one part of an entry that is
-/// meant to be rewritten. The structured levels are a record and stay as
-/// written. Not day-locked, like the logbook.
-pub fn update_journal_note(db: &mut DbShape, id: &str, note: String) -> Result<()> {
+/// A journal entry written by hand rather than produced by a wrap-up: a page
+/// of the Academic logbook, or a day of the Life diary.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default)]
+pub struct NewJournalEntry {
+    /// which journal it belongs to
+    pub mode: AppMode,
+    /// `YYYY-MM-DD`; empty means today. **Backdating is allowed** — catching up
+    /// on yesterday is the normal way a diary gets written, and the journal is
+    /// not part of the scored, lockable day record.
+    pub date: String,
+    pub title: String,
+    pub subject: String,
+    pub chapter: String,
+    pub kind: String,
+    pub minutes: f64,
+    pub note: String,
+}
+
+/// The fields of an entry that can be rewritten afterwards.
+///
+/// The three structured levels of a session are deliberately absent: they are a
+/// record of what happened and stay as written. Everything a person *wrote* —
+/// the title, the body, what it was about — can be edited, because a diary you
+/// cannot correct is one people stop writing in.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default)]
+pub struct JournalPatch {
+    pub date: Option<String>,
+    pub title: Option<String>,
+    pub subject: Option<String>,
+    pub chapter: Option<String>,
+    pub kind: Option<String>,
+    pub minutes: Option<f64>,
+    pub note: Option<String>,
+}
+
+fn check_minutes(minutes: f64) -> Result<()> {
+    if !minutes.is_finite() || minutes < 0.0 {
+        return Err(invalid("minutes must be zero or more"));
+    }
+    Ok(())
+}
+
+fn check_date(date: &str) -> Result<String> {
+    let trimmed = date.trim();
+    if trimmed.is_empty() {
+        return Ok(today_iso());
+    }
+    if parse_iso(trimmed).is_none() {
+        return Err(invalid("a date must look like 2026-09-23"));
+    }
+    Ok(trimmed.to_string())
+}
+
+/// Write a journal entry by hand. Returns its id.
+///
+/// Not day-locked: the journal records what a day *was*, and locking the log
+/// is about freezing the day's scored numbers, not about forbidding you from
+/// writing down what happened.
+pub fn add_journal_entry(db: &mut DbShape, input: NewJournalEntry) -> Result<String> {
+    check_minutes(input.minutes)?;
+    let date = check_date(&input.date)?;
+    if input.title.trim().is_empty() && input.note.trim().is_empty() {
+        return Err(invalid("an entry needs a title or something written in it"));
+    }
+
+    let id = uid();
+    db.journal.insert(
+        0,
+        JournalEntry {
+            id: id.clone(),
+            date,
+            created_at: now_iso(),
+            mode: input.mode,
+            title: input.title.trim().to_string(),
+            subject: input.subject.trim().to_string(),
+            chapter: input.chapter.trim().to_string(),
+            kind: input.kind.trim().to_string(),
+            minutes: input.minutes,
+            pyq: None,
+            tasks_done: Vec::new(),
+            doubts: Vec::new(),
+            next_plan: Vec::new(),
+            note: input.note.trim().to_string(),
+        },
+    );
+    Ok(id)
+}
+
+/// Rewrite the written parts of an entry. See [`JournalPatch`] for what is
+/// deliberately not editable.
+pub fn update_journal_entry(db: &mut DbShape, id: &str, patch: JournalPatch) -> Result<()> {
+    if let Some(m) = patch.minutes {
+        check_minutes(m)?;
+    }
+    let date = patch.date.as_deref().map(check_date).transpose()?;
+
     let Some(e) = db.journal.iter_mut().find(|e| e.id == id) else {
         return Err(MisError::NotFound(format!("no journal entry with id {id}")));
     };
-    e.note = note.trim().to_string();
+    if let Some(v) = date { e.date = v }
+    if let Some(v) = patch.title { e.title = v.trim().to_string() }
+    if let Some(v) = patch.subject { e.subject = v.trim().to_string() }
+    if let Some(v) = patch.chapter { e.chapter = v.trim().to_string() }
+    if let Some(v) = patch.kind { e.kind = v.trim().to_string() }
+    if let Some(v) = patch.minutes { e.minutes = v }
+    if let Some(v) = patch.note { e.note = v.trim().to_string() }
     Ok(())
 }
 
@@ -847,6 +950,7 @@ pub fn set_daily_log_layout(db: &mut DbShape, mode: AppMode, layout: Vec<WidgetP
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dates::iso_days_ago;
 
     /// A database where today has actually been logged. It goes through
     /// `update_today_metric` rather than pushing a row directly, because that
@@ -1346,9 +1450,17 @@ mod tests {
         let mut db = seed::fresh_db();
         let out = session_wrap(&mut db, WrapInput { minutes: 20.0, ..Default::default() }).unwrap();
 
-        update_journal_note(&mut db, &out.journal_id, "  better than yesterday ".into()).unwrap();
+        update_journal_entry(
+            &mut db,
+            &out.journal_id,
+            JournalPatch { note: Some("  better than yesterday ".into()), ..Default::default() },
+        )
+        .unwrap();
         assert_eq!(db.journal[0].note, "better than yesterday");
-        assert!(matches!(update_journal_note(&mut db, "nope", String::new()), Err(MisError::NotFound(_))));
+        assert!(matches!(
+            update_journal_entry(&mut db, "nope", JournalPatch::default()),
+            Err(MisError::NotFound(_))
+        ));
 
         delete_journal_entry(&mut db, &out.journal_id);
         assert!(db.journal.is_empty());
@@ -1383,6 +1495,124 @@ mod tests {
     fn dpp(db: &mut DbShape, name: &str) -> String {
         add_dpp(db, "Physics".into(), name.into(), "Sir".into()).unwrap();
         db.dpps[0].id.clone()
+    }
+
+    #[test]
+    fn a_wrapped_up_session_belongs_to_the_academic_logbook() {
+        let mut db = seed::fresh_db();
+        session_wrap(&mut db, WrapInput { minutes: 30.0, ..Default::default() }).unwrap();
+        assert_eq!(db.journal[0].mode, AppMode::Academic);
+        assert_eq!(db.journal[0].title, "");
+    }
+
+    #[test]
+    fn an_entry_can_be_written_by_hand_in_either_journal() {
+        let mut db = seed::fresh_db();
+
+        let diary = add_journal_entry(
+            &mut db,
+            NewJournalEntry {
+                mode: AppMode::Life,
+                title: "  Long day  ".into(),
+                note: "  Tired but finished the set.  ".into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let log = add_journal_entry(
+            &mut db,
+            NewJournalEntry {
+                mode: AppMode::Academic,
+                title: "Rotation recap".into(),
+                subject: "Physics".into(),
+                minutes: 40.0,
+                note: "Worked through torque problems.".into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        let d = db.journal.iter().find(|e| e.id == diary).unwrap();
+        assert_eq!((d.mode, d.title.as_str()), (AppMode::Life, "Long day"));
+        assert_eq!(d.note, "Tired but finished the set.");
+        assert_eq!(d.date, today_iso(), "an entry with no date is written for today");
+        // a hand-written entry has none of a session's structure
+        assert!(d.pyq.is_none() && d.tasks_done.is_empty() && d.doubts.is_empty());
+
+        assert_eq!(db.journal.iter().find(|e| e.id == log).unwrap().mode, AppMode::Academic);
+    }
+
+    #[test]
+    fn an_entry_needs_something_written_in_it_and_a_real_date() {
+        let mut db = seed::fresh_db();
+
+        assert!(matches!(
+            add_journal_entry(&mut db, NewJournalEntry { subject: "Physics".into(), ..Default::default() }),
+            Err(MisError::Invalid(_))
+        ));
+        assert!(matches!(
+            add_journal_entry(
+                &mut db,
+                NewJournalEntry { title: "x".into(), date: "yesterday".into(), ..Default::default() }
+            ),
+            Err(MisError::Invalid(_))
+        ));
+        assert!(db.journal.is_empty(), "a refused entry leaves nothing behind");
+    }
+
+    #[test]
+    fn a_diary_entry_can_be_backdated_and_rewritten() {
+        let mut db = seed::fresh_db();
+        let id = add_journal_entry(
+            &mut db,
+            NewJournalEntry {
+                mode: AppMode::Life,
+                date: iso_days_ago(2),
+                title: "Sunday".into(),
+                note: "first draft".into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(db.journal[0].date, iso_days_ago(2));
+
+        update_journal_entry(
+            &mut db,
+            &id,
+            JournalPatch {
+                title: Some("Sunday, properly".into()),
+                note: Some("second draft".into()),
+                date: Some(iso_days_ago(1)),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let e = &db.journal[0];
+        assert_eq!((e.title.as_str(), e.note.as_str(), e.date.as_str()), (
+            "Sunday, properly",
+            "second draft",
+            iso_days_ago(1).as_str()
+        ));
+
+        // and a nonsense edit is refused without touching what is stored
+        assert!(matches!(
+            update_journal_entry(&mut db, &id, JournalPatch { minutes: Some(-5.0), ..Default::default() }),
+            Err(MisError::Invalid(_))
+        ));
+        assert_eq!(db.journal[0].note, "second draft");
+    }
+
+    #[test]
+    fn a_locked_day_does_not_stop_the_journal() {
+        // Locking freezes the day's scored numbers; writing down what happened
+        // is not one of them.
+        let mut db = db_with_today();
+        lock_today(&mut db).unwrap();
+        assert!(add_journal_entry(
+            &mut db,
+            NewJournalEntry { mode: AppMode::Life, note: "wrote this after locking".into(), ..Default::default() }
+        )
+        .is_ok());
     }
 
     #[test]

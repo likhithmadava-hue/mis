@@ -59,7 +59,7 @@ const TABS = [
   { id: 'log', label: 'Daily Log', icon: CalendarCheck, modes: ['academic', 'life'] },
   { id: 'report', label: 'Report', icon: BarChart3, modes: ['academic', 'life'] },
   { id: 'db', label: 'Database', icon: Database, modes: ['academic'] },
-  { id: 'journal', label: 'Journal', icon: NotebookText, modes: ['life'] },
+  { id: 'journal', label: 'Journal', icon: NotebookText, modes: ['academic', 'life'] },
   { id: 'screen', label: 'Screen Time', icon: MonitorPlay, modes: ['life'] },
   { id: 'focus', label: 'Focus Timer', icon: Timer, modes: ['academic'] },
   { id: 'settings', label: 'Settings', icon: Settings, modes: ['academic', 'life'] },
@@ -423,7 +423,7 @@ export default function App() {
                 <DatabaseExplorer />
               </Match>
               <Match when={activeTab() === 'journal'}>
-                <Journal />
+                <Journal mode={mode} />
               </Match>
               <Match when={activeTab() === 'screen'}>
                 <ScreenTime />

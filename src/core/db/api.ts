@@ -35,8 +35,10 @@ import type {
   EntryPatch,
   FocusSettings,
   MarkLogbookEntry,
+  JournalPatch,
   MetricPatch,
   NewEntry,
+  NewJournalEntry,
   Priority,
   Profile,
   ScoredDay,
@@ -238,8 +240,12 @@ export const deleteTopic = (id: string) => invoke<void>('db_delete_topic', { id 
 export const sessionWrap = (input: WrapInput) =>
   invoke<WrapOutcome>('db_session_wrap', { input });
 
-export const updateJournalNote = (id: string, note: string) =>
-  invoke<void>('db_update_journal_note', { id, note });
+/** Write a journal entry by hand. Returns its id. Not day-locked. */
+export const addJournalEntry = (entry: NewJournalEntry) =>
+  invoke<string>('db_add_journal_entry', { entry });
+
+export const updateJournalEntry = (id: string, patch: JournalPatch) =>
+  invoke<void>('db_update_journal_entry', { id, patch });
 
 export const deleteJournalEntry = (id: string) =>
   invoke<void>('db_delete_journal_entry', { id });
