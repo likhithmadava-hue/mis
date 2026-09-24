@@ -5,6 +5,7 @@ import {
   Dices,
   House,
   MonitorPlay,
+  NotebookText,
   PanelLeftClose,
   PanelLeftOpen,
   Quote,
@@ -30,6 +31,7 @@ import { AccountDialog } from './modules/auth';
 import { DatabaseExplorer } from './modules/database';
 import { FocusTimer } from './modules/focus';
 import { Home, Report } from './modules/growth';
+import { Journal } from './modules/journal';
 import { DailyLog } from './modules/log';
 import { ScreenTime } from './modules/screentime';
 import { Appearance } from './modules/settings';
@@ -57,6 +59,7 @@ const TABS = [
   { id: 'log', label: 'Daily Log', icon: CalendarCheck, modes: ['academic', 'life'] },
   { id: 'report', label: 'Report', icon: BarChart3, modes: ['academic', 'life'] },
   { id: 'db', label: 'Database', icon: Database, modes: ['academic'] },
+  { id: 'journal', label: 'Journal', icon: NotebookText, modes: ['academic', 'life'] },
   { id: 'screen', label: 'Screen Time', icon: MonitorPlay, modes: ['life'] },
   { id: 'focus', label: 'Focus Timer', icon: Timer, modes: ['academic'] },
   { id: 'settings', label: 'Settings', icon: Settings, modes: ['academic', 'life'] },
@@ -418,6 +421,9 @@ export default function App() {
               </Match>
               <Match when={activeTab() === 'db'}>
                 <DatabaseExplorer />
+              </Match>
+              <Match when={activeTab() === 'journal'}>
+                <Journal mode={mode} />
               </Match>
               <Match when={activeTab() === 'screen'}>
                 <ScreenTime />

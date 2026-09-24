@@ -311,6 +311,14 @@ export interface JournalEntry {
   date: string;
   /** when the wrap-up was confirmed, ISO-8601 */
   created_at: string;
+  /**
+   * Which journal it belongs to: Academic is the study logbook (every session
+   * wrap-up lands there), Life is the personal diary. The two are never mixed
+   * on screen. Absent on a vault written before the diary existed.
+   */
+  mode?: AppMode;
+  /** the entry's own heading; empty on a session wrap-up */
+  title?: string;
   subject: string;
   chapter: string;
   kind: string;
@@ -320,6 +328,33 @@ export interface JournalEntry {
   doubts: JournalDoubt[];
   next_plan: JournalPlanned[];
   note: string;
+}
+
+/** A journal entry written by hand — a logbook page or a diary day. */
+export interface NewJournalEntry {
+  mode: AppMode;
+  /** `YYYY-MM-DD`; omitted or empty means today. Backdating is allowed. */
+  date?: string;
+  title?: string;
+  subject?: string;
+  chapter?: string;
+  kind?: string;
+  minutes?: number;
+  note?: string;
+}
+
+/**
+ * The parts of an entry that can be rewritten. A session's three structured
+ * levels are deliberately absent — they record what happened.
+ */
+export interface JournalPatch {
+  date?: string;
+  title?: string;
+  subject?: string;
+  chapter?: string;
+  kind?: string;
+  minutes?: number;
+  note?: string;
 }
 
 /** A doubt as the wrap-up panel sends it. */
@@ -351,6 +386,10 @@ export interface WrapInput {
   pyq?: PyqResult | null;
   /** level 1 — tasks to mark done */
   done_task_ids?: string[];
+  /** level 1 — today's DPPs finished in this session */
+  done_dpp_ids?: string[];
+  /** level 1 — Left to revise / Left to solve topics finished in this session */
+  done_topic_ids?: string[];
   /** level 2 — doubts left */
   doubts?: WrapDoubt[];
   /** level 3 — tasks for the next session */

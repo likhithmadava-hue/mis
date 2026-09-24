@@ -13,12 +13,16 @@ import {
   type DailyMetric,
   type MetricPatch,
   type Priority,
+  type TaskDetails,
+  type TopicDetails,
   type TopicType,
   type TrackId,
   type TrackScores,
   type UserConfig,
+  type WrapInput,
 } from '../../core/db';
 import { tracksIn } from '../../core/scoring';
+import { kindSuggestions } from './kindOptions';
 
 /**
  * The Daily Log's state and every write it makes.
@@ -166,19 +170,48 @@ export function createDailyLog(mode: () => AppMode) {
   const deleteHabit = (id: string) => run(api.deleteHabit(id));
   const setTrackPriority = (id: TrackId, p: Priority) => run(api.setTrackPriority(id, p));
 
-  const addTopic = (name: string, kind: TopicType) => {
+  const addTopic = (name: string, kind: TopicType, details?: TopicDetails) => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    return run(api.addTopic(trimmed, kind));
+    return run(api.addTopic(trimmed, kind, details));
   };
 
   const toggleTopic = (id: string) => run(api.toggleTopic(id));
   const deleteTopic = (id: string) => run(api.deleteTopic(id));
 
-  const addTask = (title: string, subject: string, dueDate: string) => {
+  const addTask = (title: string, subject: string, dueDate: string, details?: TaskDetails) => {
     const trimmed = title.trim();
     if (!trimmed) return;
-    return run(api.addTask(trimmed, subject.trim(), dueDate, mode()));
+    return run(api.addTask(trimmed, subject.trim(), dueDate, mode(), details));
+  };
+
+  /** presets, then the kinds this student keeps reusing — see `kindOptions.ts` */
+  const kindOptions = createMemo(() => kindSuggestions(db.tasks));
+
+  /**
+   * Save a session wrap-up — one all-or-nothing write in Rust. Resolves `true`
+   * when it was written, so the panel knows whether to close; a refusal (a
+   * locked day, a stale id) is flashed like every other write here.
+   */
+  const wrapUp = async (input: WrapInput) => {
+    try {
+      const out = await act(api.sessionWrap(input));
+      const parts = [
+        `${out.ticked} ticked`,
+        `${out.doubts_added} ${out.doubts_added === 1 ? 'doubt' : 'doubts'}`,
+        `${out.planned} planned`,
+      ];
+      if (out.mistakes_added > 0) parts.push(`${out.mistakes_added} mistakes logged`);
+      flash(`📓 Session logged: ${parts.join(', ')}.`);
+      return true;
+    } catch (e) {
+      flash(
+        isDayLocked(e)
+          ? '🔒 Today is locked, so nothing from today can be ticked or added. Plan for tomorrow instead, or unlock the day.'
+          : `⚠ ${errorMessage(e)}`,
+      );
+      return false;
+    }
   };
 
   const addDpp = (subject: string, topic: string, teacher: string) => {
@@ -262,6 +295,8 @@ export function createDailyLog(mode: () => AppMode) {
     addTask,
     toggleTask,
     deleteTask,
+    kindOptions,
+    wrapUp,
     addPaper,
   };
 }

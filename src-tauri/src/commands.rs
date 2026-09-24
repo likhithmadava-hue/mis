@@ -226,8 +226,17 @@ pub fn db_session_wrap(state: State<AppState>, input: db::WrapInput) -> Result<d
 }
 
 #[tauri::command]
-pub fn db_update_journal_note(state: State<AppState>, id: String, note: String) -> Result<()> {
-    state.mutate(|db| db::update_journal_note(db, &id, note))
+pub fn db_add_journal_entry(state: State<AppState>, entry: db::NewJournalEntry) -> Result<String> {
+    state.mutate(|db| db::add_journal_entry(db, entry))
+}
+
+#[tauri::command]
+pub fn db_update_journal_entry(
+    state: State<AppState>,
+    id: String,
+    patch: db::JournalPatch,
+) -> Result<()> {
+    state.mutate(|db| db::update_journal_entry(db, &id, patch))
 }
 
 #[tauri::command]
