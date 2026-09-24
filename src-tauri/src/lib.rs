@@ -210,7 +210,8 @@ pub fn run() {
             commands::db_delete_topic,
             // session wrap-up and the journal
             commands::db_session_wrap,
-            commands::db_update_journal_note,
+            commands::db_add_journal_entry,
+            commands::db_update_journal_entry,
             commands::db_delete_journal_entry,
             // habits
             commands::db_add_habit,

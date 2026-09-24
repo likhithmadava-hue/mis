@@ -618,6 +618,17 @@ pub struct JournalEntry {
     pub date: String,
     /// when the wrap-up was confirmed, ISO-8601
     pub created_at: String,
+    /// Which journal this belongs to. Academic is the study logbook — every
+    /// session wrap-up lands there — and Life is the personal diary. The two
+    /// are never mixed on screen, the same way the two modes never share a
+    /// score. A vault written before the diary existed holds only sessions,
+    /// which is why the default is Academic.
+    #[serde(default)]
+    pub mode: AppMode,
+    /// The entry's own heading. Empty on a session wrap-up, where the subject
+    /// and chapter say what it was.
+    #[serde(default)]
+    pub title: String,
     pub subject: String,
     pub chapter: String,
     /// the kind of session, free text like `Task::kind`
