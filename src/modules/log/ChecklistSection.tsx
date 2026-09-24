@@ -117,6 +117,8 @@ interface CheckRowProps {
   checked: boolean;
   onToggle: () => void;
   label: string;
+  /** a quieter second line under the label — a doubt's note, a reference's detail */
+  detail?: string;
   /** badges after the text — subject, due date, when it was added */
   chips?: JSX.Element;
   tone?: 'overdue';
@@ -154,13 +156,23 @@ export function CheckRow(props: CheckRowProps) {
       >
         <Check size={12} stroke-width={3} />
       </button>
-      <span
-        title={props.label}
-        class={`flex-1 min-w-0 text-xs leading-snug break-words line-clamp-2 ${
-          props.checked ? 'line-through text-success' : ''
-        }`}
-      >
-        {props.label}
+      <span class="flex-1 min-w-0">
+        <span
+          title={props.label}
+          class={`block text-xs leading-snug break-words line-clamp-2 ${
+            props.checked ? 'line-through text-success' : ''
+          }`}
+        >
+          {props.label}
+        </span>
+        <Show when={props.detail}>
+          <span
+            title={props.detail}
+            class="block mt-0.5 text-[0.6875rem] leading-snug text-muted-foreground break-words line-clamp-1"
+          >
+            {props.detail}
+          </span>
+        </Show>
       </span>
       <Show when={props.chips}>
         <span class="flex flex-shrink-0 flex-wrap items-center justify-end gap-1.5">

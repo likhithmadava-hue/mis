@@ -56,6 +56,7 @@ const emptyDb = (): DbShape => ({
   tasks: [],
   topics: [],
   dpps: [],
+  journal: [],
   focus_settings: {
     focus_minutes: 25,
     short_break: 5,

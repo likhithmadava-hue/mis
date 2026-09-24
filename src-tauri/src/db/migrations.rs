@@ -30,6 +30,7 @@ pub fn migrate(db: &mut Value) -> bool {
     migrated |= ensure_array(root, "focus_sessions");
     migrated |= ensure_array(root, "tasks");
     migrated |= ensure_array(root, "dpps");
+    migrated |= ensure_array(root, "journal");
 
     // Data saved before the app had modes opens in Academic.
     if !root.contains_key("app_mode") {

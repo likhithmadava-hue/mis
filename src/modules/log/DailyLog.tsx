@@ -1,4 +1,4 @@
-import { BellRing, Lock, LockOpen, ShieldAlert } from 'lucide-solid';
+import { BellRing, Lock, LockOpen, NotebookPen, ShieldAlert } from 'lucide-solid';
 import { For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 
@@ -11,6 +11,8 @@ import { createDailyLog } from './createDailyLog';
 import MasterChecklist from './MasterChecklist';
 import PaperForm from './PaperForm';
 import TopicsPanel from './TopicsPanel';
+import { openWrapUp, wrapUpOpen } from './wrapUp';
+import WrapUpPanel from './WrapUpPanel';
 
 /** the readings that are measured rather than ticked — they stay as small cards */
 const CHECK_IN: TrackId[] = ['mood', 'well_spent', 'wellness'];
@@ -150,17 +152,29 @@ export default function DailyLog(props: { mode: () => AppMode; onOpen?: (tab: st
           </div>
         </div>
 
-        {/* The commitment step: submitting freezes today so a slipped day cannot
-            be quietly rewritten later. Unlocking stays possible — this is a study
-            app, not a court record — but it is always recorded. */}
-        <Show when={!log.locked()}>
-          <button
-            onClick={() => void askAndSubmit()}
-            class="flex-shrink-0 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold font-space flex items-center justify-center gap-2 hover:brightness-110 transition"
-          >
-            <Lock size={14} /> Submit &amp; lock
-          </button>
-        </Show>
+        <div class="flex flex-shrink-0 flex-wrap gap-2">
+          {/* Wrapping up is a study-session act, so Academic only — and it stays
+              available on a locked day, where it can still plan tomorrow. */}
+          <Show when={props.mode() === 'academic'}>
+            <button
+              onClick={() => openWrapUp()}
+              class="h-10 px-4 rounded-xl bg-muted border border-border text-sm font-semibold font-space flex items-center justify-center gap-2 hover:border-primary/40 transition-colors"
+            >
+              <NotebookPen size={14} /> Wrap up session
+            </button>
+          </Show>
+          {/* The commitment step: submitting freezes today so a slipped day cannot
+              be quietly rewritten later. Unlocking stays possible — this is a study
+              app, not a court record — but it is always recorded. */}
+          <Show when={!log.locked()}>
+            <button
+              onClick={() => void askAndSubmit()}
+              class="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold font-space flex items-center justify-center gap-2 hover:brightness-110 transition"
+            >
+              <Lock size={14} /> Submit &amp; lock
+            </button>
+          </Show>
+        </div>
       </div>
     </div>
   );
@@ -184,7 +198,7 @@ export default function DailyLog(props: { mode: () => AppMode; onOpen?: (tab: st
           <Show when={props.mode() === 'academic'}>
             <TopicsPanel
               topics={log.topics()}
-              onAdd={(name, kind) => void log.addTopic(name, kind)}
+              onAdd={(name, kind, details) => void log.addTopic(name, kind, details)}
               onToggle={(id) => void log.toggleTopic(id)}
               onDelete={(id) => void log.deleteTopic(id)}
             />
@@ -203,6 +217,10 @@ export default function DailyLog(props: { mode: () => AppMode; onOpen?: (tab: st
           </div>
         </Show>
       </div>
+
+      <Show when={wrapUpOpen() && props.mode() === 'academic'}>
+        <WrapUpPanel log={log} checklist={checklist} />
+      </Show>
     </Workspace>
   );
 }
