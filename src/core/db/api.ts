@@ -40,6 +40,7 @@ import type {
   Priority,
   Profile,
   ScoredDay,
+  SessionDetails,
   StSettings,
   Streak,
   TaskDetails,
@@ -185,8 +186,25 @@ export const logbookFingerprints = () => invoke<string[]>('db_logbook_fingerprin
 
 // ── Focus ───────────────────────────────────────────────────────────────────
 
-export const addFocusSession = (durationMinutes: number, tag: string, completed: boolean) =>
-  invoke<void>('db_add_focus_session', { durationMinutes, tag, completed });
+/**
+ * Log a focus round. Rust refuses it (`code: 'invalid'`) unless `details` names a
+ * subject, a topic and a reason — see `db::add_focus_session`.
+ */
+export const addFocusSession = (
+  durationMinutes: number,
+  completed: boolean,
+  details: SessionDetails,
+) =>
+  // `tag` is not read by Rust (Tauri ignores an argument it has no parameter
+  // for). It is here for the Android plugin, whose `db_add_focus_session` still
+  // takes `tag` and has no subject/reason yet: without it the phone's timer would
+  // throw on a missing argument. Drop it when MisPlugin.kt is ported.
+  invoke<void>('db_add_focus_session', {
+    durationMinutes,
+    completed,
+    details,
+    tag: details.chapter,
+  });
 
 /** Credit finished focus time to today's study hours. */
 export const addStudyMinutes = (minutes: number) =>

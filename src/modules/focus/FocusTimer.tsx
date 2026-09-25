@@ -8,6 +8,8 @@ import FocusMusicPanel from "./FocusMusicPanel";
 import HabitsEditor from "./HabitsEditor";
 import LeftTodayPanel from "./LeftTodayPanel";
 import LockInQuote from "./LockInQuote";
+import SessionChip from "./SessionChip";
+import SessionSetup from "./SessionSetup";
 import TimerFace from "./TimerFace";
 import TimerToolbar from "./TimerToolbar";
 import TodayFocusPanel from "./TodayFocusPanel";
@@ -131,12 +133,10 @@ export default function FocusTimer() {
             isFullscreen={isFullscreen()}
           />
 
-          <input
-            type="text"
-            placeholder="What are you working on? (e.g. Physics DPP)"
-            value={timer.tag()}
-            onInput={(e) => timer.setTag(e.currentTarget.value)}
-            class="w-full max-w-sm px-4 py-2.5 bg-background border border-border rounded-xl text-xs text-center"
+          <SessionChip
+            choice={timer.session()}
+            locked={lockedIn()}
+            onChange={timer.changeSession}
           />
 
           <div class="flex items-center gap-3">
@@ -205,6 +205,17 @@ export default function FocusTimer() {
           detail={(key) => (key === "habits" ? habitsEditor : undefined)}
         />
       </div>
+
+      {/* inside the container on purpose, like DonePrompt: a fixed element outside a
+          fullscreened node does not paint */}
+      <Show when={timer.setupOpen()}>
+        <SessionSetup
+          initial={timer.session()}
+          confirmLabel={timer.setupLabel()}
+          onConfirm={timer.confirmSetup}
+          onCancel={timer.cancelSetup}
+        />
+      </Show>
 
       <Show when={timer.askStage() !== null}>
         <DonePrompt

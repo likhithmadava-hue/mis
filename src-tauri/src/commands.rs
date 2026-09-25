@@ -137,13 +137,10 @@ pub fn db_logbook_fingerprints(state: State<AppState>) -> Result<Vec<String>> {
 pub fn db_add_focus_session(
     state: State<AppState>,
     duration_minutes: f64,
-    tag: String,
     completed: bool,
+    details: SessionDetails,
 ) -> Result<()> {
-    state.mutate(|db| {
-        db::add_focus_session(db, duration_minutes, tag, completed);
-        Ok(())
-    })
+    state.mutate(|db| db::add_focus_session(db, duration_minutes, completed, details))
 }
 
 #[tauri::command]

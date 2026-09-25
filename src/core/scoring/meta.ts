@@ -24,7 +24,13 @@ import {
   Smile,
 } from 'lucide-solid';
 
-import { PRIORITY_WEIGHT, type AppMode, type Priority, type TrackId } from '../db';
+import {
+  PRIORITY_WEIGHT,
+  type AppMode,
+  type Priority,
+  type SessionReason,
+  type TrackId,
+} from '../db';
 
 /** the day's score is reported out of this, like the old sheet's target cell */
 export const DAY_TARGET = 50;
@@ -134,3 +140,26 @@ export const heat = (score: number) => {
  * nullable rather than defaulting to zeroes.
  */
 export const NO_DATA = 'bg-transparent text-muted-foreground/30 border-border/50 border-dashed';
+
+/**
+ * The reasons a focus session can be started for, in the order they are offered.
+ *
+ * `short` is for a list row with room for a word or two; `label` is the full
+ * choice. The ids are a fixed set on purpose (Rust's `SessionReason`) — the point
+ * of asking is to add the answers up, which free text cannot do.
+ */
+export const SESSION_REASONS: { id: SessionReason; label: string; short: string }[] = [
+  { id: 'taught_in_class', label: 'Taught in class', short: 'Class' },
+  { id: 'homework', label: 'Homework', short: 'Homework' },
+  { id: 'upcoming_test', label: 'Upcoming test or exam', short: 'Test prep' },
+  { id: 'self_study', label: 'Self-study', short: 'Self-study' },
+  { id: 'other', label: 'Something else', short: 'Other' },
+];
+
+/** the full label for a stored reason, or `null` when a session predates the question */
+export const reasonLabel = (reason: SessionReason | undefined) =>
+  SESSION_REASONS.find((r) => r.id === reason)?.label ?? null;
+
+/** the one-word label for a stored reason, or `null` when a session predates the question */
+export const reasonShort = (reason: SessionReason | undefined) =>
+  SESSION_REASONS.find((r) => r.id === reason)?.short ?? null;

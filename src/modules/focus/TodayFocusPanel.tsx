@@ -2,11 +2,20 @@ import { Flame } from 'lucide-solid';
 import { For, Show } from 'solid-js';
 
 import type { FocusSession } from '../../core/db';
+import { reasonLabel } from '../../core/scoring';
 
 interface TodayFocusPanelProps {
   sessions: FocusSession[];
   minutes: number;
 }
+
+/**
+ * What a row says about a session besides its name: the subject and why it was
+ * studied. Empty for a session recorded before MIS asked — those show only their
+ * tag, and nothing is guessed for them.
+ */
+const detail = (s: FocusSession) =>
+  [s.subject, reasonLabel(s.reason)].filter(Boolean).join(' · ');
 
 /** what you've already banked today: rounds completed and minutes logged */
 export default function TodayFocusPanel(props: TodayFocusPanelProps) {
@@ -56,10 +65,16 @@ export default function TodayFocusPanel(props: TodayFocusPanelProps) {
         >
           <For each={props.sessions}>
             {(s) => (
-              <div class="px-3 py-2 bg-background border border-border rounded-lg flex items-center justify-between gap-2">
-                <span class="text-xs truncate" title={s.tag}>
-                  {s.tag}
-                </span>
+              <div
+                class="px-3 py-2 bg-background border border-border rounded-lg flex items-center justify-between gap-2"
+                title={[s.chapter || s.tag, detail(s), s.reason_note].filter(Boolean).join(' — ')}
+              >
+                <div class="min-w-0">
+                  <p class="text-xs truncate">{s.chapter || s.tag}</p>
+                  <Show when={detail(s)}>
+                    <p class="text-[0.6875rem] text-muted-foreground truncate">{detail(s)}</p>
+                  </Show>
+                </div>
                 <span class="text-[0.6875rem] font-mono text-success font-bold flex-shrink-0">
                   {s.duration_minutes}m
                 </span>

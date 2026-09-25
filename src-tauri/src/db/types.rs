@@ -434,14 +434,63 @@ fn normalise(s: &str) -> String {
     spaced.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Why a focus session was started. A fixed set, unlike the free-text topic:
+/// the point of asking is to be able to add the answers up later — how much of
+/// the month went on homework, how much on things nobody set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionReason {
+    /// the class covered it today
+    TaughtInClass,
+    /// it was set as homework
+    Homework,
+    /// a test or exam is coming
+    UpcomingTest,
+    /// the student's own choice, no outside deadline
+    SelfStudy,
+    /// none of the above — [`SessionDetails::reason_note`] says what
+    Other,
+}
+
+/// One finished (or abandoned) focus round.
+///
+/// `subject`, `chapter` and `reason` describe what the round was *for*. They are
+/// empty on a session recorded before MIS asked, and stay empty — nothing here
+/// guesses a topic for old history. They are also skipped when empty, so an old
+/// session written back out is byte-for-byte what it was.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FocusSession {
     pub id: String,
     pub date: String,
     pub duration_minutes: f64,
+    /// A short label for lists that only have room for one line. New sessions
+    /// set it to the chapter; it is kept because older readers key on it.
     #[serde(default)]
     pub tag: String,
     pub completed: bool,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub subject: String,
+    /// The topic worked on — free text, whatever the student typed or picked.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub chapter: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<SessionReason>,
+    /// In the student's own words. Required when `reason` is `Other`, optional
+    /// otherwise.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub reason_note: String,
+}
+
+/// What a focus session was for, as the frontend sends it. [`add_focus_session`]
+/// (in `db/mod.rs`) refuses the session unless subject, chapter and reason are
+/// all there — this struct is only the carrier.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct SessionDetails {
+    pub subject: String,
+    pub chapter: String,
+    pub reason: Option<SessionReason>,
+    pub reason_note: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
