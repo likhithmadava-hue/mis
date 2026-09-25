@@ -13,6 +13,7 @@ import {
   Workspace,
   type ThemeId,
 } from '../../core/ui';
+import SampleData from './SampleData';
 
 /**
  * A miniature app, drawn in a theme's own tokens.
@@ -68,7 +69,7 @@ function Preview(props: { id: ThemeId }) {
  * next launch, and there is no separate "Apply" step to forget.
  */
 export default function Appearance() {
-  useSubViewLabel(() => 'Appearance & Themes');
+  useSubViewLabel(() => 'Appearance & Sample Data');
 
   const config = themeConfig;
   const isDefault = () =>
@@ -173,6 +174,8 @@ export default function Appearance() {
           />
         </div>
       </Card>
+
+      <SampleData />
     </Workspace>
   );
 }

@@ -337,8 +337,27 @@ pub fn db_set_daily_log_layout(
 /// That is the *only* way demo rows can ever appear: the old app baked them into
 /// the desktop build, so a first launch showed marks nobody had entered. Now you
 /// have to ask.
+///
+/// Loading the sample data replaces everything, so it first copies the vault
+/// file to `vault.before-sample-<unix seconds>.mis` beside it. The copy is still
+/// encrypted with the same key, and each one gets its own name so a second load
+/// can never overwrite the copy that holds the real data. If the copy fails, the
+/// reset does not happen.
 #[tauri::command]
 pub fn db_reset(state: State<AppState>, demo: bool) -> Result<DbShape> {
+    if demo {
+        state.with_vault(|v| {
+            if !v.data_path.exists() {
+                return Ok(());
+            }
+            let secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            std::fs::copy(&v.data_path, v.dir.join(format!("vault.before-sample-{secs}.mis")))?;
+            Ok::<(), crate::error::MisError>(())
+        })??;
+    }
     let fresh = if demo { crate::db::seed::demo_db() } else { crate::db::seed::fresh_db() };
     state.mutate(|db| {
         // Resetting the *data* must not reset *who you are*. The profile is the
