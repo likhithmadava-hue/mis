@@ -81,7 +81,7 @@ export default function FocusSidebar(props: FocusSidebarProps) {
       </div>
       <Show when={view() === 'tasks'}>
         <div role="tabpanel" aria-label="Tasks and topics">
-          <TasksTopicsPanel data={props.tasks} habits={props.habits} onFocus={props.timer.setTag} />
+          <TasksTopicsPanel data={props.tasks} habits={props.habits} onFocus={props.timer.focusOn} />
         </div>
       </Show>
     </div>

@@ -3,10 +3,19 @@ import confetti from 'canvas-confetti';
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
 
 import { todayIso } from '../../core/dates';
-import { act, api, db, type FocusSettings } from '../../core/db';
+import {
+  act,
+  api,
+  db,
+  errorMessage,
+  type FocusSettings,
+  type SessionDetails,
+  type SessionReason,
+} from '../../core/db';
 import { startAlarm, playChime, type Alarm } from './audio';
 import { DONE_PROMPTS, MODE_LABEL, type TimerMode } from './constants';
 import { notifyRoundEnded } from './notify';
+import { detailsOf, lastChoice, rememberChoice, todaysChoice } from './sessionChoice';
 
 /** only the four numeric fields — the rest of `FocusSettings` is set by the sound panels */
 type NumericSetting = 'focus_minutes' | 'short_break' | 'long_break' | 'rounds_before_long';
@@ -26,13 +35,20 @@ export function createFocusTimer() {
   const [secondsLeft, setSecondsLeft] = createSignal(settings().focus_minutes * 60);
   const [isRunning, setIsRunning] = createSignal(false);
   const [round, setRound] = createSignal(1);
-  const [tag, setTag] = createSignal('');
+  /** the topic-and-reason dialog (`SessionSetup`) is open */
+  const [setupOpen, setSetupOpen] = createSignal(false);
+  /** what the dialog's confirm button says — it does whatever opened the dialog */
+  const [setupLabel, setSetupLabel] = createSignal('Start focus');
+  /** a topic to pre-fill the dialog with — set when it is opened from a task or topic row */
+  const [setupTopic, setSetupTopic] = createSignal<string | undefined>();
   const [justFinished, setJustFinished] = createSignal<string | null>(null);
   /** which of DONE_PROMPTS is on screen; null when no dialog is open */
   const [askStage, setAskStage] = createSignal<number | null>(null);
 
   let alarm: Alarm | null = null;
   let noticeTimer: number | undefined;
+  /** what to do once the dialog is confirmed: start the clock, or finish the round that raised it */
+  let afterSetup: (() => void) | null = null;
 
   const beginAlarm = () => {
     alarm ??= startAlarm();
@@ -76,7 +92,7 @@ export function createFocusTimer() {
       setAskStage(0);
       void notifyRoundEnded(
         'Focus round finished',
-        `${tag().trim() || 'Focus session'} · ${settings().focus_minutes} min. Come back and confirm to log it.`,
+        `${lastChoice()?.chapter || 'Focus session'} · ${settings().focus_minutes} min. Come back and confirm to log it.`,
       );
       return;
     }
@@ -88,13 +104,90 @@ export function createFocusTimer() {
     notice('Break over — ready for the next round?');
   };
 
+  /**
+   * Make sure the round has a subject, a topic and a reason, then carry on.
+   *
+   * If one was chosen today, `then` runs straight away. If not, the dialog opens
+   * and `then` runs when it is confirmed — cancelling drops it, so pressing Start
+   * and thinking better of it leaves the clock exactly where it was.
+   */
+  const requireSession = (then: () => void, label = 'Start focus') => {
+    if (todaysChoice()) {
+      then();
+      return;
+    }
+    afterSetup = then;
+    setSetupLabel(label);
+    setSetupOpen(true);
+  };
+
+  const confirmSetup = (details: SessionDetails & { reason: SessionReason }) => {
+    rememberChoice(details);
+    setSetupOpen(false);
+    setSetupTopic(undefined);
+    const next = afterSetup;
+    afterSetup = null;
+    next?.();
+  };
+
+  const cancelSetup = () => {
+    afterSetup = null;
+    setSetupOpen(false);
+    setSetupTopic(undefined);
+  };
+
+  /** the chip's Change button — reopens the dialog on today's answers, with nothing to resume */
+  const changeSession = () => {
+    afterSetup = null;
+    setSetupLabel('Save');
+    setSetupOpen(true);
+  };
+
+  /**
+   * A task or topic row's Focus button — opens the same dialog, with that row's
+   * name as the topic, so the round still gets the subject and reason Rust
+   * requires. Not while a focus round is counting down, for the reason the chip
+   * is locked then: it would rewrite what is already running.
+   */
+  const focusOn = (title: string) => {
+    if (isRunning() && mode() === 'focus') {
+      notice('Pause the clock before changing what you are studying.');
+      return;
+    }
+    afterSetup = null;
+    setSetupTopic(title);
+    setSetupLabel('Save');
+    setSetupOpen(true);
+  };
+
   /** three "yes"es in — log the round and queue up the break */
   const finishSession = async () => {
     stopAlarm();
     setAskStage(null);
 
+    // `lastChoice`, not `todaysChoice`: a round that began before midnight must be
+    // logged with what it was really for, not asked about again as if it were new.
+    const choice = lastChoice();
+    if (!choice) {
+      // Cannot happen through the UI — Start and Skip both ask first. If it ever
+      // does, ask now rather than lose a round the person just sat through.
+      afterSetup = () => void finishSession();
+      setSetupLabel('Log session');
+      setSetupOpen(true);
+      return;
+    }
+
     const minutes = settings().focus_minutes;
-    await act(api.addFocusSession(minutes, tag().trim() || 'Focus session', true));
+    try {
+      await act(api.addFocusSession(minutes, true, detailsOf(choice)));
+    } catch (e) {
+      // Nothing was written (see `state.rs::mutate`). Say so, and put the clock
+      // back rather than leave it at 0:00 with no dialog to answer.
+      setMode('focus');
+      setSecondsLeft(settings().focus_minutes * 60);
+      notice(`This session was not logged — ${errorMessage(e)}`, 10000);
+      return;
+    }
 
     // Focus minutes count toward the day's study hours — the Daily Log and the
     // timer must not be two separate accounts of the same afternoon. A locked
@@ -191,7 +284,20 @@ export function createFocusTimer() {
 
   const skip = () => {
     setIsRunning(false);
-    handleComplete();
+    // Skipping a focus round finishes it, and a finished round is logged — so it
+    // needs a topic and a reason just as Start does. A break is not logged.
+    if (mode() === 'focus') requireSession(handleComplete, 'Continue');
+    else handleComplete();
+  };
+
+  /** Start needs a topic and reason for a focus round; a break starts freely. */
+  const toggleRunning = () => {
+    if (isRunning()) {
+      setIsRunning(false);
+      return;
+    }
+    if (mode() === 'focus') requireSession(() => setIsRunning(true));
+    else setIsRunning(true);
   };
 
   const save = (next: FocusSettings) => act(api.saveFocusSettings(next));
@@ -234,15 +340,22 @@ export function createFocusTimer() {
     mm,
     ss,
     isFocus: () => mode() === 'focus',
-    tag,
-    setTag,
+    /** today's subject, topic and reason, or `null` before one is chosen */
+    session: todaysChoice,
+    setupOpen,
+    setupLabel,
+    setupTopic,
+    focusOn,
+    confirmSetup,
+    cancelSetup,
+    changeSession,
     justFinished,
     askStage,
     todaySessions,
     todayMinutes: createMemo(() =>
       todaySessions().reduce((sum, s) => sum + s.duration_minutes, 0),
     ),
-    toggleRunning: () => setIsRunning((r) => !r),
+    toggleRunning,
     switchMode,
     reset,
     skip,

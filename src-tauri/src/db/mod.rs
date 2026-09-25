@@ -285,11 +285,76 @@ pub fn logbook_fingerprints(db: &DbShape) -> Vec<String> {
 
 // ── Focus ───────────────────────────────────────────────────────────────────
 
-pub fn add_focus_session(db: &mut DbShape, duration_minutes: f64, tag: String, completed: bool) {
+/// Room for a subject, a topic and a note. Generous — these are sentences a
+/// person types — but bounded, so nothing can write a page of text into every
+/// row of a list that shows one line.
+const SESSION_SUBJECT_MAX: usize = 60;
+const SESSION_CHAPTER_MAX: usize = 120;
+const SESSION_NOTE_MAX: usize = 300;
+
+/// Record a focus round together with what it was for.
+///
+/// **A session without a subject, a topic and a reason is refused.** Asking
+/// before the round starts is the whole feature: a tag typed as an afterthought
+/// is exactly what made the old log unable to say where the hours went. That
+/// makes this the guard, not the form — the dialog that asks is only the
+/// explanation, so a bug there can show the wrong thing but cannot write a
+/// nameless session.
+///
+/// `reason == Other` additionally needs the note, because "other" on its own
+/// tells the reader nothing.
+pub fn add_focus_session(
+    db: &mut DbShape,
+    duration_minutes: f64,
+    completed: bool,
+    details: SessionDetails,
+) -> Result<()> {
+    // Runs of whitespace collapse so "Laws  of motion" and "Laws of motion" are
+    // one topic in the suggestion list and any later grouping.
+    let tidy = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+    let subject = tidy(&details.subject);
+    let chapter = tidy(&details.chapter);
+    let note = details.reason_note.trim().to_string();
+
+    if subject.is_empty() {
+        return Err(MisError::Invalid("Pick a subject for this session".into()));
+    }
+    if chapter.is_empty() {
+        return Err(MisError::Invalid("Pick or type the topic you are working on".into()));
+    }
+    let Some(reason) = details.reason else {
+        return Err(MisError::Invalid("Say why you are studying this".into()));
+    };
+    if reason == SessionReason::Other && note.is_empty() {
+        return Err(MisError::Invalid(
+            "\"Something else\" needs a few words on what the reason is".into(),
+        ));
+    }
+    for (what, text, max) in [
+        ("subject", &subject, SESSION_SUBJECT_MAX),
+        ("topic", &chapter, SESSION_CHAPTER_MAX),
+        ("note", &note, SESSION_NOTE_MAX),
+    ] {
+        if text.chars().count() > max {
+            return Err(MisError::Invalid(format!("The {what} is too long — {max} characters at most")));
+        }
+    }
+
     db.focus_sessions.insert(
         0,
-        FocusSession { id: uid(), date: today_iso(), duration_minutes, tag, completed },
+        FocusSession {
+            id: uid(),
+            date: today_iso(),
+            duration_minutes,
+            tag: chapter.clone(),
+            completed,
+            subject,
+            chapter,
+            reason: Some(reason),
+            reason_note: note,
+        },
     );
+    Ok(())
 }
 
 /// Credits finished focus minutes toward today's study hours.
@@ -1690,5 +1755,127 @@ mod tests {
             assert!(matches!(session_wrap(&mut db, input), Err(MisError::DayLocked)));
         }
         assert_eq!(snapshot(&db), before);
+    }
+
+    // ── Focus sessions: what a round was for ─────────────────────────────────
+
+    fn details(subject: &str, chapter: &str, reason: Option<SessionReason>, note: &str) -> SessionDetails {
+        SessionDetails {
+            subject: subject.into(),
+            chapter: chapter.into(),
+            reason,
+            reason_note: note.into(),
+        }
+    }
+
+    #[test]
+    fn a_focus_session_is_refused_without_a_subject_a_topic_or_a_reason() {
+        let mut db = seed::fresh_db();
+        let before = db.focus_sessions.len();
+
+        for bad in [
+            details("", "Optics", Some(SessionReason::Homework), ""),
+            details("Physics", "", Some(SessionReason::Homework), ""),
+            details("Physics", "   ", Some(SessionReason::Homework), ""),
+            details("Physics", "Optics", None, ""),
+            SessionDetails::default(),
+        ] {
+            assert!(
+                matches!(add_focus_session(&mut db, 25.0, true, bad), Err(MisError::Invalid(_))),
+                "a nameless session must never reach the vault"
+            );
+        }
+        assert_eq!(db.focus_sessions.len(), before, "a refusal must write nothing");
+    }
+
+    #[test]
+    fn something_else_needs_words_but_the_other_reasons_do_not() {
+        let mut db = seed::fresh_db();
+        let none = db.focus_sessions.len();
+
+        assert!(matches!(
+            add_focus_session(&mut db, 25.0, true, details("Physics", "Optics", Some(SessionReason::Other), "  ")),
+            Err(MisError::Invalid(_))
+        ));
+        assert_eq!(db.focus_sessions.len(), none);
+
+        add_focus_session(&mut db, 25.0, true, details("Physics", "Optics", Some(SessionReason::Homework), "")).unwrap();
+        add_focus_session(&mut db, 25.0, true, details("Physics", "Optics", Some(SessionReason::Other), "coach asked me to")).unwrap();
+        assert_eq!(db.focus_sessions.len(), none + 2);
+    }
+
+    #[test]
+    fn a_focus_session_is_stored_tidied_newest_first_with_the_chapter_as_its_tag() {
+        let mut db = seed::fresh_db();
+        add_focus_session(
+            &mut db,
+            50.0,
+            true,
+            details("  Physics ", "Laws   of  motion", Some(SessionReason::UpcomingTest), " revise friction "),
+        )
+        .unwrap();
+
+        let s = &db.focus_sessions[0];
+        assert_eq!(s.subject, "Physics");
+        assert_eq!(s.chapter, "Laws of motion");
+        assert_eq!(s.tag, "Laws of motion", "list views that only know `tag` must still read well");
+        assert_eq!(s.reason, Some(SessionReason::UpcomingTest));
+        assert_eq!(s.reason_note, "revise friction");
+        assert_eq!(s.date, today_iso());
+        assert!(s.completed);
+        assert_eq!(s.duration_minutes, 50.0);
+    }
+
+    #[test]
+    fn an_overlong_subject_topic_or_note_is_refused() {
+        let mut db = seed::fresh_db();
+        let long = |n: usize| "x".repeat(n);
+        for bad in [
+            details(&long(SESSION_SUBJECT_MAX + 1), "Optics", Some(SessionReason::SelfStudy), ""),
+            details("Physics", &long(SESSION_CHAPTER_MAX + 1), Some(SessionReason::SelfStudy), ""),
+            details("Physics", "Optics", Some(SessionReason::SelfStudy), &long(SESSION_NOTE_MAX + 1)),
+        ] {
+            assert!(matches!(add_focus_session(&mut db, 25.0, true, bad), Err(MisError::Invalid(_))));
+        }
+        // the limits themselves are allowed
+        add_focus_session(
+            &mut db,
+            25.0,
+            true,
+            details(&long(SESSION_SUBJECT_MAX), &long(SESSION_CHAPTER_MAX), Some(SessionReason::SelfStudy), &long(SESSION_NOTE_MAX)),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn a_session_from_before_topics_loads_and_writes_back_unchanged() {
+        // What an old vault holds: no subject, chapter or reason at all.
+        let old = serde_json::json!({
+            "id": "abc", "date": "2026-03-01", "duration_minutes": 25.0,
+            "tag": "Physics DPP", "completed": true
+        });
+        let s: FocusSession = serde_json::from_value(old.clone()).unwrap();
+        assert!(s.subject.is_empty() && s.chapter.is_empty() && s.reason.is_none());
+        assert_eq!(
+            serde_json::to_value(&s).unwrap(),
+            old,
+            "history must not grow empty fields it never had, or the vault rewrites itself for nothing"
+        );
+    }
+
+    #[test]
+    fn the_reason_names_are_the_contract_with_the_frontend() {
+        // src/core/db/types.ts spells these out; changing one here without
+        // changing it there would make every session fail to load.
+        for (reason, name) in [
+            (SessionReason::TaughtInClass, "taught_in_class"),
+            (SessionReason::Homework, "homework"),
+            (SessionReason::UpcomingTest, "upcoming_test"),
+            (SessionReason::SelfStudy, "self_study"),
+            (SessionReason::Other, "other"),
+        ] {
+            assert_eq!(serde_json::to_value(reason).unwrap(), serde_json::json!(name));
+            assert_eq!(serde_json::from_value::<SessionReason>(serde_json::json!(name)).unwrap(), reason);
+        }
     }
 }

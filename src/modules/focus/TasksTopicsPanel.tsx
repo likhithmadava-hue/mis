@@ -11,7 +11,7 @@ import HabitsEditor from './HabitsEditor';
 interface TasksTopicsPanelProps {
   data: TasksTopicsState;
   habits: FocusHabitsState;
-  /** put a row's title in the "what are you working on" box */
+  /** start a session on a row's title — opens the topic and reason dialog with it filled in */
   onFocus: (title: string) => void;
 }
 

@@ -191,12 +191,45 @@ export type NewEntry = Omit<MarkLogbookEntry, 'id'>;
 /** marks dropped on a paper — derived, never stored */
 export const marksLost = (e: MarkLogbookEntry) => Math.max(0, e.max_score - e.score);
 
+/**
+ * Why a focus session was started. Spelled exactly as Rust's `SessionReason`
+ * serialises (`snake_case`), and pinned by a test there — change one side and
+ * every stored session stops loading.
+ */
+export type SessionReason =
+  | 'taught_in_class'
+  | 'homework'
+  | 'upcoming_test'
+  | 'self_study'
+  | 'other';
+
 export interface FocusSession {
   id: string;
   date: string;
   duration_minutes: number;
+  /** one-line label; for a session made now it is the chapter */
   tag: string;
   completed: boolean;
+  /**
+   * What the round was for. Absent on a session recorded before MIS asked —
+   * those are shown by their `tag` and never guessed at.
+   */
+  subject?: string;
+  chapter?: string;
+  reason?: SessionReason;
+  /** in the student's own words; required by Rust when `reason` is `other` */
+  reason_note?: string;
+}
+
+/**
+ * What a focus session is for, as it goes to Rust. All three of subject,
+ * chapter and reason are required there — a session without them is refused.
+ */
+export interface SessionDetails {
+  subject: string;
+  chapter: string;
+  reason: SessionReason | null;
+  reason_note: string;
 }
 
 export interface Task {

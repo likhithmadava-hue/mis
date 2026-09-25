@@ -6,6 +6,8 @@ import DailyProgressPanel from "./DailyProgressPanel";
 import DonePrompt from "./DonePrompt";
 import FocusSidebar from "./FocusSidebar";
 import LockInQuote from "./LockInQuote";
+import SessionChip from "./SessionChip";
+import SessionSetup from "./SessionSetup";
 import TimerFace from "./TimerFace";
 import TimerToolbar from "./TimerToolbar";
 import { createAmbientSound } from "./createAmbientSound";
@@ -118,19 +120,11 @@ export default function FocusTimer() {
                 secondsLeft={timer.secondsLeft()}
               />
 
-              <div class="w-full max-w-md">
-                <label for="focus-task" class="sr-only">
-                  What are you working on?
-                </label>
-                <input
-                  id="focus-task"
-                  type="text"
-                  maxLength={80}
-                  autocomplete="off"
-                  placeholder="What are you working on? (e.g. Physics DPP)"
-                  value={timer.tag()}
-                  onInput={(e) => timer.setTag(e.currentTarget.value)}
-                  class="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm text-center placeholder:text-muted-foreground"
+              <div class="w-full max-w-md flex justify-center">
+                <SessionChip
+                  choice={timer.session()}
+                  locked={lockedIn()}
+                  onChange={timer.changeSession}
                 />
               </div>
 
@@ -213,6 +207,18 @@ export default function FocusTimer() {
           tasks={tasks}
         />
       </div>
+
+      {/* inside the container on purpose, like DonePrompt: a fixed element outside a
+          fullscreened node does not paint */}
+      <Show when={timer.setupOpen()}>
+        <SessionSetup
+          initial={timer.session()}
+          topic={timer.setupTopic()}
+          confirmLabel={timer.setupLabel()}
+          onConfirm={timer.confirmSetup}
+          onCancel={timer.cancelSetup}
+        />
+      </Show>
 
       <Show when={timer.askStage() !== null}>
         <DonePrompt
