@@ -28,6 +28,7 @@ import type {
   AuditRecord,
   AuthStatus,
   Availability,
+  BankChapter,
   CompactDay,
   DailyMetric,
   DaySummary,
@@ -41,9 +42,11 @@ import type {
   NewJournalEntry,
   Priority,
   Profile,
+  Question,
   ScoredDay,
   StSettings,
   Streak,
+  SyllabusChapter,
   TaskDetails,
   TopicDetails,
   TopicType,
@@ -228,6 +231,16 @@ export const addTopic = (name: string, kind: TopicType, details?: TopicDetails) 
 export const toggleTopic = (id: string) => invoke<void>('db_toggle_topic', { id });
 
 export const deleteTopic = (id: string) => invoke<void>('db_delete_topic', { id });
+
+// ── Built-in study content ──────────────────────────────────────────────────
+// Read-only and the same on every install; filtered to the profile's exam track.
+
+export const contentSyllabus = () => invoke<SyllabusChapter[]>('content_syllabus');
+
+export const contentBankChapters = () => invoke<BankChapter[]>('content_bank_chapters');
+
+export const contentQuestions = (bankId: string) =>
+  invoke<Question[]>('content_questions', { bankId });
 
 // ── Session wrap-up and the journal ─────────────────────────────────────────
 

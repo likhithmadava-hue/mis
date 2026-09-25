@@ -1,0 +1,1321 @@
+[
+ {
+  "id": "phy-1-01",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 1,
+  "title": "Units and Measurements",
+  "priority": 2,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy1"
+ },
+ {
+  "id": "phy-1-02",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 2,
+  "title": "Motion in a Straight Line",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy2"
+ },
+ {
+  "id": "phy-1-03",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 3,
+  "title": "Motion in a Plane",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy2"
+ },
+ {
+  "id": "phy-1-04",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 4,
+  "title": "Laws of Motion",
+  "priority": 5,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy3"
+ },
+ {
+  "id": "phy-1-05",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 5,
+  "title": "Work, Energy and Power",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy4"
+ },
+ {
+  "id": "phy-1-06",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 6,
+  "title": "System of Particles and Rotational Motion",
+  "priority": 5,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy5"
+ },
+ {
+  "id": "phy-1-07",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 7,
+  "title": "Gravitation",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy6"
+ },
+ {
+  "id": "phy-1-08",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 8,
+  "title": "Mechanical Properties of Solids",
+  "priority": 2,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy7"
+ },
+ {
+  "id": "phy-1-09",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 9,
+  "title": "Mechanical Properties of Fluids",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy7"
+ },
+ {
+  "id": "phy-1-10",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 10,
+  "title": "Thermal Properties of Matter",
+  "priority": 2,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": null
+ },
+ {
+  "id": "phy-1-11",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 11,
+  "title": "Thermodynamics",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy8"
+ },
+ {
+  "id": "phy-1-12",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 12,
+  "title": "Kinetic Theory",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy9"
+ },
+ {
+  "id": "phy-1-13",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 13,
+  "title": "Oscillations",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy10"
+ },
+ {
+  "id": "phy-1-14",
+  "subject": "Physics",
+  "puc": 1,
+  "num": 14,
+  "title": "Waves",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy10"
+ },
+ {
+  "id": "phy-2-01",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 1,
+  "title": "Electric Charges and Fields",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy11"
+ },
+ {
+  "id": "phy-2-02",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 2,
+  "title": "Electrostatic Potential and Capacitance",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy11"
+ },
+ {
+  "id": "phy-2-03",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 3,
+  "title": "Current Electricity",
+  "priority": 5,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy12"
+ },
+ {
+  "id": "phy-2-04",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 4,
+  "title": "Moving Charges and Magnetism",
+  "priority": 5,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy13"
+ },
+ {
+  "id": "phy-2-05",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 5,
+  "title": "Magnetism and Matter",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy13"
+ },
+ {
+  "id": "phy-2-06",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 6,
+  "title": "Electromagnetic Induction",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy14"
+ },
+ {
+  "id": "phy-2-07",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 7,
+  "title": "Alternating Current",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy14"
+ },
+ {
+  "id": "phy-2-08",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 8,
+  "title": "Electromagnetic Waves",
+  "priority": 2,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy15"
+ },
+ {
+  "id": "phy-2-09",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 9,
+  "title": "Ray Optics and Optical Instruments",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy16"
+ },
+ {
+  "id": "phy-2-10",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 10,
+  "title": "Wave Optics",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy16"
+ },
+ {
+  "id": "phy-2-11",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 11,
+  "title": "Dual Nature of Radiation and Matter",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy17"
+ },
+ {
+  "id": "phy-2-12",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 12,
+  "title": "Atoms",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy18"
+ },
+ {
+  "id": "phy-2-13",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 13,
+  "title": "Nuclei",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy18"
+ },
+ {
+  "id": "phy-2-14",
+  "subject": "Physics",
+  "puc": 2,
+  "num": 14,
+  "title": "Semiconductor Electronics: Materials, Devices and Simple Circuits",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "phy19"
+ },
+ {
+  "id": "chem-1-01",
+  "subject": "Chemistry",
+  "puc": 1,
+  "num": 1,
+  "title": "Some Basic Concepts of Chemistry",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch1"
+ },
+ {
+  "id": "chem-1-02",
+  "subject": "Chemistry",
+  "puc": 1,
+  "num": 2,
+  "title": "Structure of Atom",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch2"
+ },
+ {
+  "id": "chem-1-03",
+  "subject": "Chemistry",
+  "puc": 1,
+  "num": 3,
+  "title": "Classification of Elements and Periodicity in Properties",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch3"
+ },
+ {
+  "id": "chem-1-04",
+  "subject": "Chemistry",
+  "puc": 1,
+  "num": 4,
+  "title": "Chemical Bonding and Molecular Structure",
+  "priority": 5,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch4"
+ },
+ {
+  "id": "chem-1-05",
+  "subject": "Chemistry",
+  "puc": 1,
+  "num": 5,
+  "title": "Chemical Thermodynamics",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch5"
+ },
+ {
+  "id": "chem-1-06",
+  "subject": "Chemistry",
+  "puc": 1,
+  "num": 6,
+  "title": "Equilibrium",
+  "priority": 5,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch6"
+ },
+ {
+  "id": "chem-1-07",
+  "subject": "Chemistry",
+  "puc": 1,
+  "num": 7,
+  "title": "Redox Reactions",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch7"
+ },
+ {
+  "id": "chem-1-08",
+  "subject": "Chemistry",
+  "puc": 1,
+  "num": 8,
+  "title": "Organic Chemistry — Some Basic Principles and Techniques",
+  "priority": 5,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch13"
+ },
+ {
+  "id": "chem-1-09",
+  "subject": "Chemistry",
+  "puc": 1,
+  "num": 9,
+  "title": "Hydrocarbons",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch14"
+ },
+ {
+  "id": "chem-2-01",
+  "subject": "Chemistry",
+  "puc": 2,
+  "num": 1,
+  "title": "Solutions",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch9"
+ },
+ {
+  "id": "chem-2-02",
+  "subject": "Chemistry",
+  "puc": 2,
+  "num": 2,
+  "title": "Electrochemistry",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch7"
+ },
+ {
+  "id": "chem-2-03",
+  "subject": "Chemistry",
+  "puc": 2,
+  "num": 3,
+  "title": "Chemical Kinetics",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch8"
+ },
+ {
+  "id": "chem-2-04",
+  "subject": "Chemistry",
+  "puc": 2,
+  "num": 4,
+  "title": "d- and f-Block Elements",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch11"
+ },
+ {
+  "id": "chem-2-05",
+  "subject": "Chemistry",
+  "puc": 2,
+  "num": 5,
+  "title": "Coordination Compounds",
+  "priority": 5,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch12"
+ },
+ {
+  "id": "chem-2-06",
+  "subject": "Chemistry",
+  "puc": 2,
+  "num": 6,
+  "title": "Haloalkanes and Haloarenes",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch15"
+ },
+ {
+  "id": "chem-2-07",
+  "subject": "Chemistry",
+  "puc": 2,
+  "num": 7,
+  "title": "Alcohols, Phenols and Ethers",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch16"
+ },
+ {
+  "id": "chem-2-08",
+  "subject": "Chemistry",
+  "puc": 2,
+  "num": 8,
+  "title": "Aldehydes, Ketones and Carboxylic Acids",
+  "priority": 5,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch16"
+ },
+ {
+  "id": "chem-2-09",
+  "subject": "Chemistry",
+  "puc": 2,
+  "num": 9,
+  "title": "Amines",
+  "priority": 4,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch17"
+ },
+ {
+  "id": "chem-2-10",
+  "subject": "Chemistry",
+  "puc": 2,
+  "num": 10,
+  "title": "Biomolecules",
+  "priority": 3,
+  "exams": [
+   "jee",
+   "neet"
+  ],
+  "bank_id": "ch18"
+ },
+ {
+  "id": "math-1-01",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 1,
+  "title": "Sets",
+  "priority": 2,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math1"
+ },
+ {
+  "id": "math-1-02",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 2,
+  "title": "Relations and Functions",
+  "priority": 3,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math1"
+ },
+ {
+  "id": "math-1-03",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 3,
+  "title": "Trigonometric Functions",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math14"
+ },
+ {
+  "id": "math-1-04",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 4,
+  "title": "Complex Numbers and Quadratic Equations",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math2"
+ },
+ {
+  "id": "math-1-05",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 5,
+  "title": "Linear Inequalities",
+  "priority": 2,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": null
+ },
+ {
+  "id": "math-1-06",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 6,
+  "title": "Permutations and Combinations",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math4"
+ },
+ {
+  "id": "math-1-07",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 7,
+  "title": "Binomial Theorem",
+  "priority": 3,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math5"
+ },
+ {
+  "id": "math-1-08",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 8,
+  "title": "Sequence and Series",
+  "priority": 3,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math6"
+ },
+ {
+  "id": "math-1-09",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 9,
+  "title": "Straight Lines",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math10"
+ },
+ {
+  "id": "math-1-10",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 10,
+  "title": "Conic Sections",
+  "priority": 5,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math10"
+ },
+ {
+  "id": "math-1-11",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 11,
+  "title": "Introduction to Three-Dimensional Geometry",
+  "priority": 2,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math11"
+ },
+ {
+  "id": "math-1-12",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 12,
+  "title": "Limits and Derivatives",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math7"
+ },
+ {
+  "id": "math-1-13",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 13,
+  "title": "Statistics",
+  "priority": 2,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math13"
+ },
+ {
+  "id": "math-1-14",
+  "subject": "Mathematics",
+  "puc": 1,
+  "num": 14,
+  "title": "Probability",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math13"
+ },
+ {
+  "id": "math-2-01",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 1,
+  "title": "Relations and Functions",
+  "priority": 3,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math1"
+ },
+ {
+  "id": "math-2-02",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 2,
+  "title": "Inverse Trigonometric Functions",
+  "priority": 3,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math14"
+ },
+ {
+  "id": "math-2-03",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 3,
+  "title": "Matrices",
+  "priority": 3,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math3"
+ },
+ {
+  "id": "math-2-04",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 4,
+  "title": "Determinants",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math3"
+ },
+ {
+  "id": "math-2-05",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 5,
+  "title": "Continuity and Differentiability",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math7"
+ },
+ {
+  "id": "math-2-06",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 6,
+  "title": "Applications of Derivatives",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math7"
+ },
+ {
+  "id": "math-2-07",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 7,
+  "title": "Integrals",
+  "priority": 5,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math8"
+ },
+ {
+  "id": "math-2-08",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 8,
+  "title": "Applications of the Integrals",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math8"
+ },
+ {
+  "id": "math-2-09",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 9,
+  "title": "Differential Equations",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math9"
+ },
+ {
+  "id": "math-2-10",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 10,
+  "title": "Vector Algebra",
+  "priority": 3,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math12"
+ },
+ {
+  "id": "math-2-11",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 11,
+  "title": "Three-Dimensional Geometry",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math11"
+ },
+ {
+  "id": "math-2-12",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 12,
+  "title": "Linear Programming",
+  "priority": 2,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": null
+ },
+ {
+  "id": "math-2-13",
+  "subject": "Mathematics",
+  "puc": 2,
+  "num": 13,
+  "title": "Probability",
+  "priority": 4,
+  "exams": [
+   "jee"
+  ],
+  "bank_id": "math13"
+ },
+ {
+  "id": "bio-1-01",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 1,
+  "title": "The Living World",
+  "priority": 2,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio1"
+ },
+ {
+  "id": "bio-1-02",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 2,
+  "title": "Biological Classification",
+  "priority": 4,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio2"
+ },
+ {
+  "id": "bio-1-03",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 3,
+  "title": "Plant Kingdom",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio3"
+ },
+ {
+  "id": "bio-1-04",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 4,
+  "title": "Animal Kingdom",
+  "priority": 4,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio4"
+ },
+ {
+  "id": "bio-1-05",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 5,
+  "title": "Morphology of Flowering Plants",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio5"
+ },
+ {
+  "id": "bio-1-06",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 6,
+  "title": "Anatomy of Flowering Plants",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio6"
+ },
+ {
+  "id": "bio-1-07",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 7,
+  "title": "Structural Organisation in Animals",
+  "priority": 2,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio7"
+ },
+ {
+  "id": "bio-1-08",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 8,
+  "title": "Cell: The Unit of Life",
+  "priority": 5,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio8"
+ },
+ {
+  "id": "bio-1-09",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 9,
+  "title": "Biomolecules",
+  "priority": 5,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio9"
+ },
+ {
+  "id": "bio-1-10",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 10,
+  "title": "Cell Cycle and Cell Division",
+  "priority": 4,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio10"
+ },
+ {
+  "id": "bio-1-11",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 11,
+  "title": "Photosynthesis in Higher Plants",
+  "priority": 5,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio11"
+ },
+ {
+  "id": "bio-1-12",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 12,
+  "title": "Respiration in Plants",
+  "priority": 4,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio12"
+ },
+ {
+  "id": "bio-1-13",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 13,
+  "title": "Plant Growth and Development",
+  "priority": 2,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio13"
+ },
+ {
+  "id": "bio-1-14",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 14,
+  "title": "Breathing and Exchange of Gases",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio14"
+ },
+ {
+  "id": "bio-1-15",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 15,
+  "title": "Body Fluids and Circulation",
+  "priority": 4,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio15"
+ },
+ {
+  "id": "bio-1-16",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 16,
+  "title": "Excretory Products and their Elimination",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio16"
+ },
+ {
+  "id": "bio-1-17",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 17,
+  "title": "Locomotion and Movement",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio17"
+ },
+ {
+  "id": "bio-1-18",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 18,
+  "title": "Neural Control and Coordination",
+  "priority": 4,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio18"
+ },
+ {
+  "id": "bio-1-19",
+  "subject": "Biology",
+  "puc": 1,
+  "num": 19,
+  "title": "Chemical Coordination and Integration",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio19"
+ },
+ {
+  "id": "bio-2-01",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 1,
+  "title": "Sexual Reproduction in Flowering Plants",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio20"
+ },
+ {
+  "id": "bio-2-02",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 2,
+  "title": "Human Reproduction",
+  "priority": 4,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio21"
+ },
+ {
+  "id": "bio-2-03",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 3,
+  "title": "Reproductive Health",
+  "priority": 2,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio22"
+ },
+ {
+  "id": "bio-2-04",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 4,
+  "title": "Principles of Inheritance and Variation",
+  "priority": 5,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio23"
+ },
+ {
+  "id": "bio-2-05",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 5,
+  "title": "Molecular Basis of Inheritance",
+  "priority": 5,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio24"
+ },
+ {
+  "id": "bio-2-06",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 6,
+  "title": "Evolution",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio25"
+ },
+ {
+  "id": "bio-2-07",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 7,
+  "title": "Human Health and Disease",
+  "priority": 4,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio26"
+ },
+ {
+  "id": "bio-2-08",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 8,
+  "title": "Microbes in Human Welfare",
+  "priority": 2,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio27"
+ },
+ {
+  "id": "bio-2-09",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 9,
+  "title": "Biotechnology: Principles and Processes",
+  "priority": 4,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio28"
+ },
+ {
+  "id": "bio-2-10",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 10,
+  "title": "Biotechnology and its Applications",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio29"
+ },
+ {
+  "id": "bio-2-11",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 11,
+  "title": "Organisms and Populations",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio30"
+ },
+ {
+  "id": "bio-2-12",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 12,
+  "title": "Ecosystem",
+  "priority": 3,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio31"
+ },
+ {
+  "id": "bio-2-13",
+  "subject": "Biology",
+  "puc": 2,
+  "num": 13,
+  "title": "Biodiversity and Conservation",
+  "priority": 2,
+  "exams": [
+   "neet"
+  ],
+  "bank_id": "bio32"
+ }
+]

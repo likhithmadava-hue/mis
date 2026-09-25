@@ -546,6 +546,64 @@ export interface Streak {
   recent: StreakDay[];
 }
 
+// ── Built-in study content (read-only, from Rust `content/`) ────────────────
+
+/** One NCERT chapter. Mirrors `content::SyllabusChapter`. */
+export interface SyllabusChapter {
+  /** `phy-1-04` — what MIS stores when it means this chapter */
+  id: string;
+  subject: string;
+  /** 1 = first PUC (class 11), 2 = second PUC (class 12) */
+  puc: 1 | 2;
+  num: number;
+  /** what is shown, and written into free-text chapter fields */
+  title: string;
+  /** exam weight, 1 (low) to 5 (high) */
+  priority: number;
+  exams: ('jee' | 'neet')[];
+  /** the question-bank chapter covering it; several NCERT chapters can share one */
+  bank_id: string | null;
+}
+
+export interface BankTopic {
+  name: string;
+  teaser: string;
+}
+
+/** A question-bank chapter without its questions. Mirrors `content::BankChapterSummary`. */
+export interface BankChapter {
+  id: string;
+  subject: string;
+  num: number;
+  title: string;
+  teaser: string;
+  topics: BankTopic[];
+  questions: number;
+  by_difficulty: Partial<Record<Difficulty, number>>;
+  /** the NCERT chapters it covers; empty for a few JEE-only chapters */
+  syllabus_ids: string[];
+}
+
+/** One practice question. Mirrors `content::Question`. */
+export interface Question {
+  /** `<bank chapter>-<nnn>` */
+  id: string;
+  topic: string;
+  difficulty: Difficulty;
+  /** math is KaTeX between `\( \)` and `\[ \]` */
+  text: string;
+  options: string[];
+  /** index into `options` as stored — shuffle for display, the stored order is skewed */
+  correct: number;
+  /** the worked solution, `**bold**` step headings */
+  answer: string;
+  tip: string;
+  points: number;
+  negative: number;
+  /** `original` (exam-style) or `pyq` (a real past question) — only call the latter PYQs */
+  source: 'original' | 'pyq';
+}
+
 // ── Vault ───────────────────────────────────────────────────────────────────
 
 export interface VaultInfo {
