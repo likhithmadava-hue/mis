@@ -343,6 +343,25 @@ export const stSetCategory = (app: string, category: string) =>
 
 export const stClearCategory = (app: string) => invoke<void>('st_clear_category', { app });
 
+/** Every site→category assignment in force, shipped and overridden merged. */
+export const stSiteCategories = () => invoke<Record<string, string>>('st_site_categories');
+
+/** The name to print for every site MIS recognises, keyed by activity key. */
+export const stSiteLabels = () => invoke<Record<string, string>>('st_site_labels');
+
+/**
+ * File one site rather than the whole browser it was opened in.
+ *
+ * `key` is an activity key (`web:youtube`), not an app name. A site assignment
+ * is the most specific thing there is, so it beats an assignment made against
+ * the browser itself — see `categories::category_for_activity`.
+ */
+export const stSetSiteCategory = (key: string, category: string) =>
+  invoke<void>('st_set_site_category', { key, category });
+
+export const stClearSiteCategory = (key: string) =>
+  invoke<void>('st_clear_site_category', { key });
+
 export const stRecordedDays = () => invoke<string[]>('st_recorded_days');
 
 /** Delete a day's recording, or every day when `day` is omitted. */

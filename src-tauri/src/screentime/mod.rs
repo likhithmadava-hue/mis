@@ -1,11 +1,12 @@
 //! Screen time: what was actually in front of you, and for how long.
 //!
-//! The whole feature is four pieces with one direction of dependency:
+//! The whole feature is five pieces with one direction of dependency:
 //!
 //! ```text
 //!   winapi     one look at the screen (foreground app, title, idleness)
 //!   tracker    turns a run of looks into intervals, in a thread
 //!   store      seals a day's intervals to disk, one file per day
+//!   activity   reads what an interval was: the site, for a browser
 //!   summary    turns a day's intervals into the numbers the tab draws
 //! ```
 //!
@@ -20,6 +21,7 @@
 //! `TABS`. Three missing connections. It is wired up here (see `commands.rs` and
 //! `App.tsx`), which is the difference between a feature and a folder.
 
+pub mod activity;
 pub mod autostart;
 pub mod categories;
 pub mod store;

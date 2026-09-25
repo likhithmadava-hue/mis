@@ -150,6 +150,10 @@ export default function App() {
   });
 
   const visibleTabs = () => TABS.filter((t) => (t.modes as readonly AppMode[]).includes(mode()));
+  // Settings is a page like the rest, but not a destination you work in — it
+  // lives in the foot of the rail beside Account and Collapse, not in the tab list.
+  const railTabs = () => visibleTabs().filter((t) => t.id !== 'settings');
+  const settingsTab = TABS.find((t) => t.id === 'settings')!;
 
   const switchMode = async (next: AppMode) => {
     await setMode(next);
@@ -241,7 +245,7 @@ export default function App() {
                 solid block — and the border is on both states, transparent
                 when inactive, so activating a tab cannot shift its label by a
                 pixel. */}
-            <For each={visibleTabs()}>
+            <For each={railTabs()}>
               {(tab) => (
                 <button
                   onClick={() => setActiveTab(tab.id)}
@@ -261,7 +265,21 @@ export default function App() {
                 </button>
               )}
             </For>
-
+            {/* the foot of the rail does not exist in the stacked narrow layout, so
+                Settings rides at the end of the strip there and nowhere else */}
+            <button
+              onClick={() => setActiveTab('settings')}
+              aria-label={settingsTab.label}
+              aria-current={activeTab() === 'settings' ? 'page' : undefined}
+              class={`sm:hidden py-2.5 px-3 rounded-xl text-[0.9375rem] font-medium flex flex-shrink-0 items-center gap-3 whitespace-nowrap border transition-colors text-left ${
+                activeTab() === 'settings'
+                  ? 'bg-primary/[0.12] border-primary/20 text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent'
+              }`}
+            >
+              <Settings size={17} class="flex-shrink-0" />
+              <span>{settingsTab.label}</span>
+            </button>
           </nav>
         </div>
 
@@ -300,6 +318,23 @@ export default function App() {
                 </button>
               )}
             </Show>
+            <button
+              onClick={() => setActiveTab('settings')}
+              title={navCollapsed() ? undefined : 'Appearance and preferences'}
+              aria-label={settingsTab.label}
+              aria-current={activeTab() === 'settings' ? 'page' : undefined}
+              {...railTip.trigger(settingsTab.label)}
+              class={`w-full mb-1 py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left ${
+                navCollapsed() ? 'px-0 justify-center' : 'px-3'
+              } ${
+                activeTab() === 'settings'
+                  ? 'text-primary bg-primary/10'
+                  : 'text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent'
+              }`}
+            >
+              <Settings size={16} class="flex-shrink-0" />
+              <span class={navCollapsed() ? 'hidden' : ''}>{settingsTab.label}</span>
+            </button>
             <button
               onClick={() => setNavCollapsed((c) => !c)}
               title={navCollapsed() ? undefined : 'Collapse sidebar'}

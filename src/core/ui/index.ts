@@ -15,6 +15,7 @@ export { default as Workspace } from './Workspace';
 export { default as EmptyState, type EmptyAction } from './EmptyState';
 export { default as ComingSoon } from './ComingSoon';
 export { default as Toggle } from './Toggle';
+export { default as Segmented, type SegmentedOption } from './Segmented';
 export { navigateTo, registerNavigator } from './navigate';
 export { subViewLabel, useSubViewLabel, viewState } from './viewState';
 export {

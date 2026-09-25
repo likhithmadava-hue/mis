@@ -1,7 +1,7 @@
 import { createMemo, For, Show } from 'solid-js';
 
 import type { TimelineSpan } from '../../core/db';
-import { CATEGORY_COLOR, clockOf, humanise, type Category } from './format';
+import { asCategory, CATEGORY_COLOR, clockOf, humanise } from './format';
 
 /**
  * The day as one strip: every recorded block in the order it happened.
@@ -14,11 +14,13 @@ import { CATEGORY_COLOR, clockOf, humanise, type Category } from './format';
  * **Gaps are left as gaps.** An empty run in the middle of the strip means the
  * screen was idle, MIS was closed, or the machine was off — the chart does not
  * distinguish between those and does not pretend to.
+ *
+ * Each block carries its own category, rather than the strip looking one up by
+ * app. Half an hour of Khan Academy and half an hour of Instagram are both
+ * `ulaa.exe`, and colouring them the same would hide the one thing this strip
+ * is for — seeing where in the day the good hour turned into the bad one.
  */
-export default function Timeline(props: {
-  blocks: TimelineSpan[];
-  categoryOf: (app: string) => Category;
-}) {
+export default function Timeline(props: { blocks: TimelineSpan[] }) {
   const axis = createMemo(() => {
     if (props.blocks.length === 0) return null;
     const first = Math.min(...props.blocks.map((b) => b.start));
@@ -43,15 +45,15 @@ export default function Timeline(props: {
             <For each={props.blocks}>
               {(b) => (
                 <div
-                  title={`${clockOf(b.start)}  ${b.app} — ${humanise(b.seconds)}${
-                    b.title ? `\n${b.title}` : ''
-                  }`}
+                  title={`${clockOf(b.start)}  ${b.label} — ${humanise(b.seconds)}${
+                    b.label === b.app ? '' : `\n${b.app}`
+                  }${b.title ? `\n${b.title}` : ''}`}
                   class="absolute top-0 bottom-0 hover:brightness-125 transition-[filter]"
                   style={{
                     left: `${((b.start - a().from) / a().span) * 100}%`,
                     // never thinner than a hairline, or a two-minute block vanishes
                     width: `${Math.max((b.seconds / a().span) * 100, 0.25)}%`,
-                    background: CATEGORY_COLOR[props.categoryOf(b.app)],
+                    background: CATEGORY_COLOR[asCategory(b.category)],
                   }}
                 />
               )}

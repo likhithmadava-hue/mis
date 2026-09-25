@@ -576,16 +576,47 @@ export interface TitleTotal {
   seconds: number;
 }
 
-export interface AppRow {
+/**
+ * One thing that was done: a site inside a browser, or an app in its own right.
+ *
+ * This is the level categories are decided at. Windows only ever reports a
+ * process, so `ulaa.exe` covers a past paper and a reel alike; the site is read
+ * from the page title in `screentime/activity.rs`, which is how one browser's
+ * hours end up in three different categories instead of one grey bar.
+ */
+export interface ActivityRow {
+  /** what an assignment is stored against: `web:youtube`, or `code.exe` */
+  key: string;
+  label: string;
+  /** the app it happened in */
   app: string;
   seconds: number;
   category: string;
+  /** true for a page inside a browser, false for the app itself */
+  web: boolean;
+  titles: TitleTotal[];
+}
+
+export interface AppRow {
+  app: string;
+  seconds: number;
+  /** what the app as a whole is filed as — the fallback for sites inside it */
+  category: string;
+  /** whether this app shows web pages, and so has activities worth opening */
+  browser: boolean;
+  /** this app's seconds by category: what its bar is stacked from */
+  split: Record<string, number>;
+  /** the sites inside it, longest first. Empty for anything but a browser. */
+  activities: ActivityRow[];
   titles: TitleTotal[];
 }
 
 export interface Stretch {
   app: string;
   title: string;
+  /** what that run actually was — the site, for a browser */
+  label: string;
+  category: string;
   seconds: number;
   start: number;
 }
@@ -593,6 +624,13 @@ export interface Stretch {
 export interface TimelineSpan {
   app: string;
   title: string;
+  label: string;
+  /**
+   * Carried per block rather than looked up by app: one block of a browser's
+   * time can be study and the next distraction, so the strip cannot colour
+   * itself from the app name.
+   */
+  category: string;
   start: number;
   seconds: number;
 }
@@ -601,6 +639,8 @@ export interface DaySummary {
   day: string;
   total_seconds: number;
   by_app: AppRow[];
+  /** everything done that day, flattened to one level and longest first */
+  by_activity: ActivityRow[];
   by_category: Record<string, number>;
   switches: number;
   longest_stretch: Stretch | null;
@@ -620,6 +660,8 @@ export interface StSettings {
   background: boolean;
   /** the user's app→category overrides, which beat the built-in defaults */
   categories: Record<string, string>;
+  /** the user's site→category overrides, keyed by activity key, which beat those */
+  sites: Record<string, string>;
 }
 
 export interface TrackerStatus {

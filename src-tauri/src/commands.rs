@@ -337,8 +337,27 @@ pub fn db_set_daily_log_layout(
 /// That is the *only* way demo rows can ever appear: the old app baked them into
 /// the desktop build, so a first launch showed marks nobody had entered. Now you
 /// have to ask.
+///
+/// Loading the sample data replaces everything, so it first copies the vault
+/// file to `vault.before-sample-<unix seconds>.mis` beside it. The copy is still
+/// encrypted with the same key, and each one gets its own name so a second load
+/// can never overwrite the copy that holds the real data. If the copy fails, the
+/// reset does not happen.
 #[tauri::command]
 pub fn db_reset(state: State<AppState>, demo: bool) -> Result<DbShape> {
+    if demo {
+        state.with_vault(|v| {
+            if !v.data_path.exists() {
+                return Ok(());
+            }
+            let secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            std::fs::copy(&v.data_path, v.dir.join(format!("vault.before-sample-{secs}.mis")))?;
+            Ok::<(), crate::error::MisError>(())
+        })??;
+    }
     let fresh = if demo { crate::db::seed::demo_db() } else { crate::db::seed::fresh_db() };
     state.mutate(|db| {
         // Resetting the *data* must not reset *who you are*. The profile is the
@@ -527,6 +546,35 @@ pub fn st_clear_category(state: State<AppState>, app: String) {
     state
         .tracker
         .with_store(|store| screentime::categories::clear_category(store, &app));
+}
+
+/// Every site→category assignment in force, shipped and overridden merged.
+#[tauri::command]
+pub fn st_site_categories(state: State<AppState>) -> std::collections::BTreeMap<String, String> {
+    screentime::categories::resolved_sites(&state.tracker.settings())
+}
+
+/// The name to print for every site MIS recognises, so the tab can label an
+/// assignment that has no time against it today.
+#[tauri::command]
+pub fn st_site_labels() -> std::collections::BTreeMap<String, String> {
+    screentime::activity::site_labels()
+}
+
+/// File one site — `web:youtube` — rather than the whole browser it was opened
+/// in. See `categories::category_for_activity` for which assignment wins.
+#[tauri::command]
+pub fn st_set_site_category(state: State<AppState>, key: String, category: String) -> Result<()> {
+    state
+        .tracker
+        .with_store(|store| screentime::categories::set_site_category(store, &key, &category))
+}
+
+#[tauri::command]
+pub fn st_clear_site_category(state: State<AppState>, key: String) {
+    state
+        .tracker
+        .with_store(|store| screentime::categories::clear_site_category(store, &key));
 }
 
 #[tauri::command]

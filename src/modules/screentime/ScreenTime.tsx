@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Globe,
   Layers,
   Loader2,
   MonitorPlay,
@@ -12,11 +13,24 @@ import {
 import { createMemo, createResource, createSignal, For, onCleanup, Show } from 'solid-js';
 
 import { isoDaysAgo, todayIso } from '../../core/dates';
-import { api, errorMessage, type CompactDay, type TrackerStatus } from '../../core/db';
+import {
+  api,
+  errorMessage,
+  type ActivityRow,
+  type CompactDay,
+  type TrackerStatus,
+} from '../../core/db';
 import { Card, confirmDialog, Donut, EmptyChart, messageDialog } from '../../core/ui';
 import AppList from './AppList';
 import Timeline from './Timeline';
-import { asCategory, CATEGORIES, CATEGORY_COLOR, clockOf, humanise } from './format';
+import {
+  asCategory,
+  CATEGORIES,
+  CATEGORY_BAR,
+  CATEGORY_COLOR,
+  clockOf,
+  humanise,
+} from './format';
 
 /** how often today's figures refresh while the tab is open */
 const REFRESH_MS = 15_000;
@@ -110,9 +124,6 @@ export default function ScreenTime() {
       refresh();
     }
   };
-
-  const categoryOf = (app: string) =>
-    asCategory(summary()?.by_app.find((r) => r.app === app)?.category);
 
   const segments = createMemo(() =>
     CATEGORIES.map((c) => ({
@@ -255,7 +266,7 @@ export default function ScreenTime() {
                       }
                       sub={
                         summary()?.longest_stretch
-                          ? `${summary()!.longest_stretch!.app} · from ${clockOf(
+                          ? `${summary()!.longest_stretch!.label} · from ${clockOf(
                               summary()!.longest_stretch!.start,
                             )}`
                           : 'nothing long enough to count'
@@ -277,8 +288,16 @@ export default function ScreenTime() {
               </div>
 
               <Card
+                title="What you actually did"
+                subtitle="apps and sites side by side, longest first"
+                icon={Globe}
+              >
+                <ActivityList rows={summary()?.by_activity ?? []} total={total()} />
+              </Card>
+
+              <Card
                 title="Where the time went"
-                subtitle="click an app to see the windows behind its total"
+                subtitle="open a browser to see the sites behind its total"
                 icon={MonitorPlay}
               >
                 <AppList
@@ -286,6 +305,10 @@ export default function ScreenTime() {
                   total={total()}
                   onCategory={async (app, category) => {
                     await api.stSetCategory(app, category);
+                    refresh();
+                  }}
+                  onSiteCategory={async (key, category) => {
+                    await api.stSetSiteCategory(key, category);
                     refresh();
                   }}
                 />
@@ -296,7 +319,7 @@ export default function ScreenTime() {
                 subtitle="gaps are idle, or nothing was recording"
                 icon={Clock}
               >
-                <Timeline blocks={summary()?.timeline ?? []} categoryOf={categoryOf} />
+                <Timeline blocks={summary()?.timeline ?? []} />
               </Card>
             </Show>
 
@@ -309,6 +332,62 @@ export default function ScreenTime() {
         </Show>
       </Show>
     </Show>
+  );
+}
+
+/**
+ * The day as a flat list of things done, with no app standing in front of them.
+ *
+ * "Where the time went" answers *which program*, which for a browser is barely
+ * an answer. This answers *what* — Khan Academy, Instagram, code.exe — ranked
+ * against each other, so a study site and a reel feed compete on the same list
+ * instead of hiding inside one `ulaa.exe` bar.
+ *
+ * Read-only on purpose. Filing something is done once, in the list that shows
+ * where it belongs; offering the same switch twice invites two answers to one
+ * question.
+ */
+function ActivityList(props: { rows: ActivityRow[]; total: number }) {
+  return (
+    <div class="max-h-72 overflow-y-auto space-y-2.5">
+      <For each={props.rows}>
+        {(row) => {
+          const pct = () => (props.total > 0 ? (row.seconds / props.total) * 100 : 0);
+          return (
+            <div class="space-y-1">
+              <div class="flex justify-between items-center gap-2 text-xs">
+                <span class="flex items-center gap-1.5 min-w-0">
+                  <span
+                    class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    style={{ background: CATEGORY_COLOR[asCategory(row.category)] }}
+                  />
+                  <span class={`truncate font-medium ${row.web ? '' : 'font-mono'}`}>
+                    {row.label}
+                  </span>
+                  <Show when={row.web}>
+                    <span class="text-[0.625rem] text-muted-foreground font-mono flex-shrink-0 truncate">
+                      in {row.app}
+                    </span>
+                  </Show>
+                </span>
+                <span class="flex items-center gap-2 flex-shrink-0">
+                  <span class="font-mono text-muted-foreground">{humanise(row.seconds)}</span>
+                  <span class="text-[0.625rem] text-subtle-foreground font-mono w-9 text-right">
+                    {Math.round(pct())}%
+                  </span>
+                </span>
+              </div>
+              <div class="w-full bg-background h-1.5 rounded-lg overflow-hidden">
+                <div
+                  class={`h-full rounded-lg ${CATEGORY_BAR[asCategory(row.category)]}`}
+                  style={{ width: `${Math.max(1, Math.min(100, pct()))}%` }}
+                />
+              </div>
+            </div>
+          );
+        }}
+      </For>
+    </div>
   );
 }
 

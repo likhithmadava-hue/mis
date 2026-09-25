@@ -3,12 +3,12 @@ import confetti from 'canvas-confetti';
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
 
 import { todayIso } from '../../core/dates';
-import { act, api, db, type FocusSettings, type TimerDesign } from '../../core/db';
+import { act, api, db, type FocusSettings } from '../../core/db';
 import { startAlarm, playChime, type Alarm } from './audio';
 import { DONE_PROMPTS, MODE_LABEL, type TimerMode } from './constants';
 import { notifyRoundEnded } from './notify';
 
-/** only the four numeric fields — `timer_design` is set by `setDesign` */
+/** only the four numeric fields — the rest of `FocusSettings` is set by the sound panels */
 type NumericSetting = 'focus_minutes' | 'short_break' | 'long_break' | 'rounds_before_long';
 
 /**
@@ -196,8 +196,6 @@ export function createFocusTimer() {
 
   const save = (next: FocusSettings) => act(api.saveFocusSettings(next));
 
-  const setDesign = (timer_design: TimerDesign) => save({ ...settings(), timer_design });
-
   const updateSetting = async (key: NumericSetting, value: number) => {
     // Clamped rather than validated: an empty box or a typo becomes 1 minute,
     // never a timer of zero or one that runs for days.
@@ -250,7 +248,6 @@ export function createFocusTimer() {
     skip,
     answerYes,
     keepGoing,
-    setDesign,
     updateSetting,
   };
 }

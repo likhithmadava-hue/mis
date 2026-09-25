@@ -173,10 +173,6 @@ export default function Journal(props: { mode: () => AppMode }) {
                           ? 'Wrap up a study session in the Daily Log, or write a page here yourself.'
                           : 'Write your first entry — a heading and whatever you want to say about the day.'
                       }
-                      action={{
-                        label: academic() ? 'Write a page' : 'Write an entry',
-                        onClick: startWriting,
-                      }}
                     />
                   }
                 >
