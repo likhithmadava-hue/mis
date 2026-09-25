@@ -27,6 +27,21 @@ pub fn today_iso() -> String {
     iso_days_ago(0)
 }
 
+/// Tomorrow as `YYYY-MM-DD` — the default due date for a next-session task.
+pub fn tomorrow_iso() -> String {
+    iso_days_ago(-1)
+}
+
+/// Whether `date` is strictly after today. Anything that is not a valid
+/// `YYYY-MM-DD` is **not** in the future: an empty or corrupt due date is
+/// treated as belonging to today, which is the safe side of the day lock.
+pub fn is_after_today(date: &str) -> bool {
+    match (parse_iso(date), parse_iso(&today_iso())) {
+        (Some(d), Some(today)) => d > today,
+        _ => false,
+    }
+}
+
 /// Now as an ISO-8601 timestamp. The only clock time MIS stores is
 /// `submitted_at`, which is why this exists at all.
 pub fn now_iso() -> String {
@@ -57,6 +72,23 @@ mod tests {
         let today = parse_iso(&today_iso()).unwrap();
         let week = parse_iso(&iso_days_ago(7)).unwrap();
         assert_eq!((today - week).num_days(), 7);
+    }
+
+    #[test]
+    fn tomorrow_is_one_day_after_today() {
+        let today = parse_iso(&today_iso()).unwrap();
+        let tomorrow = parse_iso(&tomorrow_iso()).unwrap();
+        assert_eq!((tomorrow - today).num_days(), 1);
+    }
+
+    #[test]
+    fn only_a_later_valid_date_counts_as_after_today() {
+        assert!(is_after_today(&tomorrow_iso()));
+        assert!(!is_after_today(&today_iso()));
+        assert!(!is_after_today(&iso_days_ago(1)));
+        // an empty or corrupt due date is treated as today, not as the future
+        assert!(!is_after_today(""));
+        assert!(!is_after_today("not a date"));
     }
 
     #[test]

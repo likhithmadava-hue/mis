@@ -4,6 +4,7 @@ import {
   BarChart3,
   BookOpen,
   Flame,
+  ListChecks,
   ShieldAlert,
   Sparkles,
   Target,
@@ -99,6 +100,33 @@ export function academicPanels(data: GrowthData, range: Range): PanelDef[] {
           </div>
         );
       },
+    },
+
+    {
+      id: 'completion',
+      title: 'Daily Completion',
+      subtitle:
+        'Items ticked off each day — tasks, topics, habits and DPPs. Older tasks and topics were not dated, so early days read lower.',
+      icon: ListChecks,
+      group: 'overview',
+      render: (view) => (
+        <Show
+          when={data.completion().some((b) => b.value > 0)}
+          fallback={
+            <EmptyChart
+              message="Nothing ticked off in this range yet."
+              compact={view === 'tile'}
+              action={{ label: 'Open Daily Log', to: 'log' }}
+            />
+          }
+        >
+          <BarChart
+            data={data.completion()}
+            max={Math.max(5, ...data.completion().map((b) => b.value))}
+            height={view === 'full' ? 300 : 76}
+          />
+        </Show>
+      ),
     },
 
     {
@@ -241,6 +269,8 @@ export function academicPanels(data: GrowthData, range: Range): PanelDef[] {
             <HBarList
               data={full ? papers().reasonBars : papers().reasonBars.slice(0, 3)}
               empty="No mistakes logged yet."
+              compact={!full}
+              emptyAction={{ label: 'Open Daily Log', to: 'log' }}
             />
             <div
               class={`grid grid-cols-3 gap-2 text-center ${
@@ -273,6 +303,8 @@ export function academicPanels(data: GrowthData, range: Range): PanelDef[] {
               <HBarList
                 data={full ? papers().subjectBars : papers().subjectBars.slice(0, 2)}
                 empty="No papers logged yet."
+                compact={!full}
+                emptyAction={{ label: 'Open Daily Log', to: 'log' }}
               />
             </div>
             <div>
@@ -280,6 +312,8 @@ export function academicPanels(data: GrowthData, range: Range): PanelDef[] {
               <HBarList
                 data={full ? papers().chapterBars : papers().chapterBars.slice(0, 2)}
                 empty="No marks lost yet."
+                compact={!full}
+                emptyAction={{ label: 'Open Daily Log', to: 'log' }}
               />
             </div>
           </div>
@@ -300,6 +334,7 @@ export function academicPanels(data: GrowthData, range: Range): PanelDef[] {
             <EmptyChart
               message="Log at least two papers to see a trend."
               compact={view === 'tile'}
+              action={{ label: 'Log a paper', to: 'log' }}
             />
           }
         >
@@ -385,7 +420,13 @@ export function academicPanels(data: GrowthData, range: Range): PanelDef[] {
           <div class="space-y-2">
             <Show
               when={priorities().length > 0}
-              fallback={<p class="text-xs text-muted-foreground">No mistakes logged yet.</p>}
+              fallback={
+                <EmptyChart
+                  message="No mistakes logged yet."
+                  compact
+                  action={{ label: 'Open Daily Log', to: 'log' }}
+                />
+              }
             >
               <For each={full ? priorities() : priorities().slice(0, 3)}>
                 {(item, idx) => (

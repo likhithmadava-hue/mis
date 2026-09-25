@@ -127,9 +127,10 @@ impl Default for Difficulty {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TopicType {
+    #[default]
     Taught,
     Revise,
     Solve,
@@ -443,7 +444,7 @@ pub struct FocusSession {
     pub completed: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Task {
     pub id: String,
     pub title: String,
@@ -452,13 +453,67 @@ pub struct Task {
     #[serde(default)]
     pub due_date: String,
     pub completed: bool,
+    /// The day it was ticked off, so the Daily Log can say what was finished on
+    /// which day. Absent on anything completed before this field existed — that
+    /// history is unknown, and inventing a date for it would be worse than none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completed_on: Option<String>,
     /// which mode's to-do list this belongs to — a vault from before this field
     /// existed defaults every task to Academic, where the feature started
     #[serde(default)]
     pub mode: AppMode,
+    /// What sort of session this is — "Practice PYQ", "Reference problems", or
+    /// anything the student typed. **Free text on purpose**: the app offers
+    /// presets and the kinds the student keeps reusing, but never restricts them
+    /// to a list. Empty on a plain to-do.
+    #[serde(default)]
+    pub kind: String,
+    /// The syllabus chapter the task is about, free text.
+    #[serde(default)]
+    pub chapter: String,
+    /// The book or sheet a reference task draws from ("HC Verma").
+    #[serde(default)]
+    pub reference: String,
+    /// How many problems the task sets, `0` when it does not count them.
+    #[serde(default)]
+    pub problems: u32,
 }
 
+/// The optional session fields of a task, as the frontend sends them. Every one
+/// defaults, so a plain to-do is still `add_task` with nothing extra.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct TaskDetails {
+    pub kind: String,
+    pub chapter: String,
+    pub reference: String,
+    pub problems: u32,
+}
+
+/// One DPP (daily practice problem sheet) set for a day: what it covers, who
+/// set it, and whether it is finished.
+///
+/// The day's `DailyMetric.dpps_got` / `dpps_complete` are *derived* from these
+/// whenever any exist for the day (see `db::sync_dpp_counters`), so the score,
+/// the charts and Home keep reading the two counters they always have.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DppItem {
+    pub id: String,
+    pub date: String,
+    #[serde(default)]
+    pub subject: String,
+    #[serde(default)]
+    pub topic: String,
+    /// the teacher who gave it
+    #[serde(default)]
+    pub teacher: String,
+    pub done: bool,
+    /// the day it was ticked off — see `Task::completed_on`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub done_on: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TopicItem {
     pub id: String,
     pub date: String,
@@ -466,6 +521,124 @@ pub struct TopicItem {
     #[serde(rename = "type")]
     pub kind: TopicType,
     pub done: bool,
+    /// The day it was ticked off — see `Task::completed_on`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub done_on: Option<String>,
+    /// Which subject and chapter a doubt belongs to, and a short note on what
+    /// is unclear. All free text, all empty on a topic added the old way.
+    #[serde(default)]
+    pub subject: String,
+    #[serde(default)]
+    pub chapter: String,
+    #[serde(default)]
+    pub note: String,
+}
+
+/// The optional detail of a topic, as the frontend sends it.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct TopicDetails {
+    pub subject: String,
+    pub chapter: String,
+    pub note: String,
+}
+
+/// Which "left to" list a doubt lands in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DoubtList {
+    Revise,
+    Solve,
+}
+
+impl DoubtList {
+    pub fn topic_type(self) -> TopicType {
+        match self {
+            DoubtList::Revise => TopicType::Revise,
+            DoubtList::Solve => TopicType::Solve,
+        }
+    }
+}
+
+/// How a Practice PYQ session went. Kept on the journal entry rather than in the
+/// mistake log: the log holds the *misses*, this holds the session.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PyqResult {
+    pub correct: u32,
+    pub wrong: u32,
+    pub skipped: u32,
+    /// marks earned, after negative marking
+    pub marks: f64,
+    pub max_marks: f64,
+}
+
+/// A task as the journal remembers it. A snapshot, not a link: the journal must
+/// still read correctly after the task is deleted.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JournalTask {
+    pub title: String,
+    pub kind: String,
+}
+
+/// A doubt as the journal remembers it (see [`JournalTask`]).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JournalDoubt {
+    pub title: String,
+    #[serde(default)]
+    pub subject: String,
+    #[serde(default)]
+    pub chapter: String,
+    #[serde(default)]
+    pub note: String,
+    pub list: DoubtList,
+}
+
+/// A planned next-session task as the journal remembers it.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JournalPlanned {
+    pub title: String,
+    pub kind: String,
+    pub due_date: String,
+}
+
+/// One study session, written when the student wraps it up. It records the
+/// session on three levels — what got done, what is still a doubt, and what
+/// comes next — plus a free-text note.
+///
+/// Every list is a snapshot, so deleting the task or doubt it came from later
+/// does not rewrite the history.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JournalEntry {
+    pub id: String,
+    /// the day the session happened, `YYYY-MM-DD`
+    pub date: String,
+    /// when the wrap-up was confirmed, ISO-8601
+    pub created_at: String,
+    /// Which journal this belongs to. Academic is the study logbook — every
+    /// session wrap-up lands there — and Life is the personal diary. The two
+    /// are never mixed on screen, the same way the two modes never share a
+    /// score. A vault written before the diary existed holds only sessions,
+    /// which is why the default is Academic.
+    #[serde(default)]
+    pub mode: AppMode,
+    /// The entry's own heading. Empty on a session wrap-up, where the subject
+    /// and chapter say what it was.
+    #[serde(default)]
+    pub title: String,
+    pub subject: String,
+    pub chapter: String,
+    /// the kind of session, free text like `Task::kind`
+    pub kind: String,
+    pub minutes: f64,
+    pub pyq: Option<PyqResult>,
+    pub tasks_done: Vec<JournalTask>,
+    pub doubts: Vec<JournalDoubt>,
+    pub next_plan: Vec<JournalPlanned>,
+    pub note: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -648,6 +821,8 @@ pub struct DbShape {
     pub tasks: Vec<Task>,
     #[serde(default)]
     pub topics: Vec<TopicItem>,
+    #[serde(default)]
+    pub dpps: Vec<DppItem>,
     pub focus_settings: FocusSettings,
     #[serde(default)]
     pub habits: Vec<Habit>,
@@ -663,6 +838,9 @@ pub struct DbShape {
     /// launch to the setup wizard — including for a vault that predates it.
     #[serde(default)]
     pub profile: Option<Profile>,
+    /// One entry per wrapped-up study session, newest first.
+    #[serde(default)]
+    pub journal: Vec<JournalEntry>,
 }
 
 /// A fresh id. The old TS `uid()` produced a random string; anything unique

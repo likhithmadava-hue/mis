@@ -1,38 +1,45 @@
-import { Check, Pause, Play, RotateCcw, SkipForward } from 'lucide-solid';
-import { Show } from 'solid-js';
+import { Check, Pause, Play, RotateCcw, SkipForward } from "lucide-solid";
+import { Show } from "solid-js";
 
-import { useFullscreen } from '../../core/ui';
-import AmbientPanel from './AmbientPanel';
-import DonePrompt from './DonePrompt';
-import FocusMusicPanel from './FocusMusicPanel';
-import HabitsEditor from './HabitsEditor';
-import LeftTodayPanel from './LeftTodayPanel';
-import TimerFace from './TimerFace';
-import TimerToolbar from './TimerToolbar';
-import TodayFocusPanel from './TodayFocusPanel';
-import { createAmbientSound } from './createAmbientSound';
-import { createBrainwave } from './createBrainwave';
-import { createFocusHabits } from './createFocusHabits';
-import { createFocusMusic } from './createFocusMusic';
-import { createFocusTimer } from './createFocusTimer';
-import { createTodayProgress } from './todayProgress';
+import { useFullscreen, Workspace } from "../../core/ui";
+import DailyProgressPanel from "./DailyProgressPanel";
+import DonePrompt from "./DonePrompt";
+import FocusSidebar from "./FocusSidebar";
+import LockInQuote from "./LockInQuote";
+import TimerFace from "./TimerFace";
+import TimerToolbar from "./TimerToolbar";
+import { createAmbientSound } from "./createAmbientSound";
+import { createBrainwave } from "./createBrainwave";
+import { createFocusHabits } from "./createFocusHabits";
+import { createFocusMusic } from "./createFocusMusic";
+import { createFocusTimer } from "./createFocusTimer";
+import { createLockInQuote } from "./createLockInQuote";
+import { createTasksTopics } from "./createTasksTopics";
+import { createTodayProgress } from "./todayProgress";
 
 /**
  * The Focus Timer tab. This file is only the layout — the countdown lives in
- * `createFocusTimer.ts`, the outstanding-work numbers in `todayProgress.ts`,
- * and each card in its own component.
+ * `createFocusTimer.ts`, the outstanding-work numbers in `todayProgress.ts` and
+ * `createTasksTopics.ts`, and each card in its own component.
+ *
+ * Two columns: the clock and the day's progress on the left; on the right a
+ * switch between the audio and timer controls and the tasks and topics.
  */
 export default function FocusTimer() {
   let container!: HTMLDivElement;
-  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(() => container);
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(
+    () => container,
+  );
 
   const timer = createFocusTimer();
+  const lockedIn = () => timer.isRunning() && timer.isFocus();
+  const lockIn = createLockInQuote(lockedIn);
   const music = createFocusMusic();
   const ambient = createAmbientSound();
   const brainwave = createBrainwave();
-  // The panel tracks the clock: switching phase, running, and finishing a round
-  // all move the "Left Today" numbers. Accessors, not values — read lazily so a
-  // ticking clock only redraws the one bar it affects.
+  // The progress card tracks the clock: running and finishing a round both move
+  // the study bar. Accessors, not values — read lazily so a ticking clock only
+  // redraws the one bar it affects.
   const progress = createTodayProgress({
     mode: timer.mode,
     isRunning: timer.isRunning,
@@ -40,121 +47,179 @@ export default function FocusTimer() {
     round: timer.round,
     awaitingConfirm: () => timer.askStage() !== null,
   });
-  // Habits are the one line in that panel you can work on from here — see
-  // `createFocusHabits`.
+  const study = () => progress.remaining().find((r) => r.key === "study");
+  // Habits are the one thing in the Tasks view you can add and remove, not just
+  // tick — see `createFocusHabits`.
   const habits = createFocusHabits();
-  // Built once and handed to the panel as the same node every time. Ticking a
-  // habit rebuilds the "Left Today" rows; if this were built inside that render
-  // it would be torn down and rebuilt with it, and a half-typed habit name in
-  // the add box would vanish on an unrelated tick.
-  const habitsEditor = <HabitsEditor habits={habits} />;
+  const tasks = createTasksTopics();
 
   return (
     <div
       ref={container}
       class={
         isFullscreen()
-          ? 'flex items-center justify-center bg-background w-screen h-screen p-6'
-          : 'grid grid-cols-1 lg:grid-cols-12 gap-6'
+          ? "flex items-center justify-center bg-background w-screen h-screen p-6"
+          : "flex-1 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_23rem] xl:grid-cols-[minmax(0,1fr)_25rem] lg:items-start gap-4 lg:gap-6"
       }
     >
+      {/* The clock column is sized to the window, not stretched to the sidebar.
+          The Tasks view can run far past the fold; if this column grew to match
+          it, Daily Progress would be pushed off screen, and scrolling the list
+          would scroll the clock away. On a window tall enough to hold the whole
+          column it also sticks, so the clock stays in view while you scroll the
+          list. On a shorter one it scrolls with the page, because a stuck column
+          taller than the window would hide its own bottom. */}
       <div
-        class={`bg-card rounded-2xl border border-border card-shadow p-4 sm:p-8 flex flex-col items-center space-y-6 ${
-          isFullscreen() ? 'w-full max-w-3xl' : 'lg:col-span-7'
+        class={`flex flex-col gap-4 lg:gap-6 min-w-0 ${
+          isFullscreen()
+            ? "w-full max-w-3xl h-full [&_[data-clock]]:!h-auto"
+            : "[@media(min-height:52rem)]:lg:sticky lg:top-0"
         }`}
       >
-        <TimerToolbar
-          mode={timer.mode()}
-          onSwitchMode={timer.switchMode}
-          settings={timer.settings()}
-          onSetDesign={(d) => void timer.setDesign(d)}
-          onUpdateSetting={(key, value) => void timer.updateSetting(key, value)}
-          isFullscreen={isFullscreen()}
-          onToggleFullscreen={toggleFullscreen}
-        />
-
-        <TimerFace
-          design={timer.settings().timer_design}
-          mode={timer.mode()}
-          round={timer.round()}
-          progress={timer.progress()}
-          isFocus={timer.isFocus()}
-          mm={timer.mm()}
-          ss={timer.ss()}
-          secondsLeft={timer.secondsLeft()}
-          isFullscreen={isFullscreen()}
-        />
-
-        <input
-          type="text"
-          placeholder="What are you working on? (e.g. Physics DPP)"
-          value={timer.tag()}
-          onInput={(e) => timer.setTag(e.currentTarget.value)}
-          class="w-full max-w-sm px-4 py-2.5 bg-background border border-border rounded-xl text-xs text-center"
-        />
-
-        <div class="flex items-center gap-3">
-          <button
-            onClick={timer.reset}
-            title="Reset"
-            class="p-3 rounded-xl bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors"
+        <div class="flex-1 bg-card rounded-2xl border border-border card-shadow p-6 sm:p-8 flex flex-col">
+          {/* Three rows, auto · 1fr · auto (see Workspace). The body takes whatever
+              height the outer grid gives this card and centres the clock in it, so
+              extra height becomes breathing room around the timer, never a dead zone
+              under the controls. The mode switch stays top, the quote stays bottom. */}
+          <Workspace
+            header={
+              <TimerToolbar
+                mode={timer.mode()}
+                onSwitchMode={timer.switchMode}
+                isFullscreen={isFullscreen()}
+                onToggleFullscreen={toggleFullscreen}
+              />
+            }
+            footer={
+              <LockInQuote
+                text={lockIn.quote()}
+                visible={lockIn.visible()}
+                onNext={lockIn.next}
+              />
+            }
+            bodyClass="flex"
           >
-            <RotateCcw size={18} />
-          </button>
-          <button
-            onClick={timer.toggleRunning}
-            class={`px-7 sm:px-10 py-3.5 rounded-xl font-bold font-space text-sm flex items-center gap-2 transition-all glow-primary ${
-              timer.isFocus()
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-success text-primary-foreground'
-            }`}
-          >
-            <Show
-              when={timer.isRunning()}
-              fallback={
-                <>
-                  <Play size={18} /> Start
-                </>
-              }
-            >
-              <>
-                <Pause size={18} /> Pause
-              </>
-            </Show>
-          </button>
-          <button
-            onClick={timer.skip}
-            title="Skip to next"
-            class="p-3 rounded-xl bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <SkipForward size={18} />
-          </button>
+            {/* The clock's container. `container-type: size` makes this cell report
+                its own width and height to the face inside (`cqw` / `cqh`), and
+                because a size container takes no size from its content, it is
+                given one: a fixed height when the columns stack, and on a wide
+                window whatever the viewport has left after the page title, this
+                card's toolbar and quote, and Daily Progress (about 36rem of them).
+                19rem is the floor — the smallest readout plus the tree, bar,
+                status, task box and controls — below which the page scrolls. The
+                digits then grow into any height above that. */}
+            <div data-clock class="relative flex-1 h-[28rem] lg:h-[clamp(19rem,calc(100dvh-36rem),40rem)] [container-type:size] flex flex-col items-center justify-center gap-3 sm:gap-4">
+              <TimerFace
+                mode={timer.mode()}
+                isRunning={timer.isRunning()}
+                round={timer.round()}
+                roundsPerCycle={timer.settings().rounds_before_long}
+                progress={timer.progress()}
+                secondsLeft={timer.secondsLeft()}
+              />
+
+              <div class="w-full max-w-md">
+                <label for="focus-task" class="sr-only">
+                  What are you working on?
+                </label>
+                <input
+                  id="focus-task"
+                  type="text"
+                  maxLength={80}
+                  autocomplete="off"
+                  placeholder="What are you working on? (e.g. Physics DPP)"
+                  value={timer.tag()}
+                  onInput={(e) => timer.setTag(e.currentTarget.value)}
+                  class="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm text-center placeholder:text-muted-foreground"
+                />
+              </div>
+
+              {/* One obvious primary, two quiet ghosts. On a narrow card Start takes
+                  a row to itself and the ghosts share the one under it. */}
+              <div class="w-full max-w-md grid grid-cols-2 gap-3 sm:flex sm:items-center sm:justify-center">
+                <button
+                  type="button"
+                  onClick={timer.toggleRunning}
+                  class={`col-span-2 order-first sm:order-2 sm:col-span-1 sm:min-w-[12rem] px-10 py-4 rounded-2xl font-bold font-space text-lg flex items-center justify-center gap-3 transition-all glow-primary active:scale-[0.98] ${
+                    timer.isFocus()
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-success text-primary-foreground"
+                  }`}
+                >
+                  <Show
+                    when={timer.isRunning()}
+                    fallback={
+                      <>
+                        <Play size={20} /> {timer.progress() > 0 ? "Resume" : "Start"}
+                      </>
+                    }
+                  >
+                    <>
+                      <Pause size={20} /> Pause
+                    </>
+                  </Show>
+                </button>
+                <button
+                  type="button"
+                  onClick={timer.reset}
+                  class="sm:order-1 px-5 py-3 rounded-xl border border-border bg-transparent text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors flex items-center justify-center gap-2"
+                >
+                  <RotateCcw size={16} /> Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={timer.skip}
+                  title="Skip to the next phase"
+                  class="sm:order-3 px-5 py-3 rounded-xl border border-border bg-transparent text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors flex items-center justify-center gap-2"
+                >
+                  Skip <SkipForward size={16} />
+                </button>
+              </div>
+
+              {/* Floats over the foot of the clock rather than taking a row: it
+                  comes and goes, and a row would jolt everything above it. */}
+              <Show when={timer.justFinished()}>
+                {(msg) => (
+                  <div
+                    role="status"
+                    class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md p-3 rounded-xl bg-card border border-success/40 text-success shadow-lg flex items-center justify-center gap-2 animate-fade-in"
+                  >
+                    <Check size={16} />
+                    <span class="text-xs font-semibold">{msg()}</span>
+                  </div>
+                )}
+              </Show>
+            </div>
+          </Workspace>
         </div>
 
-        <Show when={timer.justFinished()}>
-          {(msg) => (
-            <div class="w-full p-3 rounded-xl bg-success/10 border border-success/30 text-success flex items-center justify-center gap-2 animate-fade-in">
-              <Check size={16} />
-              <span class="text-xs font-semibold">{msg()}</span>
-            </div>
-          )}
-        </Show>
+        {/* the day's numbers are noise in fullscreen — just the clock and controls */}
+        <div class={isFullscreen() ? "hidden" : ""}>
+          <DailyProgressPanel
+            sessions={timer.todaySessions()}
+            minutes={timer.todayMinutes()}
+            study={study()}
+          />
+        </div>
       </div>
 
-      {/* side panels are noise in fullscreen — just the clock and controls */}
-      <div class={`lg:col-span-5 space-y-6 ${isFullscreen() ? 'hidden' : ''}`}>
-        <TodayFocusPanel sessions={timer.todaySessions()} minutes={timer.todayMinutes()} />
-        <FocusMusicPanel music={music} />
-        <AmbientPanel ambient={ambient} brainwave={brainwave} />
-        <LeftTodayPanel
-          remaining={progress.remaining()}
-          allClear={progress.allClear()}
-          detail={(key) => (key === 'habits' ? habitsEditor : undefined)}
+      <div class={isFullscreen() ? "hidden" : "min-w-0"}>
+        <FocusSidebar
+          timer={timer}
+          music={music}
+          ambient={ambient}
+          brainwave={brainwave}
+          habits={habits}
+          tasks={tasks}
         />
       </div>
 
       <Show when={timer.askStage() !== null}>
-        <DonePrompt stage={timer.askStage()!} onYes={timer.answerYes} onNo={timer.keepGoing} />
+        <DonePrompt
+          stage={timer.askStage()!}
+          onYes={timer.answerYes}
+          onNo={timer.keepGoing}
+        />
       </Show>
     </div>
   );

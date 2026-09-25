@@ -18,7 +18,7 @@
 //! to gain by being clever about it and a day's log to lose.
 
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::db::{self, types::*, MetricPatch, EntryPatch, NewEntry};
 use crate::error::{MisError, Result};
@@ -168,8 +168,31 @@ pub fn db_add_task(
     subject: String,
     due_date: String,
     mode: AppMode,
+    details: Option<TaskDetails>,
 ) -> Result<()> {
-    state.mutate(|db| db::add_task(db, title, subject, due_date, mode))
+    state.mutate(|db| {
+        db::add_task(db, title, subject, due_date, mode, details.unwrap_or_default())
+    })
+}
+
+#[tauri::command]
+pub fn db_add_dpp(
+    state: State<AppState>,
+    subject: String,
+    topic: String,
+    teacher: String,
+) -> Result<()> {
+    state.mutate(|db| db::add_dpp(db, subject, topic, teacher))
+}
+
+#[tauri::command]
+pub fn db_toggle_dpp(state: State<AppState>, id: String) -> Result<()> {
+    state.mutate(|db| db::toggle_dpp_done(db, &id))
+}
+
+#[tauri::command]
+pub fn db_delete_dpp(state: State<AppState>, id: String) -> Result<()> {
+    state.mutate(|db| db::delete_dpp(db, &id))
 }
 
 #[tauri::command]
@@ -185,8 +208,43 @@ pub fn db_delete_task(state: State<AppState>, id: String) -> Result<()> {
 // ── Topics ──────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn db_add_topic(state: State<AppState>, name: String, kind: TopicType) -> Result<()> {
-    state.mutate(|db| db::add_topic(db, name, kind))
+pub fn db_add_topic(
+    state: State<AppState>,
+    name: String,
+    kind: TopicType,
+    details: Option<TopicDetails>,
+) -> Result<()> {
+    state.mutate(|db| db::add_topic(db, name, kind, details.unwrap_or_default()))
+}
+
+// ── Session wrap-up and the journal ─────────────────────────────────────────
+
+/// Wrap up a study session in one all-or-nothing write. See `db::session_wrap`.
+#[tauri::command]
+pub fn db_session_wrap(state: State<AppState>, input: db::WrapInput) -> Result<db::WrapOutcome> {
+    state.mutate(|db| db::session_wrap(db, input))
+}
+
+#[tauri::command]
+pub fn db_add_journal_entry(state: State<AppState>, entry: db::NewJournalEntry) -> Result<String> {
+    state.mutate(|db| db::add_journal_entry(db, entry))
+}
+
+#[tauri::command]
+pub fn db_update_journal_entry(
+    state: State<AppState>,
+    id: String,
+    patch: db::JournalPatch,
+) -> Result<()> {
+    state.mutate(|db| db::update_journal_entry(db, &id, patch))
+}
+
+#[tauri::command]
+pub fn db_delete_journal_entry(state: State<AppState>, id: String) -> Result<()> {
+    state.mutate(|db| {
+        db::delete_journal_entry(db, &id);
+        Ok(())
+    })
 }
 
 #[tauri::command]
@@ -279,8 +337,27 @@ pub fn db_set_daily_log_layout(
 /// That is the *only* way demo rows can ever appear: the old app baked them into
 /// the desktop build, so a first launch showed marks nobody had entered. Now you
 /// have to ask.
+///
+/// Loading the sample data replaces everything, so it first copies the vault
+/// file to `vault.before-sample-<unix seconds>.mis` beside it. The copy is still
+/// encrypted with the same key, and each one gets its own name so a second load
+/// can never overwrite the copy that holds the real data. If the copy fails, the
+/// reset does not happen.
 #[tauri::command]
 pub fn db_reset(state: State<AppState>, demo: bool) -> Result<DbShape> {
+    if demo {
+        state.with_vault(|v| {
+            if !v.data_path.exists() {
+                return Ok(());
+            }
+            let secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            std::fs::copy(&v.data_path, v.dir.join(format!("vault.before-sample-{secs}.mis")))?;
+            Ok::<(), crate::error::MisError>(())
+        })??;
+    }
     let fresh = if demo { crate::db::seed::demo_db() } else { crate::db::seed::fresh_db() };
     state.mutate(|db| {
         // Resetting the *data* must not reset *who you are*. The profile is the
@@ -433,6 +510,25 @@ pub fn st_set_paused(state: State<AppState>, paused: bool) -> TrackerStatus {
     state.tracker.status()
 }
 
+/// Turn background tracking on or off.
+///
+/// On: register the per-user login entry, then remember the choice and show the
+/// tray icon. The entry comes first so a failure to write it leaves the feature
+/// visibly off rather than saved-as-on and doing nothing. Off is the reverse:
+/// the entry and the icon go, and the process ends when the window does.
+#[tauri::command]
+pub fn st_set_background(
+    app: AppHandle,
+    state: State<AppState>,
+    enabled: bool,
+) -> Result<TrackerStatus> {
+    screentime::autostart::set(enabled).map_err(MisError::ScreenTime)?;
+    state.tracker.set_background(enabled);
+    crate::sync_tray(&app, enabled);
+    state.log_event("screentime-background", [("enabled", if enabled { "on" } else { "off" })]);
+    Ok(state.tracker.status())
+}
+
 #[tauri::command]
 pub fn st_categories(state: State<AppState>) -> std::collections::BTreeMap<String, String> {
     screentime::categories::resolved(&state.tracker.settings())
@@ -450,6 +546,35 @@ pub fn st_clear_category(state: State<AppState>, app: String) {
     state
         .tracker
         .with_store(|store| screentime::categories::clear_category(store, &app));
+}
+
+/// Every site→category assignment in force, shipped and overridden merged.
+#[tauri::command]
+pub fn st_site_categories(state: State<AppState>) -> std::collections::BTreeMap<String, String> {
+    screentime::categories::resolved_sites(&state.tracker.settings())
+}
+
+/// The name to print for every site MIS recognises, so the tab can label an
+/// assignment that has no time against it today.
+#[tauri::command]
+pub fn st_site_labels() -> std::collections::BTreeMap<String, String> {
+    screentime::activity::site_labels()
+}
+
+/// File one site — `web:youtube` — rather than the whole browser it was opened
+/// in. See `categories::category_for_activity` for which assignment wins.
+#[tauri::command]
+pub fn st_set_site_category(state: State<AppState>, key: String, category: String) -> Result<()> {
+    state
+        .tracker
+        .with_store(|store| screentime::categories::set_site_category(store, &key, &category))
+}
+
+#[tauri::command]
+pub fn st_clear_site_category(state: State<AppState>, key: String) {
+    state
+        .tracker
+        .with_store(|store| screentime::categories::clear_site_category(store, &key));
 }
 
 #[tauri::command]

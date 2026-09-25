@@ -35,19 +35,25 @@ import type {
   EntryPatch,
   FocusSettings,
   MarkLogbookEntry,
+  JournalPatch,
   MetricPatch,
   NewEntry,
+  NewJournalEntry,
   Priority,
   Profile,
   ScoredDay,
   StSettings,
   Streak,
+  TaskDetails,
+  TopicDetails,
   TopicType,
   TrackId,
   TrackerStatus,
   UserConfig,
   VaultInfo,
   WidgetPlacement,
+  WrapInput,
+  WrapOutcome,
 } from './types';
 
 // ── Errors ──────────────────────────────────────────────────────────────────
@@ -193,21 +199,56 @@ export const saveFocusSettings = (settings: FocusSettings) =>
 
 // ── Tasks ───────────────────────────────────────────────────────────────────
 
-export const addTask = (title: string, subject: string, dueDate: string, mode: AppMode) =>
-  invoke<void>('db_add_task', { title, subject, dueDate, mode });
+export const addTask = (
+  title: string,
+  subject: string,
+  dueDate: string,
+  mode: AppMode,
+  details?: TaskDetails,
+) => invoke<void>('db_add_task', { title, subject, dueDate, mode, details: details ?? null });
 
 export const toggleTask = (id: string) => invoke<void>('db_toggle_task', { id });
 
 export const deleteTask = (id: string) => invoke<void>('db_delete_task', { id });
 
+// ── DPPs ────────────────────────────────────────────────────────────────────
+
+export const addDpp = (subject: string, topic: string, teacher: string) =>
+  invoke<void>('db_add_dpp', { subject, topic, teacher });
+
+export const toggleDpp = (id: string) => invoke<void>('db_toggle_dpp', { id });
+
+export const deleteDpp = (id: string) => invoke<void>('db_delete_dpp', { id });
+
 // ── Topics ──────────────────────────────────────────────────────────────────
 
-export const addTopic = (name: string, kind: TopicType) =>
-  invoke<void>('db_add_topic', { name, kind });
+export const addTopic = (name: string, kind: TopicType, details?: TopicDetails) =>
+  invoke<void>('db_add_topic', { name, kind, details: details ?? null });
 
 export const toggleTopic = (id: string) => invoke<void>('db_toggle_topic', { id });
 
 export const deleteTopic = (id: string) => invoke<void>('db_delete_topic', { id });
+
+// ── Session wrap-up and the journal ─────────────────────────────────────────
+
+/**
+ * Wrap up a study session in one all-or-nothing write: tick the tasks, record the
+ * doubts, plan the next session, log the misses and write the journal entry. If
+ * it rejects, nothing was written. On a locked day, ticks and doubts are refused
+ * (`isDayLocked`) while next-session tasks due after today still go through.
+ */
+export const sessionWrap = (input: WrapInput) =>
+  invoke<WrapOutcome>('db_session_wrap', { input });
+
+/** Write a journal entry by hand. Returns its id. Not day-locked. */
+export const addJournalEntry = (entry: NewJournalEntry) =>
+  invoke<string>('db_add_journal_entry', { entry });
+
+export const updateJournalEntry = (id: string, patch: JournalPatch) =>
+  invoke<void>('db_update_journal_entry', { id, patch });
+
+export const deleteJournalEntry = (id: string) =>
+  invoke<void>('db_delete_journal_entry', { id });
 
 // ── Habits ──────────────────────────────────────────────────────────────────
 
@@ -286,7 +327,13 @@ export const stDay = (day?: string) => invoke<DaySummary>('st_day', { day: day ?
 /** The last `days` days, oldest first, without the per-day timelines. */
 export const stRange = (days: number) => invoke<CompactDay[]>('st_range', { days });
 
-export const stSetPaused = (paused: boolean) => invoke<TrackerStatus>('st_set_paused', { paused });
+/**
+ * Opt in or out of background tracking: recording continues with no window open
+ * (from a tray icon), and MIS starts with Windows. Rejects if Windows refuses
+ * the startup entry, in which case nothing has changed.
+ */
+export const stSetBackground = (enabled: boolean) =>
+  invoke<TrackerStatus>('st_set_background', { enabled });
 
 /** Every app→category assignment in force, defaults and overrides merged. */
 export const stCategories = () => invoke<Record<string, string>>('st_categories');
@@ -295,6 +342,25 @@ export const stSetCategory = (app: string, category: string) =>
   invoke<void>('st_set_category', { app, category });
 
 export const stClearCategory = (app: string) => invoke<void>('st_clear_category', { app });
+
+/** Every site→category assignment in force, shipped and overridden merged. */
+export const stSiteCategories = () => invoke<Record<string, string>>('st_site_categories');
+
+/** The name to print for every site MIS recognises, keyed by activity key. */
+export const stSiteLabels = () => invoke<Record<string, string>>('st_site_labels');
+
+/**
+ * File one site rather than the whole browser it was opened in.
+ *
+ * `key` is an activity key (`web:youtube`), not an app name. A site assignment
+ * is the most specific thing there is, so it beats an assignment made against
+ * the browser itself — see `categories::category_for_activity`.
+ */
+export const stSetSiteCategory = (key: string, category: string) =>
+  invoke<void>('st_set_site_category', { key, category });
+
+export const stClearSiteCategory = (key: string) =>
+  invoke<void>('st_clear_site_category', { key });
 
 export const stRecordedDays = () => invoke<string[]>('st_recorded_days');
 

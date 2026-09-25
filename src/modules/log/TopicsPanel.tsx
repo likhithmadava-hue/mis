@@ -1,12 +1,12 @@
 import { BookOpen, Check, PlusCircle, Trash2 } from 'lucide-solid';
 import { createSignal, For, Show } from 'solid-js';
 
-import type { TopicItem, TopicType } from '../../core/db';
+import type { TopicDetails, TopicItem, TopicType } from '../../core/db';
 import { Select, TOPIC_COLUMNS } from '../../core/ui';
 
 interface TopicsPanelProps {
   topics: TopicItem[];
-  onAdd: (name: string, type: TopicType) => void;
+  onAdd: (name: string, type: TopicType, details: TopicDetails) => void;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -22,12 +22,17 @@ interface TopicsPanelProps {
 export default function TopicsPanel(props: TopicsPanelProps) {
   const [name, setName] = createSignal('');
   const [type, setType] = createSignal<TopicType>('taught');
+  const [subject, setSubject] = createSignal('');
+  const [chapter, setChapter] = createSignal('');
+  const [note, setNote] = createSignal('');
 
   const submit = (e: Event) => {
     e.preventDefault();
     if (!name().trim()) return;
-    props.onAdd(name(), type());
+    props.onAdd(name(), type(), { subject: subject(), chapter: chapter(), note: note() });
     setName('');
+    setNote('');
+    // subject and chapter stay: several topics from one chapter is the usual case
   };
 
   return (
@@ -36,27 +41,57 @@ export default function TopicsPanel(props: TopicsPanelProps) {
         <BookOpen size={16} class="text-primary" /> Topics
       </h3>
 
-      <form onSubmit={submit} class="flex flex-col sm:flex-row gap-2">
-        <input
-          type="text"
-          placeholder="e.g. Physics — Work & Energy"
-          value={name()}
-          onInput={(e) => setName(e.currentTarget.value)}
-          class="flex-1 h-9 px-3 bg-background border border-border rounded-xl text-xs"
-        />
-        <Select
-          ariaLabel="Topic list"
-          class="sm:w-44"
-          value={type()}
-          onChange={setType}
-          options={TOPIC_COLUMNS.map((c) => ({ value: c.type, label: c.title }))}
-        />
-        <button
-          type="submit"
-          class="h-9 px-4 bg-primary text-primary-foreground font-semibold rounded-xl text-xs flex items-center justify-center gap-1"
-        >
-          <PlusCircle size={14} /> Add
-        </button>
+      <form onSubmit={submit} class="space-y-2">
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            placeholder="e.g. Work–energy theorem"
+            aria-label="Topic"
+            value={name()}
+            onInput={(e) => setName(e.currentTarget.value)}
+            class="flex-1 h-9 px-3 bg-background border border-border rounded-xl text-xs"
+          />
+          <Select
+            ariaLabel="Topic list"
+            class="sm:w-44"
+            value={type()}
+            onChange={setType}
+            options={TOPIC_COLUMNS.map((c) => ({ value: c.type, label: c.title }))}
+          />
+          <button
+            type="submit"
+            class="h-9 px-4 bg-primary text-primary-foreground font-semibold rounded-xl text-xs flex items-center justify-center gap-1"
+          >
+            <PlusCircle size={14} /> Add
+          </button>
+        </div>
+        {/* optional detail — what a doubt is about, so it can be traced to a chapter */}
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            placeholder="Subject (optional)"
+            aria-label="Topic subject"
+            value={subject()}
+            onInput={(e) => setSubject(e.currentTarget.value)}
+            class="sm:w-36 h-9 px-3 bg-background border border-border rounded-xl text-xs"
+          />
+          <input
+            type="text"
+            placeholder="Chapter (optional)"
+            aria-label="Topic chapter"
+            value={chapter()}
+            onInput={(e) => setChapter(e.currentTarget.value)}
+            class="sm:w-48 h-9 px-3 bg-background border border-border rounded-xl text-xs"
+          />
+          <input
+            type="text"
+            placeholder="Note — what's unclear? (optional)"
+            aria-label="Topic note"
+            value={note()}
+            onInput={(e) => setNote(e.currentTarget.value)}
+            class="flex-1 h-9 px-3 bg-background border border-border rounded-xl text-xs"
+          />
+        </div>
       </form>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -103,7 +138,7 @@ export default function TopicsPanel(props: TopicsPanelProps) {
                             class={`text-xs flex-1 min-w-0 truncate ${
                               t.done ? 'line-through text-success' : ''
                             }`}
-                            title={t.name}
+                            title={[t.name, t.chapter, t.note].filter(Boolean).join(' — ')}
                           >
                             {t.name}
                           </span>
