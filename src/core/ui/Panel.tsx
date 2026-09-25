@@ -40,7 +40,7 @@ export interface PanelDef {
 /** the caption above one series inside a merged panel */
 export function SeriesLabel(props: { children: JSX.Element }) {
   return (
-    <p class="text-[0.6875rem] uppercase tracking-wider font-bold text-muted-foreground/80 mb-1">
+    <p class="text-[0.6875rem] uppercase tracking-wider font-bold text-muted-foreground mb-1">
       {props.children}
     </p>
   );
@@ -68,7 +68,7 @@ export function PanelTile(props: { panel: PanelDef; onOpen: () => void }) {
           onClick={props.onOpen}
           title={`Open ${props.panel.title}`}
           aria-label={`Open ${props.panel.title} full page`}
-          class="flex-shrink-0 p-1 -m-1 rounded-md text-muted-foreground/40 group-hover:text-primary transition-colors"
+          class="flex-shrink-0 p-1 -m-1 rounded-md text-subtle-foreground group-hover:text-primary transition-colors"
         >
           <Maximize2 size={13} />
         </button>
@@ -173,7 +173,7 @@ export function PanelZoom(props: PanelZoomProps) {
         <div class="max-w-5xl mx-auto bg-card rounded-2xl border border-border card-shadow p-4 sm:p-6">
           {props.panel.render('full')}
         </div>
-        <p class="max-w-5xl mx-auto mt-3 text-xs text-muted-foreground/70 text-center">
+        <p class="max-w-5xl mx-auto mt-3 text-xs text-muted-foreground text-center">
           Hover any point for the day it belongs to · Esc to close · ← → for the next chart
         </p>
       </div>

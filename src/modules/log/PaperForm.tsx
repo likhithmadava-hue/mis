@@ -1,11 +1,4 @@
-import {
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  FileText,
-  RotateCcw,
-  Save,
-} from 'lucide-solid';
+import { CheckCircle2, ChevronDown, ChevronUp, FileText, RotateCcw, Save } from 'lucide-solid';
 import { createSignal, Show } from 'solid-js';
 
 import { todayIso } from '../../core/dates';
@@ -24,7 +17,7 @@ export interface PaperFormProps {
 }
 
 const inputClass =
-  'w-full rounded-lg bg-background/80 border border-border px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-transparent transition';
+  'w-full rounded-lg bg-background/80 border border-border px-3 py-2 text-xs text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-transparent transition';
 
 /**
  * Log a mistake — modeled directly after mistakeintelligencesystem.lovable.app/add.
@@ -66,9 +59,7 @@ export default function PaperForm(props: PaperFormProps) {
     const lost = Math.max(0, Number(marksLostVal()) || 1);
     const qType = questionType().trim();
     const cleanNotes = notes().trim();
-    const combinedNotes = qType
-      ? `[${qType}] ${cleanNotes}`.trim()
-      : cleanNotes;
+    const combinedNotes = qType ? `[${qType}] ${cleanNotes}`.trim() : cleanNotes;
 
     props.onSubmit({
       date: date() || todayIso(),
@@ -99,7 +90,8 @@ export default function PaperForm(props: PaperFormProps) {
             </h2>
           </div>
           <p class="text-xs text-muted-foreground mt-1">
-            Capture what went wrong while it's fresh — the system will turn it into a pattern over time.
+            Capture what went wrong while it's fresh — the system will turn it into a pattern over
+            time.
           </p>
         </div>
 

@@ -86,6 +86,7 @@ pub fn fresh_db() -> DbShape {
         focus_sessions: vec![],
         tasks: vec![],
         topics: vec![],
+        dpps: vec![],
         focus_settings: default_focus_settings(),
         habits: seed_habits(),
         habit_log: vec![],
@@ -93,6 +94,7 @@ pub fn fresh_db() -> DbShape {
         app_mode: AppMode::Academic,
         daily_log_layout: DailyLogLayout::default(),
         profile: None,
+        journal: vec![],
     }
 }
 
@@ -193,25 +195,25 @@ pub fn demo_db() -> DbShape {
     ];
 
     db.focus_sessions = vec![
-        FocusSession { id: uid(), date: iso_days_ago(1), duration_minutes: 90.0, tag: "Physics DPP".into(), completed: true },
-        FocusSession { id: uid(), date: iso_days_ago(1), duration_minutes: 60.0, tag: "Maths Revision".into(), completed: true },
-        FocusSession { id: uid(), date: iso_days_ago(0), duration_minutes: 45.0, tag: "Chemistry Notes".into(), completed: false },
+        FocusSession { id: uid(), date: iso_days_ago(1), duration_minutes: 90.0, tag: "Kinematics".into(), completed: true, subject: "Physics".into(), chapter: "Kinematics".into(), reason: Some(SessionReason::Homework), ..Default::default() },
+        FocusSession { id: uid(), date: iso_days_ago(1), duration_minutes: 60.0, tag: "Matrices".into(), completed: true, subject: "Maths".into(), chapter: "Matrices".into(), reason: Some(SessionReason::UpcomingTest), ..Default::default() },
+        FocusSession { id: uid(), date: iso_days_ago(0), duration_minutes: 45.0, tag: "Periodic table trends".into(), completed: false, subject: "Chemistry".into(), chapter: "Periodic table trends".into(), reason: Some(SessionReason::SelfStudy), ..Default::default() },
     ];
 
     db.tasks = vec![
-        Task { id: uid(), title: "Finish Kinematics DPP sheet".into(), subject: "Physics".into(), due_date: iso_days_ago(0), completed: false, mode: AppMode::Academic },
-        Task { id: uid(), title: "Revise periodic table trends".into(), subject: "Chemistry".into(), due_date: iso_days_ago(0), completed: true, mode: AppMode::Academic },
-        Task { id: uid(), title: "Solve 10 integration problems".into(), subject: "Maths".into(), due_date: iso_days_ago(-1), completed: false, mode: AppMode::Academic },
-        Task { id: uid(), title: "Book a dentist appointment".into(), subject: "Health".into(), due_date: iso_days_ago(-2), completed: false, mode: AppMode::Life },
-        Task { id: uid(), title: "Call mom".into(), subject: "".into(), due_date: iso_days_ago(0), completed: true, mode: AppMode::Life },
-        Task { id: uid(), title: "Laundry".into(), subject: "Chores".into(), due_date: iso_days_ago(1), completed: false, mode: AppMode::Life },
+        Task { id: uid(), title: "Finish Kinematics DPP sheet".into(), subject: "Physics".into(), due_date: iso_days_ago(0), completed: false, completed_on: None, mode: AppMode::Academic, ..Default::default() },
+        Task { id: uid(), title: "Revise periodic table trends".into(), subject: "Chemistry".into(), due_date: iso_days_ago(0), completed: true, completed_on: Some(iso_days_ago(0)), mode: AppMode::Academic, ..Default::default() },
+        Task { id: uid(), title: "Solve 10 integration problems".into(), subject: "Maths".into(), due_date: iso_days_ago(-1), completed: false, completed_on: None, mode: AppMode::Academic, ..Default::default() },
+        Task { id: uid(), title: "Book a dentist appointment".into(), subject: "Health".into(), due_date: iso_days_ago(-2), completed: false, completed_on: None, mode: AppMode::Life, ..Default::default() },
+        Task { id: uid(), title: "Call mom".into(), subject: "".into(), due_date: iso_days_ago(0), completed: true, completed_on: Some(iso_days_ago(0)), mode: AppMode::Life, ..Default::default() },
+        Task { id: uid(), title: "Laundry".into(), subject: "Chores".into(), due_date: iso_days_ago(1), completed: false, completed_on: None, mode: AppMode::Life, ..Default::default() },
     ];
 
     db.topics = vec![
-        TopicItem { id: uid(), date: iso_days_ago(0), name: "Rotational Motion — Torque".into(), kind: TopicType::Taught, done: false },
-        TopicItem { id: uid(), date: iso_days_ago(0), name: "Kinematics — Relative Velocity".into(), kind: TopicType::Revise, done: false },
-        TopicItem { id: uid(), date: iso_days_ago(1), name: "Integration by Parts".into(), kind: TopicType::Revise, done: true },
-        TopicItem { id: uid(), date: iso_days_ago(0), name: "Thermodynamics DPP Q11–Q20".into(), kind: TopicType::Solve, done: false },
+        TopicItem { id: uid(), date: iso_days_ago(0), name: "Rotational Motion — Torque".into(), kind: TopicType::Taught, done: false, done_on: None, ..Default::default() },
+        TopicItem { id: uid(), date: iso_days_ago(0), name: "Kinematics — Relative Velocity".into(), kind: TopicType::Revise, done: false, done_on: None, ..Default::default() },
+        TopicItem { id: uid(), date: iso_days_ago(1), name: "Integration by Parts".into(), kind: TopicType::Revise, done: true, done_on: Some(iso_days_ago(1)), ..Default::default() },
+        TopicItem { id: uid(), date: iso_days_ago(0), name: "Thermodynamics DPP Q11–Q20".into(), kind: TopicType::Solve, done: false, done_on: None, ..Default::default() },
     ];
 
     db

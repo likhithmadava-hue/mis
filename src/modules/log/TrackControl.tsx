@@ -1,78 +1,24 @@
-import { Check, Moon, Plus, Trash2 } from 'lucide-solid';
-import { createSignal, For, Match, Show, Switch } from 'solid-js';
+import { Moon } from 'lucide-solid';
+import { Match, Switch } from 'solid-js';
 
-import { todayIso } from '../../core/dates';
 import type { TrackId } from '../../core/db';
-import PriorityPicker from './PriorityPicker';
 import type { DailyLogState } from './createDailyLog';
 
 /**
- * The input for one track.
+ * The input for the readings — leisure, mood, wellness.
  *
- * Every track scores 0–10 the same way, but each is *entered* differently —
- * hours on a slider, DPPs as two counts, wellness as tap-to-increment buttons.
- * The shape of the control is chosen here so the card around it stays identical
- * for all six, and so adding a track means adding one case rather than a new
- * layout.
+ * Studies, DPPs, habits and tasks are entered in the master checklist
+ * (`MasterChecklist`) because they are things you tick off. These three are
+ * scored the same way (0–10) but are measured, not completed, so each keeps a
+ * control shaped to what it measures: a slider, or tap-to-increment buttons.
  */
 export default function TrackControl(props: { id: TrackId; log: DailyLogState }) {
   const log = props.log;
   const today = log.today;
   const user = log.user;
 
-  const [newHabit, setNewHabit] = createSignal('');
-  const submitHabit = () => {
-    void log.addHabit(newHabit());
-    setNewHabit('');
-  };
-
   return (
     <Switch>
-      <Match when={props.id === 'studies'}>
-        <div class="space-y-1">
-          <div class="flex justify-between text-xs">
-            <span class="text-muted-foreground">Hours studied</span>
-            <span class="font-mono font-bold text-primary">
-              {today().study_hours} / {user().target_study_hours}h
-            </span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="12"
-            step="0.5"
-            value={today().study_hours}
-            onInput={(e) => log.patchToday({ study_hours: Number(e.currentTarget.value) })}
-            class="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-          />
-        </div>
-      </Match>
-
-      <Match when={props.id === 'dpps'}>
-        <div class="flex gap-2">
-          <label class="flex-1">
-            <span class="text-[0.5625rem] text-muted-foreground block mb-1">Assigned</span>
-            <input
-              type="number"
-              min="0"
-              value={today().dpps_got}
-              onChange={(e) => log.patchToday({ dpps_got: Number(e.currentTarget.value) })}
-              class="w-full h-9 px-3 bg-background border border-border rounded-lg text-xs font-mono"
-            />
-          </label>
-          <label class="flex-1">
-            <span class="text-[0.5625rem] text-muted-foreground block mb-1">Completed</span>
-            <input
-              type="number"
-              min="0"
-              value={today().dpps_complete}
-              onChange={(e) => log.patchToday({ dpps_complete: Number(e.currentTarget.value) })}
-              class="w-full h-9 px-3 bg-background border border-border rounded-lg text-xs font-mono"
-            />
-          </label>
-        </div>
-      </Match>
-
       <Match when={props.id === 'well_spent'}>
         <div class="space-y-1">
           <div class="flex justify-between text-xs">
@@ -153,7 +99,7 @@ export default function TrackControl(props: { id: TrackId; log: DailyLogState })
           <div class="flex gap-2 items-end border-t border-border pt-3">
             <Moon size={14} class="text-muted-foreground mb-2.5 flex-shrink-0" />
             <label class="flex-1">
-              <span class="text-[0.5625rem] text-muted-foreground block mb-1">Bedtime</span>
+              <span class="text-[0.625rem] text-muted-foreground block mb-1">Bedtime</span>
               <input
                 type="time"
                 value={user().sleep_bedtime}
@@ -162,7 +108,7 @@ export default function TrackControl(props: { id: TrackId; log: DailyLogState })
               />
             </label>
             <label class="flex-1">
-              <span class="text-[0.5625rem] text-muted-foreground block mb-1">Wake up</span>
+              <span class="text-[0.625rem] text-muted-foreground block mb-1">Wake up</span>
               <input
                 type="time"
                 value={user().sleep_wake}
@@ -173,121 +119,6 @@ export default function TrackControl(props: { id: TrackId; log: DailyLogState })
           </div>
         </div>
       </Match>
-
-      <Match when={props.id === 'habits'}>
-        <div class="space-y-2">
-          <For each={log.habits()}>
-            {(h) => {
-              const done = () => log.doneIds().includes(h.id);
-              return (
-                <div
-                  class={`flex items-center gap-2.5 p-2 rounded-lg border transition-colors ${
-                    done() ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-background border-border'
-                  }`}
-                >
-                  <button
-                    onClick={() => void log.toggleHabit(h.id)}
-                    class={`w-5 h-5 flex-shrink-0 rounded-md border flex items-center justify-center ${
-                      done()
-                        ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/50'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    <Show when={done()}>
-                      <Check size={12} stroke-width={3} />
-                    </Show>
-                  </button>
-                  <span
-                    class={`flex-1 text-xs truncate ${
-                      done() ? 'text-muted-foreground line-through' : ''
-                    }`}
-                  >
-                    {h.name}
-                  </span>
-                  <PriorityPicker
-                    value={h.priority}
-                    onChange={(p) => void log.setHabitPriority(h.id, p)}
-                  />
-                  <button
-                    onClick={() => void log.deleteHabit(h.id)}
-                    title="Remove habit"
-                    class="text-muted-foreground/50 hover:text-destructive transition-colors"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              );
-            }}
-          </For>
-
-          <div class="flex gap-2 pt-1">
-            <input
-              value={newHabit()}
-              onInput={(e) => setNewHabit(e.currentTarget.value)}
-              onKeyDown={(e) => e.key === 'Enter' && submitHabit()}
-              placeholder="Add a habit…"
-              class="flex-1 h-9 px-3 bg-background border border-border rounded-lg text-xs"
-            />
-            <button
-              onClick={submitHabit}
-              class="h-9 px-3 bg-muted hover:bg-muted/80 border border-border rounded-lg text-xs font-semibold flex items-center gap-1"
-            >
-              <Plus size={13} /> Add
-            </button>
-          </div>
-        </div>
-      </Match>
-
-      {/* Tasks is read-only here — the to-do list itself is entered once,
-          below the track cards, and shared by both modes. This card only
-          shows what today's slice of it is worth. */}
-      <Match when={props.id === 'academic_tasks' || props.id === 'life_tasks'}>
-        <TasksTrackControl log={log} />
-      </Match>
     </Switch>
-  );
-}
-
-function TasksTrackControl(props: { log: DailyLogState }) {
-  const due = () => props.log.tasks().filter((t) => t.due_date === todayIso());
-  const done = () => due().filter((t) => t.completed).length;
-
-  return (
-    <div class="space-y-2">
-      <div class="flex justify-between text-xs">
-        <span class="text-muted-foreground">Due today</span>
-        <span class="font-mono font-bold text-primary">
-          {done()} / {due().length}
-        </span>
-      </div>
-      <Show
-        when={due().length > 0}
-        fallback={
-          <p class="text-xs text-muted-foreground">
-            Nothing due today — this card scores 0 until something is.
-          </p>
-        }
-      >
-        <div class="space-y-1.5">
-          <For each={due()}>
-            {(t) => (
-              <div
-                class={`flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg border ${
-                  t.completed
-                    ? 'bg-success/5 border-success/30 text-success line-through'
-                    : 'bg-background border-border'
-                }`}
-              >
-                <Show when={t.completed}>
-                  <Check size={12} stroke-width={3} class="flex-shrink-0" />
-                </Show>
-                <span class="truncate">{t.title}</span>
-              </div>
-            )}
-          </For>
-        </div>
-      </Show>
-      <p class="text-[0.625rem] text-muted-foreground">Tick these off in the to-do list below.</p>
-    </div>
   );
 }

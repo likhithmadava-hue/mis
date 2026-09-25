@@ -16,9 +16,12 @@
 //!
 //! What this cannot see, stated plainly so nothing downstream over-claims:
 //!
-//!   - **Which browser tab is in front.** Windows reports one process,
-//!     `msedge.exe`. The window title often names the page, which is why titles
-//!     are captured, but there is no tab-level API here.
+//!   - **Which browser tab is in front, or its URL.** Windows reports one
+//!     process, `ulaa.exe`. The window title names the *page*, which is why
+//!     titles are captured and how `activity.rs` works out which site the time
+//!     belongs to — but that is a page's own name, read off a caption, not an
+//!     address read from the browser. A page that does not name its site cannot
+//!     be attributed to one, and is not guessed at.
 //!   - **Anything on a phone or another PC.** One Windows account, one machine.
 //!   - **Windows of other users' sessions, or elevated processes we cannot
 //!     open.** Those come back as `UNKNOWN_APP` rather than being dropped, so

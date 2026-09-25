@@ -345,7 +345,9 @@ mod tests {
             subject: String::new(),
             due_date: due_date.into(),
             completed,
+            completed_on: None,
             mode,
+            ..Default::default()
         }
     }
 
