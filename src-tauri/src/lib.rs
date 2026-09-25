@@ -24,6 +24,7 @@
 //! with a code shown at sign-up and not an email — there is no server to send one.
 
 pub mod commands;
+pub mod content;
 pub mod dates;
 pub mod db;
 pub mod error;
@@ -212,6 +213,10 @@ pub fn run() {
             commands::db_session_wrap,
             commands::db_update_journal_note,
             commands::db_delete_journal_entry,
+            // built-in study content
+            commands::content_syllabus,
+            commands::content_bank_chapters,
+            commands::content_questions,
             // habits
             commands::db_add_habit,
             commands::db_set_habit_priority,

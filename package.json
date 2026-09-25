@@ -13,7 +13,8 @@
     "app": "tauri dev",
     "app:build": "tauri build",
     "icons": "tauri icon src-tauri/icons/source.png",
-    "themes": "node scripts/gen-themes.mjs"
+    "themes": "node scripts/gen-themes.mjs",
+    "content": "node scripts/extract-apex-data.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

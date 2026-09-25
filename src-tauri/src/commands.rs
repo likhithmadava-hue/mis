@@ -20,6 +20,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
+use crate::content;
 use crate::db::{self, types::*, MetricPatch, EntryPatch, NewEntry};
 use crate::error::{MisError, Result};
 use crate::scoring::{self, ScoredDay, Streak};
@@ -236,6 +237,36 @@ pub fn db_delete_journal_entry(state: State<AppState>, id: String) -> Result<()>
         db::delete_journal_entry(db, &id);
         Ok(())
     })
+}
+
+// ── Built-in study content (read-only) ──────────────────────────────────────
+//
+// `async` so the first call — which parses ~6.5 MB of embedded JSON — runs off
+// the main thread instead of freezing the window for it. Each is filtered to the
+// exam track in the profile (see `content::track_of`).
+
+fn track(state: &State<AppState>) -> Result<content::Track> {
+    state.read(|db| content::track_of(db.profile.as_ref()))
+}
+
+/// The NCERT syllabus chapters on the student's exam track.
+#[tauri::command(async)]
+pub fn content_syllabus(state: State<AppState>) -> Result<Vec<content::SyllabusChapter>> {
+    let track = track(&state)?;
+    Ok(content::content()?.syllabus(track))
+}
+
+/// The question-bank chapters on the student's exam track, without questions.
+#[tauri::command(async)]
+pub fn content_bank_chapters(state: State<AppState>) -> Result<Vec<content::BankChapterSummary>> {
+    let track = track(&state)?;
+    Ok(content::content()?.bank_chapters(track))
+}
+
+/// One bank chapter's questions.
+#[tauri::command(async)]
+pub fn content_questions(bank_id: String) -> Result<Vec<content::Question>> {
+    content::content()?.questions(&bank_id)
 }
 
 #[tauri::command]
