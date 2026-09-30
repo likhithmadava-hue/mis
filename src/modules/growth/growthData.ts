@@ -318,6 +318,36 @@ export function createGrowthData(mode: () => AppMode, range: () => Range) {
     })),
   }));
 
+  /**
+   * Items ticked off per day — tasks, topics, habits and DPPs — for the
+   * "Daily Completion" tile.
+   *
+   * Tasks and topics are counted on the day they were *ticked* (`completed_on` /
+   * `done_on`), not the day they were due or added. Anything finished before
+   * those dates were recorded has no day, so it is left out rather than
+   * guessed at; older days therefore read lower for those two, never higher.
+   */
+  const completion = createMemo(() =>
+    days().map<BarPoint>((d) => {
+      const tasks = db.tasks.filter((t) => t.mode === mode() && t.completed_on === d.date).length;
+      const topics =
+        mode() === 'academic' ? db.topics.filter((t) => t.done_on === d.date).length : 0;
+      const habits = db.habit_log.filter((h) => h.date === d.date).length;
+      const dpps = mode() === 'academic' ? Math.round(d.metric?.dpps_complete ?? 0) : 0;
+      const parts = [
+        tasks && `${tasks} task${tasks === 1 ? '' : 's'}`,
+        topics && `${topics} topic${topics === 1 ? '' : 's'}`,
+        habits && `${habits} habit${habits === 1 ? '' : 's'}`,
+        dpps && `${dpps} DPP${dpps === 1 ? '' : 's'}`,
+      ].filter(Boolean);
+      return {
+        ...labels(d),
+        detail: parts.length ? parts.join(' · ') : 'nothing ticked off',
+        value: tasks + topics + habits + dpps,
+      };
+    }),
+  );
+
   return {
     days,
     user,
@@ -339,6 +369,7 @@ export function createGrowthData(mode: () => AppMode, range: () => Range) {
       () => Math.round(days().reduce((s, d) => s + (d.metric?.study_hours ?? 0), 0) * 10) / 10,
     ),
     scoreTrend,
+    completion,
     academic,
     life,
     papers,

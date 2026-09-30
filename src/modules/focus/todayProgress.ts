@@ -51,7 +51,7 @@ export interface FocusContext {
 }
 
 /**
- * What's still outstanding today, for the timer's "Left Today" panel.
+ * What's still outstanding today, for the timer: the study-hours bar in Daily Progress reads its `study` row.
  *
  * Numbers only — this module never writes. The Daily Log owns entering all of
  * it, with one exception: the habits row opens into a live list you can tick

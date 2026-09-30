@@ -1,6 +1,7 @@
-import { createEffect, createMemo, createSignal } from 'solid-js';
+import { createEffect, createMemo } from 'solid-js';
 
 import { marksLost, type MarkLogbookEntry } from '../../core/db';
+import { viewState } from '../../core/ui';
 
 /**
  * The "no filter" sentinel.
@@ -21,17 +22,27 @@ export type SortKey = 'date' | 'marks';
  * empty "Chemistry" option on a vault that only contains physics papers.
  */
 export function createLogbookFilters(entries: () => MarkLogbookEntry[]) {
-  const [search, setSearch] = createSignal('');
-  const [fSubject, setFSubject] = createSignal<string>(ALL);
-  const [fChapter, setFChapter] = createSignal<string>(ALL);
-  const [fReason, setFReason] = createSignal<string>(ALL);
-  const [fDifficulty, setFDifficulty] = createSignal<string>(ALL);
+  // `viewState`, not local signals: the Database tab is unmounted whenever you
+  // leave it, and a filter you set to look at one chapter should still be there
+  // when you come back from the Daily Log. Restored values that no longer match
+  // any row are cleared by the effect below, not left to show an empty table.
+  const [search, setSearch] = viewState('db.search', '');
+  const [fSubject, setFSubject] = viewState<string>('db.subject', ALL);
+  const [fChapter, setFChapter] = viewState<string>('db.chapter', ALL);
+  const [fReason, setFReason] = viewState<string>('db.reason', ALL);
+  const [fDifficulty, setFDifficulty] = viewState<string>('db.difficulty', ALL);
 
-  const [sortKey, setSortKey] = createSignal<SortKey>('date');
-  const [sortDesc, setSortDesc] = createSignal(true);
+  const [sortKey, setSortKey] = viewState<SortKey>('db.sortKey', 'date');
+  const [sortDesc, setSortDesc] = viewState('db.sortDesc', true);
 
   const subjects = createMemo(() =>
-    [...new Set(entries().map((e) => e.subject).filter(Boolean))].sort(),
+    [
+      ...new Set(
+        entries()
+          .map((e) => e.subject)
+          .filter(Boolean),
+      ),
+    ].sort(),
   );
 
   // Chapters narrow to the chosen subject, so the list stays short and never
@@ -39,6 +50,12 @@ export function createLogbookFilters(entries: () => MarkLogbookEntry[]) {
   const chapters = createMemo(() => {
     const pool = fSubject() === ALL ? entries() : entries().filter((e) => e.subject === fSubject());
     return [...new Set(pool.map((e) => e.chapter).filter(Boolean))].sort();
+  });
+
+  // A remembered subject can vanish between visits (its last paper deleted),
+  // which would filter the table to nothing with no obvious cause.
+  createEffect(() => {
+    if (fSubject() !== ALL && !subjects().includes(fSubject())) setFSubject(ALL);
   });
 
   // Picking a new subject can orphan the chapter filter, which would silently
@@ -64,8 +81,7 @@ export function createLogbookFilters(entries: () => MarkLogbookEntry[]) {
     // A copy, because `entries()` is the store's own array and sorting in place
     // would mutate it behind the store's back.
     return rows.sort((a, b) => {
-      const cmp =
-        sortKey() === 'date' ? a.date.localeCompare(b.date) : marksLost(a) - marksLost(b);
+      const cmp = sortKey() === 'date' ? a.date.localeCompare(b.date) : marksLost(a) - marksLost(b);
       return sortDesc() ? -cmp : cmp;
     });
   });

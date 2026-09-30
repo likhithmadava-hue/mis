@@ -28,6 +28,9 @@ export const isoDaysAgo = (n: number) => {
 /** today as `YYYY-MM-DD` */
 export const todayIso = () => isoOf(new Date());
 
+/** tomorrow as `YYYY-MM-DD` — the default due date for a next-session task */
+export const tomorrowIso = () => isoDaysAgo(-1);
+
 /** `2026-08-05` → `5 Aug`, the form used on chart axes and row labels */
 export const shortDate = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number);

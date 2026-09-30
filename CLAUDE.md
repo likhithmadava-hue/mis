@@ -7,7 +7,8 @@ Guidance for Claude Code when working in this repository.
 This is `D:\MIS(APK)\Dev` — **the working copy. Every change goes here.**
 
 - `D:\MIS(APK)\RD` — the verified copy. **Never edit it directly.** It is refreshed from Dev only when vohrim says **"Recast"**, and only then.
-- This folder **is** `github.com/likhithmadava-hue/mis`. Work happens on a feature branch, landed via `gh pr create` — never commit or push straight to `main`; vohrim merges, not Claude. `.gitignore` excludes `node_modules/`, `dist/`, `src-tauri/target/` and every `*.pem`. Nothing secret is in the tree — check before adding one.
+- This folder **is** `github.com/likhithmadava-hue/mis`. Work happens on a feature branch, landed via `gh pr create` — never commit or push straight to `main`; vohrim merges, not Claude. `.gitignore` excludes `node_modules/`, `dist/`, `src-tauri/target/`, every `*.pem` and the session logs `Chat Progress.md` / `Chat Progress Log.md` (auto-written by hooks, never committed). Nothing secret is in the tree — check before adding one.
+- `android/` + `capacitor.config.ts` — a Capacitor shell with a Kotlin/Room port of the data layer. It has **no account backend** (`MisPlugin.kt`), so the phone runs unlocked; a new Rust field or command is not on Android until someone ports it. `D:\MIS(APK)\Dev-auth` is a git worktree on `feat/onboarding-auth`; check `git worktree list` before assuming which tree holds a change.
 - `D:\MIS(Dev)` — **the previous app**: React + a Python FastAPI host. It still runs. This repository is its replacement, not its successor branch; the two share no code.
 - `D:\MIS(Dev)\dev_keys\mis_dev_private.pem` — the vault recovery **private** key. Never ships, never commits, back it up offline. The matching **public** key is compiled into `src-tauri/src/vault/recovery_key.rs` and is safe to publish.
 
@@ -18,8 +19,8 @@ This is `D:\MIS(APK)\Dev` — **the working copy. Every change goes here.**
 **MIS (Mistake Intelligence System)** — a Windows study app that turns the mistakes you make into a picture of how you are actually improving. It is one installed desktop application:
 
 - **Tauri 2** shell — one process, one window, an NSIS/MSI installer.
-- **Rust** backend (`src-tauri/`, ~5,600 lines, 82 tests) — owns the encrypted vault, the scoring, the day locks, the audit log and the screen-time tracker.
-- **SolidJS + TypeScript + Tailwind** frontend (`src/`, ~9,300 lines) — draws what Rust computed.
+- **Rust** backend (`src-tauri/`, ~8,100 lines, 125 tests) — owns the encrypted vault, the account lock, the scoring, the day locks, the audit log and the screen-time tracker.
+- **SolidJS + TypeScript + Tailwind** frontend (`src/`, ~16,400 lines) — draws what Rust computed.
 
 There is **no HTTP server, no port, no token and no `fetch`**. The old app talked to a local Python host over loopback with a per-launch token spliced into `index.html`; that whole surface is gone. The frontend reaches Rust through Tauri's IPC bridge, which is a function call in the same process.
 
@@ -37,7 +38,8 @@ npm run app:build     # tauri build — produces the installers
 npm run build         # vite build → dist/ only. tauri build runs this itself
 npm run typecheck     # tsc --noEmit — the only type gate on the frontend
 npm run icons         # regenerate the icon set from src-tauri/icons/source.png
-cargo test --manifest-path src-tauri/Cargo.toml    # the 82 Rust tests
+npm run themes        # regenerate src/themes.css from scripts/gen-themes.mjs
+cargo test --manifest-path src-tauri/Cargo.toml    # the 125 Rust tests
 ```
 
 **`npm run dev` on its own cannot work.** Every screen is a view of the vault and the vault lives in Rust, so a browser tab gets the "MIS could not load your data" screen. Use `npm run app`.
@@ -76,26 +78,30 @@ src-tauri/src/
   lib.rs             the Tauri builder: opens the vault, starts the tracker,
                      registers every command, flushes screen time on exit
   commands.rs        THE IPC surface. One #[tauri::command] per thing the UI can do
-  state.rs           AppState: the in-memory database behind a lock, read()/mutate()
+  state.rs           AppState: the in-memory database behind a lock, read()/mutate(),
+                     the locked/unlocked gate and the sign-in throttle
   error.rs           MisError → { code, message } as the frontend sees it
   dates.rs           local-calendar date strings — the only place one is made
   scoring.rs         the whole scoring engine, plus study_streak
-  db/                types · seed · migrations · day_hash · dev_mirror · mod (the operations)
-  vault/             crypto (AES-256-GCM) · dpapi · recovery_key · audit · mod
-  screentime/        tracker · winapi · store · categories · summary
+  db/                types · seed · migrations · day_hash · dev_mirror · profile · mod (the operations)
+  vault/             crypto (AES-256-GCM) · dpapi · passkey (password + recovery code) · recovery_key · audit · mod
+  screentime/        tracker · winapi · store · categories · summary · autostart
 
 src/
-  index.tsx          boot() the database, THEN mount. Failure renders BootFailure
+  index.tsx          picks the screen (core/auth): Onboarding · SignIn · App · BootFailure.
+                     Only `app` mounts <App />, so nothing reads the store while locked
   App.tsx            the shell: rail, mode switch, TABS, daily quote, tab rendering
   core/
+    auth/            session.ts — which screen we are on; follows Rust's auth_status, never enforces
     db/api.ts        the ONLY file allowed to call invoke(). One function per command
     db/store.ts      the reactive view of the database: db, revision, act(), reload()
     db/types.ts      TypeScript mirrors of src-tauri/src/db/types.rs
     scoring/meta.ts  labels, icons, Tailwind classes, targets — no arithmetic
     ui/              Card · Panel · Select · charts · mistakes · labels · icon · railTooltip · useFullscreen
+                     · Workspace · EmptyState · ComingSoon · Toggle · dialog · viewState · navigate · theme
     dates.ts         isoDaysAgo / todayIso
   modules/
-    growth/  log/  database/  focus/  screentime/
+    growth/  log/  database/  focus/  screentime/  settings/  auth/
 ```
 
 `core/` is what the app knows, `modules/` is what the app shows. **Nothing in `core/` imports from `modules/`.** Every module is a folder with an `index.ts` barrel, so `App.tsx` imports `./modules/growth` and never a path inside it. Adding a screen = a module folder with a barrel + a `TABS` entry (with `modes`) + a render line in `App.tsx`. (`growth` is the one barrel with named rather than default exports, because it ships two tabs.)
@@ -104,7 +110,7 @@ src/
 
 ### The bridge
 
-- **`src/core/db/api.ts` is the only file that may call `invoke`.** Everything above it goes through those ~45 typed functions, so the app's whole reachable surface is one readable list.
+- **`src/core/db/api.ts` is the only file that may call `invoke`.** Everything above it goes through those ~60 typed functions, so the app's whole reachable surface is one readable list.
 - **Arguments are camelCase in TypeScript, snake_case in Rust.** Tauri converts between them: `durationMinutes` here is `duration_minutes` in `commands.rs`.
 - **Every mutating command has already written the vault by the time its promise resolves.** There is no save step and no debounce to wait out. If a call rejects, nothing was persisted — see `state.rs::mutate`.
 - Errors arrive as `{ code, message }`. Branch on `code`, never on the English. `isDayLocked(e)` is the one branch the UI makes; everything else is shown with `errorMessage(e)`.
@@ -132,11 +138,18 @@ Anything Rust *derives* rather than stores (a scored range, the streak, a tamper
 | File | What it is |
 |---|---|
 | `vault.mis` | the database, AES-256-GCM |
-| `vault.key` | the data key, wrapped twice: Windows DPAPI for this user, **and** the RSA public key in `vault/recovery_key.rs` |
+| `vault.key` | the data key, wrapped twice: Windows DPAPI for this user (device mode) **or** a password wrap + a recovery-code wrap (password mode), **and** always the RSA public key in `vault/recovery_key.rs` |
 | `audit.log` | hash-chained, append-only |
 | `screentime/*.st` | one DPAPI-sealed file per recorded day |
 
-**The honest limits must stay honest.** Encryption protects against *other Windows users, other PCs, and tampering*. It cannot hide data from the logged-in user (the key is sealed to them) or from an administrator. Don't let the UI claim otherwise.
+**The honest limits must stay honest.** Device mode protects against *other Windows users, other PCs, and tampering*, and cannot hide data from the logged-in user (the key is sealed to them). Password mode also guards an unattended session and malware running as you, but not a shoulder-surfed password or an administrator reading process memory while MIS is unlocked. Don't let the UI claim otherwise.
+
+**Accounts: two ways to hold the data key.** A fresh install (or a vault from before accounts) is in **device mode**; the onboarding wizard's `auth_setup` moves it to **password mode** — Argon2id password wrap (username bound in as AAD, so a wrong username fails like a wrong password) plus a one-time 25-character recovery code, and the DPAPI wrap is **deleted**. Keeping it would make the lock screen a curtain in front of an unlocked door. Rules that follow:
+
+- **No password hash exists.** A wrong password derives a wrong key and AES-GCM refuses; that refusal is the check. Don't add a stored hash to compare against.
+- **The lock is enforced in Rust.** While locked, `state.rs` refuses every read and write with `MisError::Locked` and the real database is not in memory (a blank placeholder is). `core/auth` only routes screens — a bug there can show the wrong screen but cannot open the vault. Sign-in is throttled in Rust, and profile validation (`db/profile.rs`) is a guard, not a courtesy: the wizard's checks are only explanation.
+- **Setting or changing a password permanently rewrites `vault.key`.** Test migrations of an existing vault on a copy, never the real one; the developer recovery wrap must survive every rewrite.
+- **Screen-time files stay DPAPI-sealed in both modes**, so the tracker keeps recording while locked.
 
 A **remote dev-pull** channel was asked for and deliberately **not built** — it re-adds the server and network surface that this rewrite removed. It's a separate decision, not something to bolt on.
 
@@ -159,6 +172,8 @@ The app runs in **Academic** or **Life**, chosen from the rail and persisted as 
 
 **Mode theming is one CSS rule, not component logic.** Every accent resolves through `--primary`, so `:root[data-mode='life']` in `index.css` retints the rail, buttons, focus rings, glow, scrollbars and charts at once; `App.tsx` only sets `document.documentElement.dataset.mode`. Style with tokens (`text-primary`, `bg-primary`) and you get both modes free; hardcode a hex and you break Life mode. The mistake-type colours in `core/ui/mistakes.ts` are the deliberate exception — an error type means the same thing in both modes.
 
+**Themes are attributes on `<html>`, and the palettes are generated.** Six themes (`cyberpunk` default, `oled`, `obsidian`, `terminal`, `nordic`, `aura`) live as `:root[data-theme]` token blocks in `src/themes.css`, **generated** by `npm run themes` from the hexes in `scripts/gen-themes.mjs` — never hand-edit `themes.css`; change the palette and re-run. The generator derives the muted/elevated/subtle tokens and lightens any text colour that misses AA 4.5:1 (it prints each adjustment). Non-token structure (Aura's glass, Retro's scanlines, glow, mono and high-contrast) is `theme-effects.css`. `rounded-*` and `border` are theme-driven through `--radius` / `--border-width` in `tailwind.config.js`, so never hardcode a radius or a 1px border in a component. Life mode wears each theme's `--primary-life`. State is `core/ui/theme.ts` (`app_theme_config` in localStorage); `public/theme-boot.js` applies it before first paint and duplicates only the key and defaults. `[data-theme-preview='x']` gives any element a theme's tokens — that is how the Appearance swatches are drawn.
+
 ## Rules that are easy to break
 
 - **A day with no log scores `null`, not zero.** `ScoredDay.scores` and `by_mode` are nullable and **charts draw a gap** — a day you never opened MIS and a day you wasted are different facts. `NO_DATA` in `core/scoring/meta.ts` is that styling and is deliberately not `heat(0)`.
@@ -166,7 +181,10 @@ The app runs in **Academic** or **Life**, chosen from the rail and persisted as 
 - **The study streak counts days that met the target**, not days with any hours at all, and it is counted over the **whole history** — a 40-day streak must not read as 7 because the 7-day view is on. Today not being logged doesn't break it; the count starts at yesterday and `today_done` is reported separately.
 - **The day lock is enforced in Rust.** `refuse_if_locked` rejects the write; the greyed-out Daily Log is the *explanation* of that refusal, never the mechanism. In the old app the guard was in the browser and devtools could walk around it.
 - **`fingerprint()` in `db/types.rs` and `norm()` in `sheetImport.ts` must agree.** Both lower-case, collapse `_ - .` to spaces and collapse runs of whitespace. If they drift, the importer silently writes duplicate rows — no error, just two of everything.
-- **Screen Time must say when nothing was watching.** An empty chart and "you used nothing today" look identical and only one is ever true — hence `st_availability` and the `NotWatching` card. `availability()` deliberately does **not** report paused as unavailable: paused is a status, and hiding the tab would hide the Resume button and the history with it.
+- **Screen Time must say when nothing was watching.** An empty chart and "you used nothing today" look identical and only one is ever true — hence `st_availability` and the `NotWatching` card. `availability()` deliberately does **not** report paused as unavailable: paused is a status, and hiding the tab would hide the history with it. The tab has no Pause button any more; its one control is the opt-in **Track in background** switch (`st_set_background`).
+- **Background tracking is opt-in, off by default.** On: a per-user `Run` entry (`screentime/autostart.rs`, `--background`, no window) + a tray icon (`lib.rs::sync_tray`) + the process declines to exit when the last window closes (`ExitRequested` with no code). It stays one process and one tracker thread: `tauri-plugin-single-instance` makes a second launch hand over to the first, and the vault is opened in `setup()` so a turned-away second copy never touches it. The window is `create: false` in `tauri.conf.json` and built by `show_main`. Never make it default-on, never remove the tray icon while it is on, never register a service or scheduled task.
+- **`dpps_got` / `dpps_complete` are derived once a day has a DPP list.** Each DPP is a `DppItem` (subject, topic, teacher, done); `add_dpp` / `toggle_dpp_done` / `delete_dpp` call `sync_dpp_counters` in the same mutation, so scoring, charts and Home keep reading the two counters unchanged. A day from before this only has counts and shows them as a plain-count note. The day fingerprint appends `"d":[…]` **only when the day has DPP items** — a day with none must hash byte-for-byte as before, so never add a field to `canonical_day` unconditionally.
+- **`completed_on` / `done_on` are stamped by Rust and never invented.** `toggle_task_done` / `toggle_topic_done` set them to today on tick and clear them on untick; anything finished before they existed has none, and the Report's Daily Completion tile simply counts it as nothing. They are `Option` + `serde(default, skip_serializing_if)`, so old vaults load untouched and `day_hash.rs` (which hand-builds its string from named fields) is unaffected — keep it that way if you add fields.
 - **Migrations are mandatory.** `db/migrations.rs` patches saved vaults forward and runs against `serde_json::Value` *before* typing, which is what lets it add fields that `DbShape` now requires. Any new required field, table or renamed value needs a step there, or an existing vault fails to deserialize on load.
 - **Habits have two representations.** New habits live in `habits` + `habit_log`, but `DailyMetric` still carries `reading_habit` / `revision_habit`. `Habit.legacy_key` bridges them in `toggle_habit_today`. If you touch habit storage, keep the bridge working.
 - **`src/core/db/types.ts` is a mirror, not a source.** `src-tauri/src/db/types.rs` decides the shape. The arrow only points one way.
@@ -175,7 +193,8 @@ The app runs in **Academic** or **Life**, chosen from the rail and persisted as 
 ## Conventions and gotchas
 
 - **Solid is not React.** No `useState` copies, no dependency arrays, no `.map()` in JSX. `class` not `className`; `<For>` / `<Show>` / `<Switch>` / `<Dynamic>`; **never destructure props** (it breaks reactivity); SVG attributes are kebab-case (`stroke-width`) and `stroke-dasharray` wants a string.
-- **Browser dialogs and downloads do not work in a webview.** Use `@tauri-apps/plugin-dialog` (`confirm`, `message`, `save`) and `@tauri-apps/plugin-fs` (`writeFile`, `writeTextFile`) instead of `window.confirm`, `alert` and `<a download>`.
+- **Browser dialogs and downloads do not work in a webview.** Use `@tauri-apps/plugin-fs` (`writeFile`, `writeTextFile`) instead of `<a download>`, and `plugin-dialog`'s `save` for the OS file picker — that is the only native dialog left.
+- **Confirmations are in-app, never native.** Use `confirmDialog` / `messageDialog` from `core/ui` (`dialog.tsx`, one `<DialogHost/>` in `App.tsx`). The plugin's `confirm`/`message` draw a stock white Windows window over the dark app. Pass `tone: 'danger'` for irreversible actions.
 - **The fs capability is scoped.** `src-tauri/capabilities/default.json` allows `$DOWNLOAD`, `$DOCUMENT`, `$DESKTOP` and `$HOME` and explicitly **denies `$APPLOCALDATA`** — the app must not be able to reach its own vault through the file plugin.
 - **No `windows` crate.** The nine Win32 functions MIS touches — DPAPI, foreground window, idle time — are declared by hand in `vault/dpapi.rs` and `screentime/winapi.rs`. That keeps a heavyweight dependency and its breaking releases out of the two places where a silently changed signature would mis-seal the vault key or mis-record what you were doing.
 - **Sizing is one fluid clamp, not a zoom.** `html { font-size: clamp(...) }` in `index.css` is the single knob for the whole app's size; everything else is in rem. Move the first and last numbers to resize text, padding, icons and cards together.
@@ -184,10 +203,22 @@ The app runs in **Academic** or **Life**, chosen from the rail and persisted as 
 - **Charts are hand-rolled** in `core/ui/charts.tsx` — no chart library. `TrendChart` stretches with `preserveAspectRatio="none"`, so strokes need `vector-effect="non-scaling-stroke"` and the dots are HTML positioned over the SVG to stay circular; it splits the series into runs of non-null points so gaps stay gaps.
 - **Charts carry their own tooltip**, not a `title` attribute. `submitted_at` is the only clock time MIS stores, which is why it is the honest answer to "when was this?" — a day with a log but no submit says "not submitted yet" rather than inventing a time.
 - **Timer completion is a three-step confirm.** A finished round starts a looping Web Audio alarm and opens the `DONE_PROMPTS` dialog; **the session is only written after the third "yes"**. The dialog lives inside the fullscreen container ref on purpose — a `fixed` element outside the fullscreened node would not paint. Audio is best-effort and must never break the timer.
-- **The countdown is driven by a target timestamp**, not by counting ticks, so a throttled window comes back with the right time left.
+- **The countdown is driven by a target timestamp**, not by counting ticks, so a throttled window comes back with the right time left. It lives in the component, so leaving the Focus tab mid-round still resets it.
+- **Round and break ends raise a native notification only while MIS is in the background** (`focus/notify.ts`, `tauri-plugin-notification`, permission in `capabilities/default.json`). A new plugin needs a full close and relaunch of `npm run app` — a live reload never loads it. The Focus ring, digits and tree size from the timer slot's own `cqw`/`cqh` (`TimerFace.tsx`), not from the window.
 - **Spreadsheet import never trusts the sheet.** `sheetImport.ts` guesses the column mapping, then `ImportSheet.tsx` shows the guess, allows every column to be overridden, previews the finished rows and reports what will be skipped — duplicates and unusable rows — before writing. Dates read **day-first** for ambiguous numeric text (this app is used in India), and `Date` cells are formatted by hand because `toISOString()` shifts the day backwards east of UTC.
 - **Fonts ship inside the binary.** `src/fonts.css` is ~460 KB of data-URI `@font-face` rules: Inter for body, `font-space` (Space Grotesk) for headings, `font-mono` (JetBrains Mono) for numbers. There is no network font and the CSP forbids one.
 - **`st_categories` is registered but nothing calls it.** The Screen Time tab reads each app's category off `st_day`. Left in place because the categories editor is the obvious next feature.
+
+- **The Daily Log is one master checklist**, not a card per track. `MasterChecklist` holds Studies, DPPs (each with topic, subject, teacher), Habits, Left to revise, Left to solve and Action items, each logged inline; `checklist.ts` decides what shows (open items plus anything ticked today) and counts progress, and scores still come from Rust off the same data. Mood, leisure and wellness are readings, not ticks, so they stay as `CheckInCard`s in a side rail (Life mode). Academic is a single column: checklist, then Topics, then the inline `PaperForm` (the mistake form stays on the page, not in a drawer). Habits belong to Life only and are not shown in Academic. The Topics card is unchanged — it is where topics are added; the checklist ticks the same rows. `daily_log_layout` is still in the vault but nothing reads it any more (the drag-to-arrange UI is gone); removing it needs a Rust migration.
+
+### UI layout rules (every new screen, panel or component)
+
+- **Build the central panel on `core/ui/Workspace`** — grid rows `auto · 1fr · auto`. The thing the screen exists for goes in the body and fills; secondary things (quote, totals, hint) are the footer, pinned to the bottom. No fixed-height dead zones, no spacer divs, no unconstrained `mt-*` to push things around.
+- **View state must survive a tab switch.** Tabs unmount, so a `createSignal` for a range, filter, sort or selected sub-view is lost on every visit. Use `viewState(key, default, validate?)` from `core/ui` (module-level, mirrored to localStorage; key `screen.thing`). Never reset it from an effect without `on(..., { defer: true })` — an effect that runs on mount is how Report kept snapping back to Overview. Publish the current sub-view with `useSubViewLabel` so the header breadcrumb shows it.
+- **A card must not change height when you interact with it.** Rows that appear on selection (play/volume once a sound is picked) are always drawn and dimmed instead; expandable content gets a `max-h` and its own `overflow-y-auto`. An expanding widget must never push the cards below it.
+- **Text contrast is AA (4.5:1).** Use `text-muted-foreground` for secondary text and `text-subtle-foreground` for the quietest tier — both are tuned for that on every surface. Never fade text with an opacity suffix (`text-muted-foreground/60`); it drops to ~3:1. Nothing under `text-[0.625rem]`.
+- **Three different "nothing here" states, never blurred together.** No data yet → `EmptyState` / `EmptyChart` with an icon, the reason and a call to action (`action: { label, to: 'log' }`). A real zero (Carelessness 0.00) → the live panel showing the number. Not built yet → `ComingSoon` (dashed, locked badge, `aria-disabled`).
+- **Long table text gets a way out.** Truncated cells keep a `title`, and rows with cut-off text get a chevron that opens a full-width drawer row (`EntryRow`). Filters live in a labelled header bar above the table (`FilterBar`), with the shown/total count.
 
 ## Docs
 

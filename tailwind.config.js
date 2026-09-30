@@ -28,6 +28,26 @@ export default {
         sidebar: 'hsl(var(--sidebar))',
         'sidebar-accent': 'hsl(var(--sidebar-accent))',
       },
+      // Corner radius and stroke width belong to the theme (Retro Terminal is
+      // square and 2px, Aura Glass is soft), so `rounded-*` and `border` resolve
+      // through --radius and --border-width instead of fixed lengths. --radius is
+      // the size of a card (`rounded-2xl`); everything smaller is a fixed share of
+      // it, so a pill button and the card around it stay in proportion in every
+      // theme. `rounded-full` is deliberately untouched — dots and switches stay
+      // round even where the cards are square.
+      borderRadius: {
+        none: '0px',
+        sm: 'calc(var(--radius) * 0.3)',
+        DEFAULT: 'calc(var(--radius) * 0.4)',
+        md: 'calc(var(--radius) * 0.55)',
+        lg: 'calc(var(--radius) * 0.7)',
+        xl: 'calc(var(--radius) * 0.85)',
+        '2xl': 'var(--radius)',
+        '3xl': 'calc(var(--radius) * 1.5)',
+      },
+      borderWidth: {
+        DEFAULT: 'var(--border-width)',
+      },
       // Inter for body, Space Grotesk for headings, JetBrains Mono for numbers.
       // Shipped as local woff2 files (see src/fonts.css) — an installed desktop
       // app must not reach out to Google Fonts on launch.

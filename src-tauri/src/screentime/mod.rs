@@ -1,11 +1,12 @@
 //! Screen time: what was actually in front of you, and for how long.
 //!
-//! The whole feature is four pieces with one direction of dependency:
+//! The whole feature is five pieces with one direction of dependency:
 //!
 //! ```text
 //!   winapi     one look at the screen (foreground app, title, idleness)
 //!   tracker    turns a run of looks into intervals, in a thread
 //!   store      seals a day's intervals to disk, one file per day
+//!   activity   reads what an interval was: the site, for a browser
 //!   summary    turns a day's intervals into the numbers the tab draws
 //! ```
 //!
@@ -20,6 +21,8 @@
 //! `TABS`. Three missing connections. It is wired up here (see `commands.rs` and
 //! `App.tsx`), which is the difference between a feature and a folder.
 
+pub mod activity;
+pub mod autostart;
 pub mod categories;
 pub mod store;
 pub mod summary;
@@ -51,7 +54,7 @@ impl Availability {
 /// **Paused is deliberately not unavailable.** Pausing stops new recording; it
 /// does not make the days already recorded unreadable, and hiding the whole tab
 /// behind a "nothing is watching" card would take away the history along with
-/// the live figures — including the Resume button. That state is reported by
+/// the live figures. That state is reported by
 /// `st_status` and shown as a pill, which is what it is: a status.
 ///
 /// What *is* unavailable is a machine that cannot watch the foreground window

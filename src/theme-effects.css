@@ -1,0 +1,120 @@
+/* What a colour token cannot carry: glass, scanlines, glow, type and stroke
+   options. themes.css holds the palettes; this file holds everything that
+   changes the *shape* of a theme, or a setting that layers on top of any theme.
+
+   <html> carries four attributes, all set by core/ui/theme.ts (and, before first
+   paint, by public/theme-boot.js so a saved theme never flashes the default):
+
+     data-theme       cyberpunk | oled | obsidian | terminal | nordic | aura
+     data-mono        on | off      monospaced type everywhere
+     data-contrast    high | normal thicker, brighter strokes
+     data-scanlines   on | off      the CRT overlay (Retro Terminal only)
+
+   Radii and stroke widths are not set here: tailwind.config.js maps
+   `rounded-*` to --radius and `border` to --border-width, so every component
+   follows the theme without knowing it exists. */
+
+/* ── High-contrast borders ────────────────────────────────────────────────
+   Must come after the theme blocks: same specificity as `:root[data-theme]`,
+   so source order is what makes this win. */
+:root[data-contrast='high'] {
+  --border: var(--border-hc);
+  --card-border: var(--border-hc);
+  --border-width: 2px;
+}
+
+/* ── Monospaced type ──────────────────────────────────────────────────────
+   body covers everything that inherits; .font-space is the one utility that
+   sets its own family (headings, numbers), so it is named. Form controls
+   inherit from body in Tailwind's preflight. */
+:root[data-mono='on'] body,
+:root[data-mono='on'] .font-space,
+:root[data-mono='on'] input,
+:root[data-mono='on'] textarea,
+:root[data-mono='on'] button {
+  font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+/* ── Midnight OLED: glowing focus on interactive inputs ───────────────────
+   No container shadows anywhere (the tokens are `none`); the only light is the
+   input you are typing in. */
+:root[data-theme='oled'] input:focus-visible,
+:root[data-theme='oled'] textarea:focus-visible,
+:root[data-theme='oled'] [role='combobox']:focus-visible {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 1px hsl(var(--primary)), 0 0 14px hsl(var(--primary) / 0.55);
+}
+
+/* ── Solarized Obsidian: a warm glow on the active button ─────────────── */
+:root[data-theme='obsidian'] .bg-primary,
+:root[data-theme='obsidian'] [aria-current='page'],
+:root[data-theme='obsidian'] [aria-pressed='true'] {
+  box-shadow: 0 0 16px -2px hsl(var(--primary) / 0.4);
+}
+
+/* ── Retro Terminal: phosphor type and the CRT overlay ────────────────── */
+:root[data-theme='terminal'] body {
+  /* faint on purpose: a strong bloom on 11px captions smears them */
+  text-shadow: 0 0 4px hsl(var(--primary) / 0.28);
+}
+:root[data-theme='terminal'][data-scanlines='on'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgb(0 0 0 / 0.2) 0, rgb(0 0 0 / 0.2) 1px, transparent 1px, transparent 3px);
+}
+
+/* ── Aura Glass: frosted panels over an ambient mesh ──────────────────────
+   The tokens give an opaque approximation (which the contrast checks ran on);
+   here the surfaces are made genuinely translucent. The selector list also
+   covers the Appearance page's swatch, so the preview frosts like the real
+   thing. `Tailwind opacity classes (bg-card/50)` are unaffected — the tokens
+   are plain HSL triplets, so they still work. */
+:is(:root[data-theme='aura'], [data-theme-preview='aura']) :is(.bg-card, .bg-elevated) {
+  background-color: rgb(255 255 255 / 0.05);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+:is(:root[data-theme='aura'], [data-theme-preview='aura']) .bg-muted {
+  background-color: rgb(255 255 255 / 0.07);
+}
+:is(:root[data-theme='aura'], [data-theme-preview='aura']) .bg-sidebar {
+  background-color: rgb(12 10 38 / 0.45);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+:is(:root[data-theme='aura'], [data-theme-preview='aura']) :is(.bg-card, .bg-elevated, .bg-sidebar) {
+  border-color: rgb(255 255 255 / 0.12);
+}
+
+:root[data-theme='aura'] body {
+  /* the gradient must stay put while the panels scroll over it */
+  background-attachment: fixed;
+  background-size: cover;
+}
+
+/* The mesh drifts slowly. It is one oversized fixed layer moved with a
+   transform — composited on the GPU, never repainted — because this app runs on
+   integrated graphics. prefers-reduced-motion stops it (see index.css). */
+:root[data-theme='aura'] body::before {
+  content: '';
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 30% 30%, hsl(var(--primary) / 0.14), transparent 40%),
+    radial-gradient(circle at 72% 68%, hsl(var(--secondary-accent) / 0.11), transparent 42%);
+  will-change: transform;
+  animation: aura-drift 48s ease-in-out infinite alternate;
+}
+@keyframes aura-drift {
+  from {
+    transform: translate3d(-4%, -3%, 0) rotate(0deg);
+  }
+  to {
+    transform: translate3d(4%, 3%, 0) rotate(6deg);
+  }
+}

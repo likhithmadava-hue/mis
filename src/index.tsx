@@ -23,9 +23,14 @@ import { render } from 'solid-js/web';
 
 import App from './App';
 import { failure, screen, start } from './core/auth';
+import { initTheme } from './core/ui';
 import { Onboarding, SignIn } from './modules/auth';
 
 import './index.css';
+
+// public/theme-boot.js already applied the saved theme before first paint; this
+// makes the same values the source of truth for the running app.
+initTheme();
 
 const root = document.getElementById('root')!;
 

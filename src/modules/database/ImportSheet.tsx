@@ -178,7 +178,7 @@ export default function ImportSheet(props: ImportSheetProps) {
                               <span class="text-primary"> *</span>
                             </Show>
                           </p>
-                          <p class="text-[0.5625rem] text-muted-foreground leading-tight">
+                          <p class="text-[0.625rem] text-muted-foreground leading-tight">
                             {spec.hint}
                           </p>
                         </div>
@@ -221,7 +221,7 @@ export default function ImportSheet(props: ImportSheetProps) {
                 <div class="overflow-x-auto bg-background rounded-xl border border-border">
                   <table class="w-full text-left text-[0.6875rem]">
                     <thead>
-                      <tr class="border-b border-border text-muted-foreground uppercase text-[0.5625rem] tracking-wider">
+                      <tr class="border-b border-border text-muted-foreground uppercase text-[0.625rem] tracking-wider">
                         <th class="py-2 px-3 font-bold">Date</th>
                         <th class="py-2 px-3 font-bold">Subject</th>
                         <th class="py-2 px-3 font-bold">Chapter</th>

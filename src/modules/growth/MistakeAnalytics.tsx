@@ -17,7 +17,7 @@ import {
   type Difficulty,
   type MistakeReason,
 } from '../../core/db';
-import { REASON_BAR } from '../../core/ui';
+import { ComingSoon, EmptyState, REASON_BAR } from '../../core/ui';
 
 interface MistakeAnalyticsProps {
   onOpenLog?: () => void;
@@ -242,26 +242,15 @@ export default function MistakeAnalytics(props: MistakeAnalyticsProps) {
       <Show
         when={totalEntries() > 0}
         fallback={
-          <div class="rounded-2xl border border-border bg-card p-10 sm:p-14 text-center shadow-[var(--shadow-card)] space-y-4">
-            <div class="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary">
-              <FlaskConical size={24} />
-            </div>
-            <div class="max-w-md mx-auto">
-              <h3 class="font-display text-lg font-semibold">No mistakes logged yet</h3>
-              <p class="text-xs text-muted-foreground mt-1 leading-relaxed">
-                Log a few mistakes in the Daily Log to unlock the Carelessness index, Chapter damage heatmap, and Revision priority engine.
-              </p>
-            </div>
-            <Show when={props.onOpenLog}>
-              <div class="pt-2">
-                <button
-                  onClick={() => props.onOpenLog?.()}
-                  class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold font-space shadow-md hover:opacity-90 transition-opacity"
-                >
-                  <PlusCircle size={15} /> Add first mistake
-                </button>
-              </div>
-            </Show>
+          <div class="rounded-2xl border border-border bg-card p-6 sm:p-10 shadow-[var(--shadow-card)]">
+            <EmptyState
+              icon={FlaskConical}
+              title="No mistakes logged yet"
+              message="Log a few mistakes in the Daily Log to unlock the Carelessness index, Chapter damage heatmap, and Revision priority engine."
+              action={
+                props.onOpenLog ? { label: 'Add first mistake', onClick: props.onOpenLog } : undefined
+              }
+            />
           </div>
         }
       >
@@ -321,7 +310,7 @@ export default function MistakeAnalytics(props: MistakeAnalyticsProps) {
 
               <div class="pt-2 text-xs text-muted-foreground">
                 Avoidable categories:{' '}
-                <span class="text-foreground/80 font-medium">
+                <span class="text-foreground font-medium">
                   {[...AVOIDABLE_REASONS].join(' · ')}
                 </span>
               </div>
@@ -487,10 +476,11 @@ export default function MistakeAnalytics(props: MistakeAnalyticsProps) {
         </section>
 
         {/* ── 5. AI Insights ──────────────────────────────────────────────── */}
-        <div class="rounded-2xl border border-dashed border-border bg-card/40 p-5 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-          <Sparkles size={14} class="text-primary/70" />
-          <span>AI Insights — Coming Soon</span>
-        </div>
+        <ComingSoon
+          icon={Sparkles}
+          title="AI Insights"
+          description="A written read on your mistake patterns — what keeps repeating and what to revise first."
+        />
       </Show>
     </div>
   );

@@ -67,9 +67,21 @@ struct DayFile {
 pub struct Settings {
     #[serde(default)]
     pub paused: bool,
+    /// Opt-in: keep recording after the window is closed, and start with
+    /// Windows. Off until the user turns it on.
+    #[serde(default)]
+    pub background: bool,
     /// The user's own app→category assignments, which beat the defaults.
     #[serde(default)]
     pub categories: BTreeMap<String, String>,
+    /// The user's own site→category assignments, keyed by activity key
+    /// (`web:youtube`). Finer than `categories`, and beats it: a browser marked
+    /// `distraction` wholesale still counts a site marked `study` as study.
+    ///
+    /// `#[serde(default)]` is what lets a settings file written before
+    /// activities existed keep loading, with no sites assigned.
+    #[serde(default)]
+    pub sites: BTreeMap<String, String>,
 }
 
 pub struct Store {

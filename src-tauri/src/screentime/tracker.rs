@@ -1,12 +1,19 @@
 //! The background loop that turns snapshots into intervals.
 //!
-//! It runs as one thread inside the app process, so screen time is recorded for
-//! exactly as long as MIS is open and not one second longer. There is no
-//! service, nothing at startup, nothing left running after the window closes —
-//! **a tracker that outlives the app it belongs to is a surveillance tool, and
-//! this is not that.** The installer registers no scheduled task and no autostart
-//! entry, and that is a deliberate constraint on the bundle, not an oversight.
+//! It runs as one thread inside the app process. By default that is exactly as
+//! long as MIS is open and not one second longer: no service, nothing at
+//! startup, nothing left running after the window closes.
 //!
+//! **Background tracking is opt-in, and it is the one exception.** When the user
+//! switches it on, MIS registers a per-user login entry and stays alive in the
+//! notification area after the window closes, so the same thread keeps
+//! recording. It is still this one process and this one thread — never a
+//! service, never a second copy — and it stays visible: the tray icon says it is
+//! recording, and its menu quits it. **A tracker that outlives the app without
+//! the person knowing is a surveillance tool; one they turned on, can see, and
+//! can stop from the tray is a feature.** Off is the default, and turning it off
+//! removes the login entry.
+
 //! How a run of samples becomes an interval:
 //!
 //! ```text
@@ -57,6 +64,8 @@ pub const FLUSH_SECONDS: f64 = 30.0;
 pub struct TrackerStatus {
     pub running: bool,
     pub paused: bool,
+    /// Background tracking is switched on (recording continues with no window).
+    pub background: bool,
     pub since: Option<String>,
     pub poll_seconds: f64,
     pub idle_after_seconds: f64,
@@ -258,6 +267,19 @@ impl Tracker {
         st.store.save_settings(&settings);
     }
 
+    /// Remember whether background tracking is on. The caller is responsible
+    /// for the login entry and the tray icon; this is only the saved choice.
+    pub fn set_background(&self, on: bool) {
+        let st = self.state.lock().unwrap();
+        let mut settings = st.store.load_settings();
+        settings.background = on;
+        st.store.save_settings(&settings);
+    }
+
+    pub fn background(&self) -> bool {
+        self.state.lock().unwrap().store.load_settings().background
+    }
+
     pub fn paused(&self) -> bool {
         self.state.lock().unwrap().paused
     }
@@ -289,6 +311,7 @@ impl Tracker {
         TrackerStatus {
             running: self.handle.lock().unwrap().is_some(),
             paused: st.paused,
+            background: st.store.load_settings().background,
             since: st.started_at.clone(),
             poll_seconds: POLL_SECONDS,
             idle_after_seconds: IDLE_AFTER,

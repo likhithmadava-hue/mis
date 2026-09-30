@@ -191,12 +191,45 @@ export type NewEntry = Omit<MarkLogbookEntry, 'id'>;
 /** marks dropped on a paper — derived, never stored */
 export const marksLost = (e: MarkLogbookEntry) => Math.max(0, e.max_score - e.score);
 
+/**
+ * Why a focus session was started. Spelled exactly as Rust's `SessionReason`
+ * serialises (`snake_case`), and pinned by a test there — change one side and
+ * every stored session stops loading.
+ */
+export type SessionReason =
+  | 'taught_in_class'
+  | 'homework'
+  | 'upcoming_test'
+  | 'self_study'
+  | 'other';
+
 export interface FocusSession {
   id: string;
   date: string;
   duration_minutes: number;
+  /** one-line label; for a session made now it is the chapter */
   tag: string;
   completed: boolean;
+  /**
+   * What the round was for. Absent on a session recorded before MIS asked —
+   * those are shown by their `tag` and never guessed at.
+   */
+  subject?: string;
+  chapter?: string;
+  reason?: SessionReason;
+  /** in the student's own words; required by Rust when `reason` is `other` */
+  reason_note?: string;
+}
+
+/**
+ * What a focus session is for, as it goes to Rust. All three of subject,
+ * chapter and reason are required there — a session without them is refused.
+ */
+export interface SessionDetails {
+  subject: string;
+  chapter: string;
+  reason: SessionReason | null;
+  reason_note: string;
 }
 
 export interface Task {
@@ -205,8 +238,46 @@ export interface Task {
   subject: string;
   due_date: string;
   completed: boolean;
+  /** the day it was ticked off; absent on anything finished before this was recorded */
+  completed_on?: string;
   /** which mode's to-do list this belongs to */
   mode: AppMode;
+  /**
+   * What sort of session this is — "Practice PYQ", "Reference problems", or anything
+   * the student typed. Free text on purpose: presets and reused kinds are suggested,
+   * never enforced. Empty on a plain to-do, and absent on a vault older than this.
+   */
+  kind?: string;
+  /** the syllabus chapter the task is about, free text */
+  chapter?: string;
+  /** the book or sheet a reference task draws from */
+  reference?: string;
+  /** how many problems it sets; `0`/absent when it does not count them */
+  problems?: number;
+}
+
+/** The optional session fields of a new task. Every one may be left out. */
+export interface TaskDetails {
+  kind?: string;
+  chapter?: string;
+  reference?: string;
+  problems?: number;
+}
+
+/**
+ * One DPP set for a day. The day's `dpps_got` / `dpps_complete` are derived from
+ * these in Rust whenever any exist, so scoring and the charts are unchanged.
+ */
+export interface DppItem {
+  id: string;
+  date: string;
+  subject: string;
+  topic: string;
+  /** the teacher who gave it */
+  teacher: string;
+  done: boolean;
+  /** the day it was ticked off — see `Task.completed_on` */
+  done_on?: string;
 }
 
 export interface TopicItem {
@@ -215,6 +286,159 @@ export interface TopicItem {
   name: string;
   type: TopicType;
   done: boolean;
+  /** the day it was ticked off — see `Task.completed_on` */
+  done_on?: string;
+  /** which subject and chapter a doubt belongs to, and what is unclear — all free text */
+  subject?: string;
+  chapter?: string;
+  note?: string;
+}
+
+/** The optional detail of a new topic. Every field may be left out. */
+export interface TopicDetails {
+  subject?: string;
+  chapter?: string;
+  note?: string;
+}
+
+/** Which "left to" list a doubt lands in. */
+export type DoubtList = 'revise' | 'solve';
+
+/** How a Practice PYQ session went. The misses are in the mistake log; this is the session. */
+export interface PyqResult {
+  correct: number;
+  wrong: number;
+  skipped: number;
+  /** marks earned, after negative marking */
+  marks: number;
+  max_marks: number;
+}
+
+/** A task, doubt or planned task as the journal remembers it — a snapshot, not a link. */
+export interface JournalTask {
+  title: string;
+  kind: string;
+}
+
+export interface JournalDoubt {
+  title: string;
+  subject: string;
+  chapter: string;
+  note: string;
+  list: DoubtList;
+}
+
+export interface JournalPlanned {
+  title: string;
+  kind: string;
+  due_date: string;
+}
+
+/**
+ * One wrapped-up study session: what got done, what is still a doubt, what comes
+ * next, and a free-text note. Newest first in `DbShape.journal`.
+ */
+export interface JournalEntry {
+  id: string;
+  /** the day the session happened, `YYYY-MM-DD` */
+  date: string;
+  /** when the wrap-up was confirmed, ISO-8601 */
+  created_at: string;
+  /**
+   * Which journal it belongs to: Academic is the study logbook (every session
+   * wrap-up lands there), Life is the personal diary. The two are never mixed
+   * on screen. Absent on a vault written before the diary existed.
+   */
+  mode?: AppMode;
+  /** the entry's own heading; empty on a session wrap-up */
+  title?: string;
+  subject: string;
+  chapter: string;
+  kind: string;
+  minutes: number;
+  pyq: PyqResult | null;
+  tasks_done: JournalTask[];
+  doubts: JournalDoubt[];
+  next_plan: JournalPlanned[];
+  note: string;
+}
+
+/** A journal entry written by hand — a logbook page or a diary day. */
+export interface NewJournalEntry {
+  mode: AppMode;
+  /** `YYYY-MM-DD`; omitted or empty means today. Backdating is allowed. */
+  date?: string;
+  title?: string;
+  subject?: string;
+  chapter?: string;
+  kind?: string;
+  minutes?: number;
+  note?: string;
+}
+
+/**
+ * The parts of an entry that can be rewritten. A session's three structured
+ * levels are deliberately absent — they record what happened.
+ */
+export interface JournalPatch {
+  date?: string;
+  title?: string;
+  subject?: string;
+  chapter?: string;
+  kind?: string;
+  minutes?: number;
+  note?: string;
+}
+
+/** A doubt as the wrap-up panel sends it. */
+export interface WrapDoubt {
+  title: string;
+  subject?: string;
+  chapter?: string;
+  note?: string;
+  list: DoubtList;
+}
+
+/** A next-session task as the wrap-up panel sends it. `due_date` defaults to tomorrow. */
+export interface WrapPlanned {
+  title: string;
+  subject?: string;
+  kind?: string;
+  chapter?: string;
+  reference?: string;
+  problems?: number;
+  due_date?: string;
+}
+
+/** Everything the wrap-up panel sends. Mirrors `db::WrapInput`. */
+export interface WrapInput {
+  subject?: string;
+  chapter?: string;
+  kind?: string;
+  minutes?: number;
+  pyq?: PyqResult | null;
+  /** level 1 — tasks to mark done */
+  done_task_ids?: string[];
+  /** level 1 — today's DPPs finished in this session */
+  done_dpp_ids?: string[];
+  /** level 1 — Left to revise / Left to solve topics finished in this session */
+  done_topic_ids?: string[];
+  /** level 2 — doubts left */
+  doubts?: WrapDoubt[];
+  /** level 3 — tasks for the next session */
+  next_plan?: WrapPlanned[];
+  /** one logbook row per wrong PYQ */
+  mistakes?: NewEntry[];
+  note?: string;
+}
+
+/** What a wrap-up wrote. */
+export interface WrapOutcome {
+  journal_id: string;
+  ticked: number;
+  doubts_added: number;
+  planned: number;
+  mistakes_added: number;
 }
 
 export interface FocusSettings {
@@ -274,6 +498,7 @@ export interface DbShape {
   focus_sessions: FocusSession[];
   tasks: Task[];
   topics: TopicItem[];
+  dpps: DppItem[];
   focus_settings: FocusSettings;
   habits: Habit[];
   habit_log: HabitLogEntry[];
@@ -282,6 +507,8 @@ export interface DbShape {
   daily_log_layout: DailyLogLayout;
   /** `null` until onboarding has been completed. */
   profile: Profile | null;
+  /** one entry per wrapped-up study session, newest first */
+  journal: JournalEntry[];
 }
 
 // ── Patches ─────────────────────────────────────────────────────────────────
@@ -352,6 +579,64 @@ export interface Streak {
   recent: StreakDay[];
 }
 
+// ── Built-in study content (read-only, from Rust `content/`) ────────────────
+
+/** One NCERT chapter. Mirrors `content::SyllabusChapter`. */
+export interface SyllabusChapter {
+  /** `phy-1-04` — what MIS stores when it means this chapter */
+  id: string;
+  subject: string;
+  /** 1 = first PUC (class 11), 2 = second PUC (class 12) */
+  puc: 1 | 2;
+  num: number;
+  /** what is shown, and written into free-text chapter fields */
+  title: string;
+  /** exam weight, 1 (low) to 5 (high) */
+  priority: number;
+  exams: ('jee' | 'neet')[];
+  /** the question-bank chapter covering it; several NCERT chapters can share one */
+  bank_id: string | null;
+}
+
+export interface BankTopic {
+  name: string;
+  teaser: string;
+}
+
+/** A question-bank chapter without its questions. Mirrors `content::BankChapterSummary`. */
+export interface BankChapter {
+  id: string;
+  subject: string;
+  num: number;
+  title: string;
+  teaser: string;
+  topics: BankTopic[];
+  questions: number;
+  by_difficulty: Partial<Record<Difficulty, number>>;
+  /** the NCERT chapters it covers; empty for a few JEE-only chapters */
+  syllabus_ids: string[];
+}
+
+/** One practice question. Mirrors `content::Question`. */
+export interface Question {
+  /** `<bank chapter>-<nnn>` */
+  id: string;
+  topic: string;
+  difficulty: Difficulty;
+  /** math is KaTeX between `\( \)` and `\[ \]` */
+  text: string;
+  options: string[];
+  /** index into `options` as stored — shuffle for display, the stored order is skewed */
+  correct: number;
+  /** the worked solution, `**bold**` step headings */
+  answer: string;
+  tip: string;
+  points: number;
+  negative: number;
+  /** `original` (exam-style) or `pyq` (a real past question) — only call the latter PYQs */
+  source: 'original' | 'pyq';
+}
+
 // ── Vault ───────────────────────────────────────────────────────────────────
 
 export interface VaultInfo {
@@ -382,16 +667,47 @@ export interface TitleTotal {
   seconds: number;
 }
 
-export interface AppRow {
+/**
+ * One thing that was done: a site inside a browser, or an app in its own right.
+ *
+ * This is the level categories are decided at. Windows only ever reports a
+ * process, so `ulaa.exe` covers a past paper and a reel alike; the site is read
+ * from the page title in `screentime/activity.rs`, which is how one browser's
+ * hours end up in three different categories instead of one grey bar.
+ */
+export interface ActivityRow {
+  /** what an assignment is stored against: `web:youtube`, or `code.exe` */
+  key: string;
+  label: string;
+  /** the app it happened in */
   app: string;
   seconds: number;
   category: string;
+  /** true for a page inside a browser, false for the app itself */
+  web: boolean;
+  titles: TitleTotal[];
+}
+
+export interface AppRow {
+  app: string;
+  seconds: number;
+  /** what the app as a whole is filed as — the fallback for sites inside it */
+  category: string;
+  /** whether this app shows web pages, and so has activities worth opening */
+  browser: boolean;
+  /** this app's seconds by category: what its bar is stacked from */
+  split: Record<string, number>;
+  /** the sites inside it, longest first. Empty for anything but a browser. */
+  activities: ActivityRow[];
   titles: TitleTotal[];
 }
 
 export interface Stretch {
   app: string;
   title: string;
+  /** what that run actually was — the site, for a browser */
+  label: string;
+  category: string;
   seconds: number;
   start: number;
 }
@@ -399,6 +715,13 @@ export interface Stretch {
 export interface TimelineSpan {
   app: string;
   title: string;
+  label: string;
+  /**
+   * Carried per block rather than looked up by app: one block of a browser's
+   * time can be study and the next distraction, so the strip cannot colour
+   * itself from the app name.
+   */
+  category: string;
   start: number;
   seconds: number;
 }
@@ -407,6 +730,8 @@ export interface DaySummary {
   day: string;
   total_seconds: number;
   by_app: AppRow[];
+  /** everything done that day, flattened to one level and longest first */
+  by_activity: ActivityRow[];
   by_category: Record<string, number>;
   switches: number;
   longest_stretch: Stretch | null;
@@ -422,13 +747,19 @@ export interface CompactDay {
 /** the tracker's own settings file, kept beside its recordings */
 export interface StSettings {
   paused: boolean;
+  /** opt-in: keep recording with no window open, and start with Windows */
+  background: boolean;
   /** the user's app→category overrides, which beat the built-in defaults */
   categories: Record<string, string>;
+  /** the user's site→category overrides, keyed by activity key, which beat those */
+  sites: Record<string, string>;
 }
 
 export interface TrackerStatus {
   running: boolean;
   paused: boolean;
+  /** background tracking is switched on */
+  background: boolean;
   since: string | null;
   poll_seconds: number;
   idle_after_seconds: number;

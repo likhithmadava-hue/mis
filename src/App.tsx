@@ -4,11 +4,12 @@ import {
   Database,
   Dices,
   House,
-  LayoutGrid,
   MonitorPlay,
+  NotebookText,
   PanelLeftClose,
   PanelLeftOpen,
   Quote,
+  Settings,
   Sprout,
   Timer,
   UserRound,
@@ -18,13 +19,22 @@ import { Dynamic } from 'solid-js/web';
 
 import { db, MODES, setMode, type AppMode } from './core/db';
 import { MODE_META } from './core/scoring';
-import { createRailTooltip, editingLayout, setEditingLayout, type Icon } from './core/ui';
+import {
+  createRailTooltip,
+  DialogHost,
+  registerNavigator,
+  subViewLabel,
+  viewState,
+  type Icon,
+} from './core/ui';
 import { AccountDialog } from './modules/auth';
 import { DatabaseExplorer } from './modules/database';
 import { FocusTimer } from './modules/focus';
 import { Home, Report } from './modules/growth';
+import { Journal } from './modules/journal';
 import { DailyLog } from './modules/log';
 import { ScreenTime } from './modules/screentime';
+import { Appearance } from './modules/settings';
 
 /**
  * Home leads — the Focus Timer is deliberately not the landing tab.
@@ -49,8 +59,10 @@ const TABS = [
   { id: 'log', label: 'Daily Log', icon: CalendarCheck, modes: ['academic', 'life'] },
   { id: 'report', label: 'Report', icon: BarChart3, modes: ['academic', 'life'] },
   { id: 'db', label: 'Database', icon: Database, modes: ['academic'] },
+  { id: 'journal', label: 'Journal', icon: NotebookText, modes: ['academic', 'life'] },
   { id: 'screen', label: 'Screen Time', icon: MonitorPlay, modes: ['life'] },
   { id: 'focus', label: 'Focus Timer', icon: Timer, modes: ['academic'] },
+  { id: 'settings', label: 'Settings', icon: Settings, modes: ['academic', 'life'] },
 ] as const satisfies readonly {
   id: string;
   label: string;
@@ -109,7 +121,17 @@ const greeting = () => {
  * before the click finishes. See `core/db/store.ts`.
  */
 export default function App() {
-  const [activeTab, setActiveTab] = createSignal<TabId>('home');
+  // Remembered across restarts, and checked against the current mode: a stored
+  // tab that this mode does not have (Database, after quitting in Life) would
+  // otherwise open an empty pane.
+  const [activeTab, setActiveTab] = viewState<TabId>(
+    'shell.tab',
+    'home',
+    (t) =>
+      TABS.some((tab) => tab.id === t && (tab.modes as readonly AppMode[]).includes(db.app_mode)),
+  );
+  // empty charts and other deep panels send you to a tab through this
+  registerNavigator((tab) => setActiveTab(tab as TabId));
   const [navCollapsed, setNavCollapsed] = createSignal(false);
   const [accountOpen, setAccountOpen] = createSignal(false);
   const [quoteIndex, setQuoteIndex] = createSignal(dayOfYear % QUOTES.length);
@@ -128,6 +150,10 @@ export default function App() {
   });
 
   const visibleTabs = () => TABS.filter((t) => (t.modes as readonly AppMode[]).includes(mode()));
+  // Settings is a page like the rest, but not a destination you work in — it
+  // lives in the foot of the rail beside Account and Collapse, not in the tab list.
+  const railTabs = () => visibleTabs().filter((t) => t.id !== 'settings');
+  const settingsTab = TABS.find((t) => t.id === 'settings')!;
 
   const switchMode = async (next: AppMode) => {
     await setMode(next);
@@ -219,7 +245,7 @@ export default function App() {
                 solid block — and the border is on both states, transparent
                 when inactive, so activating a tab cannot shift its label by a
                 pixel. */}
-            <For each={visibleTabs()}>
+            <For each={railTabs()}>
               {(tab) => (
                 <button
                   onClick={() => setActiveTab(tab.id)}
@@ -239,7 +265,21 @@ export default function App() {
                 </button>
               )}
             </For>
-
+            {/* the foot of the rail does not exist in the stacked narrow layout, so
+                Settings rides at the end of the strip there and nowhere else */}
+            <button
+              onClick={() => setActiveTab('settings')}
+              aria-label={settingsTab.label}
+              aria-current={activeTab() === 'settings' ? 'page' : undefined}
+              class={`sm:hidden py-2.5 px-3 rounded-xl text-[0.9375rem] font-medium flex flex-shrink-0 items-center gap-3 whitespace-nowrap border transition-colors text-left ${
+                activeTab() === 'settings'
+                  ? 'bg-primary/[0.12] border-primary/20 text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent'
+              }`}
+            >
+              <Settings size={17} class="flex-shrink-0" />
+              <span>{settingsTab.label}</span>
+            </button>
           </nav>
         </div>
 
@@ -256,38 +296,27 @@ export default function App() {
 
           {/* Collapse used to sit directly under the last tab, which made it
               read as a sixth place to go. It is a utility, so it lives down
-              here behind a rule, quieter than a nav item. Rearrange joins it
-              here rather than on the Daily Log page itself, because it needs
-              to stay on while you switch cards' focus around the page —a
-              button living inside the grid it controls would be the first
-              thing covered by a dragged card. */}
+              here behind a rule, quieter than a nav item. */}
           <div class="border-t border-border pt-3">
-            <Show when={activeTab() === 'log'}>
-              <button
-                onClick={() => setEditingLayout((v) => !v)}
-                title={
-                  navCollapsed()
-                    ? undefined
-                    : editingLayout()
-                      ? 'Turn off rearranging'
-                      : 'Drag and resize the cards below'
-                }
-                aria-label={editingLayout() ? 'Done rearranging cards' : 'Rearrange Daily Log cards'}
-                aria-pressed={editingLayout()}
-                {...railTip.trigger('Rearrange Daily Log cards')}
-                class={`w-full mb-1 py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left ${
-                  navCollapsed() ? 'px-0 justify-center' : 'px-3'
-                } ${
-                  editingLayout()
-                    ? 'text-primary bg-primary/10'
-                    : 'text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent'
-                }`}
-              >
-                <LayoutGrid size={16} class="flex-shrink-0" />
-                <span class={navCollapsed() ? 'hidden' : ''}>
-                  {editingLayout() ? 'Done rearranging' : 'Rearrange cards'}
-                </span>
-              </button>
+            {/* Only once an account exists — before onboarding, and on a build
+                with no account backend, there is nothing to show or lock. */}
+            <Show when={db.profile}>
+              {(profile) => (
+                <button
+                  onClick={() => setAccountOpen(true)}
+                  title={navCollapsed() ? undefined : 'Account, password and lock'}
+                  aria-label="Account"
+                  {...railTip.trigger(`Account — ${profile().full_name}`)}
+                  class={`w-full mb-1 py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent ${
+                    navCollapsed() ? 'px-0 justify-center' : 'px-3'
+                  }`}
+                >
+                  <UserRound size={16} class="flex-shrink-0" />
+                  <span class={`truncate ${navCollapsed() ? 'hidden' : ''}`}>
+                    {profile().full_name}
+                  </span>
+                </button>
+              )}
             </Show>
             {/* Only once an account exists — before onboarding, and on a build
                 with no account backend, there is nothing to show or lock. */}
@@ -309,6 +338,23 @@ export default function App() {
                 </button>
               )}
             </Show>
+            <button
+              onClick={() => setActiveTab('settings')}
+              title={navCollapsed() ? undefined : 'Appearance and preferences'}
+              aria-label={settingsTab.label}
+              aria-current={activeTab() === 'settings' ? 'page' : undefined}
+              {...railTip.trigger(settingsTab.label)}
+              class={`w-full mb-1 py-2 rounded-lg text-[0.8125rem] font-medium flex items-center gap-3 whitespace-nowrap transition-colors text-left ${
+                navCollapsed() ? 'px-0 justify-center' : 'px-3'
+              } ${
+                activeTab() === 'settings'
+                  ? 'text-primary bg-primary/10'
+                  : 'text-subtle-foreground hover:text-foreground hover:bg-sidebar-accent'
+              }`}
+            >
+              <Settings size={16} class="flex-shrink-0" />
+              <span class={navCollapsed() ? 'hidden' : ''}>{settingsTab.label}</span>
+            </button>
             <button
               onClick={() => setNavCollapsed((c) => !c)}
               title={navCollapsed() ? undefined : 'Collapse sidebar'}
@@ -355,6 +401,16 @@ export default function App() {
             <div>
               <h2 class="text-[1.875rem] font-bold font-space tracking-tight leading-none">
                 {activeLabel()}
+                {/* where you are inside the tab — the rail highlights the tab, this
+                    says which sub-view of it, so a filter never hides your place */}
+                <Show when={subViewLabel()}>
+                  {(label) => (
+                    <span class="text-muted-foreground font-medium text-[1.25rem] tracking-normal">
+                      {' '}
+                      / {label()}
+                    </span>
+                  )}
+                </Show>
               </h2>
               <p class="text-[0.9375rem] text-muted-foreground mt-1.5">
                 {greeting()} —{' '}
@@ -421,16 +477,23 @@ export default function App() {
               <Match when={activeTab() === 'db'}>
                 <DatabaseExplorer />
               </Match>
+              <Match when={activeTab() === 'journal'}>
+                <Journal mode={mode} />
+              </Match>
               <Match when={activeTab() === 'screen'}>
                 <ScreenTime />
               </Match>
               <Match when={activeTab() === 'focus'}>
                 <FocusTimer />
               </Match>
+              <Match when={activeTab() === 'settings'}>
+                <Appearance />
+              </Match>
             </Switch>
           </div>
         </div>
       </main>
+      <DialogHost />
     </div>
   );
 }

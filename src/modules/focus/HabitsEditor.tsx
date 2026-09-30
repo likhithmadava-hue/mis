@@ -4,7 +4,7 @@ import { createSignal, For, Show } from 'solid-js';
 import type { FocusHabitsState } from './createFocusHabits';
 
 /**
- * The habit list as it appears inside the timer's "Left Today" panel: tick,
+ * The habit list as it appears in the timer's Tasks & Topics view: tick,
  * add, remove. Deliberately smaller than the Daily Log's version — no priority
  * picker — because this is the mid-session view, and re-weighting a habit is a
  * planning decision, not something you do with a round on the clock.
@@ -60,7 +60,7 @@ export default function HabitsEditor(props: { habits: FocusHabitsState }) {
               <button
                 onClick={() => void habits.deleteHabit(h.id)}
                 title="Remove habit"
-                class="text-muted-foreground/40 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                class="text-subtle-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
               >
                 <Trash2 size={12} />
               </button>

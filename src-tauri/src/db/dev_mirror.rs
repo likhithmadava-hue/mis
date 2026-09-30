@@ -155,11 +155,22 @@ mod imp {
 
         {
             let mut stmt = tx.prepare(
-                "INSERT INTO focus_sessions (id, date, duration_minutes, tag, completed)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT INTO focus_sessions
+                    (id, date, duration_minutes, tag, completed, subject, chapter, reason, reason_note)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             )?;
             for s in &db.focus_sessions {
-                stmt.execute(params![s.id, s.date, s.duration_minutes, s.tag, s.completed])?;
+                stmt.execute(params![
+                    s.id,
+                    s.date,
+                    s.duration_minutes,
+                    s.tag,
+                    s.completed,
+                    s.subject,
+                    s.chapter,
+                    s.reason.as_ref().map(ser_str).unwrap_or_default(),
+                    s.reason_note,
+                ])?;
             }
         }
 
@@ -318,7 +329,11 @@ CREATE TABLE IF NOT EXISTS focus_sessions (
     date TEXT NOT NULL,
     duration_minutes REAL NOT NULL,
     tag TEXT NOT NULL,
-    completed INTEGER NOT NULL
+    completed INTEGER NOT NULL,
+    subject TEXT NOT NULL,
+    chapter TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    reason_note TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS tasks (

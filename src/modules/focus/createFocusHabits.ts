@@ -8,8 +8,8 @@ import { act, api, db, errorMessage, isDayLocked } from '../../core/db';
  *
  * The Daily Log still owns the *day* — hours, DPPs, submitting — but a habit is
  * the one thing you tend to remember mid-session, with the clock running, and
- * leaving the timer to tick it is how it gets forgotten. So the habits row in
- * "Left Today" is live rather than a read-only tally: it follows whatever the
+ * leaving the timer to tick it is how it gets forgotten. So the habits card in
+ * the Tasks & Topics view is live rather than a read-only tally: it follows whatever the
  * list actually is, and can be ticked, added to and pruned without leaving the
  * timer.
  *

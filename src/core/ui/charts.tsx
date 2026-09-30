@@ -1,4 +1,8 @@
+import { ChartNoAxesColumn } from 'lucide-solid';
 import { createMemo, createSignal, For, Show } from 'solid-js';
+
+import EmptyState, { type EmptyAction } from './EmptyState';
+import type { Icon } from './icon';
 
 /**
  * Hand-rolled chart primitives.
@@ -228,7 +232,7 @@ export function TrendChart(props: {
         <div class="flex justify-between mt-2">
           <For each={props.data}>
             {(p, i) => (
-              <span class="text-[0.5625rem] text-muted-foreground font-mono flex-1 text-center truncate">
+              <span class="text-[0.625rem] text-muted-foreground font-mono flex-1 text-center truncate">
                 {n() > 14 && i() % 3 !== 0 ? '' : p.label}
               </span>
             )}
@@ -318,7 +322,7 @@ export function BarChart(props: {
         <div class="flex gap-1 mt-2">
           <For each={props.data}>
             {(p, i) => (
-              <span class="text-[0.5625rem] text-muted-foreground font-mono flex-1 text-center truncate">
+              <span class="text-[0.625rem] text-muted-foreground font-mono flex-1 text-center truncate">
                 {n() > 14 && i() % 3 !== 0 ? '' : p.label}
               </span>
             )}
@@ -338,9 +342,20 @@ export interface HBar {
   right?: string;
 }
 
-export function HBarList(props: { data: HBar[]; empty: string }) {
+export function HBarList(props: {
+  data: HBar[];
+  empty: string;
+  /** the smaller empty state, for a tile */
+  compact?: boolean;
+  emptyAction?: EmptyAction;
+}) {
   return (
-    <Show when={props.data.length > 0} fallback={<EmptyChart message={props.empty} />}>
+    <Show
+      when={props.data.length > 0}
+      fallback={
+        <EmptyChart message={props.empty} compact={props.compact} action={props.emptyAction} />
+      }
+    >
       <div class="space-y-3">
         <For each={props.data}>
           {(d) => (
@@ -473,10 +488,19 @@ export function Donut(props: {
  * it is — a fresh install is nothing but these, and they are the first thing
  * anyone reads.
  */
-export function EmptyChart(props: { message: string; compact?: boolean }) {
+export function EmptyChart(props: {
+  message: string;
+  compact?: boolean;
+  icon?: Icon;
+  /** the one thing that would fill this chart — usually "open the Daily Log" */
+  action?: EmptyAction;
+}) {
   return (
-    <div class={`text-center text-xs text-muted-foreground ${props.compact ? 'py-5' : 'py-12'}`}>
-      {props.message}
-    </div>
+    <EmptyState
+      message={props.message}
+      compact={props.compact}
+      icon={props.icon ?? ChartNoAxesColumn}
+      action={props.action}
+    />
   );
 }

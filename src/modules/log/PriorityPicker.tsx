@@ -23,10 +23,10 @@ export default function PriorityPicker(props: {
           <button
             onClick={() => props.onChange(p)}
             title={`${p} priority`}
-            class={`px-2 py-0.5 rounded-md text-[0.5625rem] uppercase font-bold tracking-wider border transition-colors ${
+            class={`px-2 py-0.5 rounded-md text-[0.625rem] uppercase font-bold tracking-wider border transition-colors ${
               props.value === p
                 ? PRIORITY_STYLE[p]
-                : 'bg-transparent text-muted-foreground/50 border-transparent hover:border-border'
+                : 'bg-transparent text-subtle-foreground border-transparent hover:border-border'
             }`}
           >
             {p[0]}

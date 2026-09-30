@@ -1,16 +1,34 @@
-import { Search, X } from 'lucide-solid';
+import { Search, SlidersHorizontal, X } from 'lucide-solid';
 import { Show } from 'solid-js';
 
 import { DIFFICULTIES, MISTAKE_REASONS } from '../../core/db';
 import { DIFFICULTY_BADGE, REASON_BADGE, Select } from '../../core/ui';
 import { ALL, type LogbookFilters } from './logbookFilters';
 
-/** free-text search plus the four dropdowns that narrow the mistake table */
-export default function FilterBar(props: { filters: LogbookFilters }) {
+/**
+ * Free-text search plus the four dropdowns that narrow the mistake table, in
+ * one labelled bar above it. Grouped and titled so the controls read as a unit
+ * that acts on the table below, not as loose fields — and the count on the right
+ * says what they have done to it.
+ */
+export default function FilterBar(props: {
+  filters: LogbookFilters;
+  shown: number;
+  total: number;
+}) {
   const f = () => props.filters;
 
   return (
-    <div class="space-y-3">
+    <div class="space-y-3 rounded-xl border border-border bg-muted/40 p-3">
+      <div class="flex items-center justify-between gap-3">
+        <span class="flex items-center gap-2 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground font-space">
+          <SlidersHorizontal size={13} class="text-primary" /> Filters
+        </span>
+        <span class="text-[0.6875rem] font-mono text-muted-foreground" aria-live="polite">
+          {props.shown} of {props.total}
+        </span>
+      </div>
+
       <div class="relative">
         <Search size={14} class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
